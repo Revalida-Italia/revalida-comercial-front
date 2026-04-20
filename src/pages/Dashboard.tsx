@@ -1,87 +1,138 @@
 import { motion } from "framer-motion";
-import { TrendingUp, Users, CreditCard, DollarSign } from "lucide-react";
+import { ArrowUpRight, CreditCard, DollarSign, Users, Wallet } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { mockSales, currencySymbols } from "@/lib/mockData";
+import { Badge } from "@/components/ui/badge";
+import { getSellerSummary, formatMoney, paymentTypeLabels, gatewayLabels, saleStatusLabels, moduleNames } from "@/lib/mockData";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 
-const stats = [
-  { label: "Vendas no Mês", value: mockSales.length.toString(), icon: TrendingUp, trend: "+12%" },
-  { label: "Vagas Vendidas", value: mockSales.reduce((a, s) => a + s.slots, 0).toString(), icon: Users, trend: "+8%" },
-  { label: "Valor Total", value: "R$ 16.500", icon: DollarSign, trend: "+15%" },
-  { label: "Comissão Estimada", value: "R$ 360,75", icon: CreditCard, trend: "" },
-];
-
 const Dashboard = () => {
   const navigate = useNavigate();
+  const { sales, totalContractsBRL, totalSlots, totalCommissionBRL, paidAmountBRL, pendingLines } = getSellerSummary();
+  const recentSales = sales.slice(0, 3);
+  const upcomingLines = sales
+    .flatMap((sale) =>
+      sale.commissionLines
+        .filter((line) => line.status === "PENDING")
+        .map((line) => ({ line, clientNames: sale.clientNames }))
+    )
+    .sort((left, right) => left.line.paymentDate.localeCompare(right.line.paymentDate))
+    .slice(0, 4);
+
+  const stats = [
+    { label: "Contratos em BRL", value: formatMoney(totalContractsBRL), icon: DollarSign, helper: `${sales.length} venda(s)` },
+    { label: "Comissão prevista", value: formatMoney(totalCommissionBRL), icon: CreditCard, helper: "Cálculo completo do pipeline" },
+    { label: "Recebido no período", value: formatMoney(paidAmountBRL), icon: Wallet, helper: `${pendingLines} linha(s) pendente(s)` },
+    { label: "Vagas vendidas", value: totalSlots.toString(), icon: Users, helper: "Contagem somada das vendas" },
+  ];
 
   return (
     <div className="space-y-8">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <h1 className="text-3xl font-display font-bold text-foreground">Dashboard</h1>
-          <p className="text-muted-foreground mt-1">Visão geral das suas vendas</p>
+          <h1 className="text-3xl font-display font-bold text-foreground">Dashboard comercial</h1>
+          <p className="mt-1 text-muted-foreground">Acompanhe contratos, recebimentos e a comissão estimada por linha de pagamento.</p>
         </div>
         <Button onClick={() => navigate("/nova-venda")} size="lg">
-          + Nova Venda
+          + Nova venda
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
-        {stats.map((stat, i) => (
+      <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+        {stats.map((stat, index) => (
           <motion.div
             key={stat.label}
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 18 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.1 }}
+            transition={{ delay: index * 0.08 }}
           >
-            <Card className="glass-card">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+            <Card className="glass-card h-full">
+              <CardContent className="space-y-4 p-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/10">
                     <stat.icon className="h-5 w-5 text-primary" />
                   </div>
-                  {stat.trend && (
-                    <span className="text-xs font-medium text-success">{stat.trend}</span>
-                  )}
+                  <ArrowUpRight className="h-4 w-4 text-muted-foreground" />
                 </div>
-                <p className="text-2xl font-bold text-foreground">{stat.value}</p>
-                <p className="text-sm text-muted-foreground mt-1">{stat.label}</p>
+                <div>
+                  <p className="text-2xl font-bold text-foreground">{stat.value}</p>
+                  <p className="mt-1 text-sm text-muted-foreground">{stat.label}</p>
+                </div>
+                <p className="text-xs text-muted-foreground">{stat.helper}</p>
               </CardContent>
             </Card>
           </motion.div>
         ))}
       </div>
 
-      <Card className="glass-card">
-        <CardHeader>
-          <CardTitle className="font-display">Vendas Recentes</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {mockSales.map((sale) => (
-              <div key={sale.id} className="flex items-center justify-between p-4 rounded-lg bg-muted/50 hover:bg-muted transition-colors">
-                <div className="flex-1">
-                  <p className="font-medium text-foreground">{sale.clientNames.join(", ")}</p>
-                  <p className="text-sm text-muted-foreground">{sale.date} • {sale.slots} vaga(s)</p>
+      <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
+        <Card className="glass-card">
+          <CardHeader>
+            <CardTitle className="font-display">Vendas recentes</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {recentSales.map((sale) => (
+              <div key={sale.id} className="rounded-3xl border border-border/60 bg-background/70 p-5">
+                <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                  <div>
+                    <p className="text-lg font-semibold text-foreground">{sale.clientNames.join(", ")}</p>
+                    <p className="text-sm text-muted-foreground">{sale.createdAt} • {sale.slots} vaga(s)</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline">{saleStatusLabels[sale.status]}</Badge>
+                    <Badge variant="secondary">{formatMoney(sale.totalCommissionBRL)}</Badge>
+                  </div>
                 </div>
-                <div className="text-right">
-                  <p className="font-semibold text-foreground">
-                    {currencySymbols[sale.currency]} {sale.contractValue.toLocaleString("pt-BR")}
-                  </p>
-                  <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-                    sale.status === "processado" 
-                      ? "bg-success/10 text-success" 
-                      : "bg-warning/10 text-warning"
-                  }`}>
-                    {sale.status === "processado" ? "Processado" : "Pendente"}
-                  </span>
+
+                <div className="mt-4 grid gap-4 md:grid-cols-3">
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">Contrato</p>
+                    <p className="mt-2 font-semibold text-foreground">{formatMoney(sale.contractValue, sale.currency)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">Módulos</p>
+                    <p className="mt-2 font-semibold text-foreground">{sale.products.map((product) => moduleNames[product]).join(", ")}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">Recebido</p>
+                    <p className="mt-2 font-semibold text-foreground">{formatMoney(sale.totalReceivedBRL)}</p>
+                  </div>
                 </div>
               </div>
             ))}
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+
+        <Card className="glass-card">
+          <CardHeader>
+            <CardTitle className="font-display">Próximas comissões</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {upcomingLines.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Nenhuma linha pendente no momento.</p>
+            ) : (
+              upcomingLines.map(({ line, clientNames }) => (
+                <div key={line.id} className="rounded-2xl border border-border/60 p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="font-medium text-foreground">{clientNames.join(", ")}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {paymentTypeLabels[line.paymentType]}
+                        {line.installmentNumber ? ` • Parcela ${line.installmentNumber}` : ""}
+                      </p>
+                    </div>
+                    <Badge variant="outline">{line.paymentDate}</Badge>
+                  </div>
+                  <div className="mt-3 flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">{gatewayLabels[line.gateway]}</span>
+                    <span className="font-semibold text-primary">{formatMoney(line.finalValueBRL)}</span>
+                  </div>
+                </div>
+              ))
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 };

@@ -1,81 +1,109 @@
 import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { mockSales, currencySymbols, paymentTypeLabels, moduleNames } from "@/lib/mockData";
 import { Badge } from "@/components/ui/badge";
+import {
+  formatMoney,
+  formatPercent,
+  gatewayLabels,
+  getSellerSales,
+  moduleNames,
+  paymentStatusLabels,
+  paymentTypeLabels,
+  saleStatusLabels,
+} from "@/lib/mockData";
 
 const SalesList = () => {
+  const sales = getSellerSales();
+
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-3xl font-display font-bold text-foreground">Minhas Vendas</h1>
-        <p className="text-muted-foreground mt-1">Histórico completo de vendas registradas</p>
+        <h1 className="text-3xl font-display font-bold text-foreground">Minhas vendas</h1>
+        <p className="mt-1 text-muted-foreground">Histórico completo com cronograma dos módulos, pagamentos agendados e comissão por linha.</p>
       </div>
 
       <div className="space-y-5">
-        {mockSales.map((sale, i) => (
+        {sales.map((sale, index) => (
           <motion.div
             key={sale.id}
             initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.08 }}
+            transition={{ delay: index * 0.06 }}
           >
             <Card className="glass-card">
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-lg font-display">
-                    {sale.clientNames.join(", ")}
-                  </CardTitle>
-                  <Badge variant={sale.status === "processado" ? "default" : "secondary"}>
-                    {sale.status === "processado" ? "Processado" : "Pendente"}
-                  </Badge>
+              <CardHeader className="pb-4">
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                  <div>
+                    <CardTitle className="text-xl font-display">{sale.clientNames.join(", ")}</CardTitle>
+                    <p className="mt-1 text-sm text-muted-foreground">{sale.createdAt} • {sale.slots} vaga(s) • {sale.commissionLines.length} evento(s) de comissão</p>
+                  </div>
+                  <div className="flex gap-2">
+                    <Badge variant="outline">{saleStatusLabels[sale.status]}</Badge>
+                    <Badge variant="secondary">{formatMoney(sale.totalCommissionBRL)}</Badge>
+                  </div>
                 </div>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+              <CardContent className="space-y-6">
+                <div className="grid gap-4 md:grid-cols-4 text-sm">
                   <div>
-                    <p className="text-muted-foreground">Data</p>
-                    <p className="font-medium text-foreground">{sale.date}</p>
+                    <p className="text-muted-foreground">Valor do contrato</p>
+                    <p className="font-medium text-foreground">{formatMoney(sale.contractValue, sale.currency)}</p>
                   </div>
                   <div>
-                    <p className="text-muted-foreground">Vagas</p>
-                    <p className="font-medium text-foreground">{sale.slots}</p>
+                    <p className="text-muted-foreground">Convertido em BRL</p>
+                    <p className="font-medium text-foreground">{formatMoney(sale.contractValueBRL)}</p>
                   </div>
                   <div>
-                    <p className="text-muted-foreground">Valor do Contrato</p>
-                    <p className="font-medium text-foreground">
-                      {currencySymbols[sale.currency]} {sale.contractValue.toLocaleString("pt-BR")}
-                    </p>
+                    <p className="text-muted-foreground">Recebido</p>
+                    <p className="font-medium text-foreground">{formatMoney(sale.totalReceivedBRL)}</p>
                   </div>
                   <div>
-                    <p className="text-muted-foreground">Comissão</p>
-                    <p className="font-medium text-foreground">
-                      {sale.commission != null
-                        ? `R$ ${sale.commission.toLocaleString("pt-BR")}`
-                        : "Aguardando cálculo"}
-                    </p>
+                    <p className="text-muted-foreground">Pendente</p>
+                    <p className="font-medium text-foreground">{formatMoney(sale.totalPendingBRL)}</p>
                   </div>
                 </div>
 
-                <div className="flex flex-wrap gap-2">
-                  {sale.modules.map((m) => (
-                    <Badge key={m} variant="outline" className="text-xs">
-                      {moduleNames[m]}
-                    </Badge>
-                  ))}
-                </div>
+                <div className="grid gap-5 xl:grid-cols-[0.75fr_1.25fr]">
+                  <div className="space-y-3 rounded-3xl border border-border/60 bg-background/70 p-4">
+                    <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">Cronograma dos módulos</p>
+                    {sale.moduleSchedules.map((moduleSchedule) => (
+                      <div key={`${sale.id}-${moduleSchedule.product}`} className="flex items-center justify-between gap-4 rounded-2xl bg-muted/30 px-3 py-2 text-sm">
+                        <div>
+                          <p className="font-medium text-foreground">{moduleNames[moduleSchedule.product]}</p>
+                          <p className="text-muted-foreground">Liberação em {moduleSchedule.releaseDate}</p>
+                        </div>
+                        <p className="font-semibold text-foreground">{formatMoney(moduleSchedule.value, sale.currency)}</p>
+                      </div>
+                    ))}
+                  </div>
 
-                <div className="border-t border-border pt-3">
-                  <p className="text-xs font-semibold text-muted-foreground mb-2">Pagamentos</p>
-                  <div className="space-y-1">
-                    {sale.payments.map((p, idx) => (
-                      <div key={idx} className="flex items-center justify-between text-sm">
-                        <span className="text-foreground">
-                          {paymentTypeLabels[p.type]}
-                          {p.installments ? ` (${p.installments}x ${currencySymbols[p.currency]} ${p.installmentValue?.toLocaleString("pt-BR")})` : ""}
-                        </span>
-                        <span className="font-medium text-foreground">
-                          {currencySymbols[p.currency]} {p.value.toLocaleString("pt-BR")} — {p.gateway}
-                        </span>
+                  <div className="space-y-3 rounded-3xl border border-border/60 bg-background/70 p-4">
+                    <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">Linhas de pagamento e comissão</p>
+                    {sale.commissionLines.map((line) => (
+                      <div key={line.id} className="grid gap-3 rounded-2xl border border-border/50 p-4 md:grid-cols-[1.3fr_0.9fr_0.9fr_0.8fr_0.8fr] md:items-center">
+                        <div>
+                          <p className="font-medium text-foreground">
+                            {paymentTypeLabels[line.paymentType]}
+                            {line.installmentNumber ? ` • Parcela ${line.installmentNumber}` : ""}
+                          </p>
+                          <p className="text-sm text-muted-foreground">{gatewayLabels[line.gateway]} • {line.paymentDate}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">Base</p>
+                          <p className="font-medium text-foreground">{formatMoney(line.originalAmount, line.originalCurrency)}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">Após taxa</p>
+                          <p className="font-medium text-foreground">{formatMoney(line.valueAfterTaxBRL)}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">Taxa</p>
+                          <p className="font-medium text-foreground">{formatPercent(line.appliedTaxPercentage)}</p>
+                        </div>
+                        <div className="flex flex-col gap-2 md:items-end">
+                          <Badge variant={line.status === "PAID" ? "default" : "secondary"}>{paymentStatusLabels[line.status]}</Badge>
+                          <p className="font-semibold text-primary">{formatMoney(line.finalValueBRL)}</p>
+                        </div>
                       </div>
                     ))}
                   </div>

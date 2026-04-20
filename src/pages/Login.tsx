@@ -60,7 +60,7 @@ const Login = () => {
             <div className="inline-flex items-center gap-2 text-primary mb-4">
               <Building2 className="h-8 w-8" />
             </div>
-            <h1 className="text-3xl font-display font-bold text-foreground">
+            <h1 className="text-3xl font-body font-bold text-foreground">
               Bem-vindo!
             </h1>
             <p className="text-muted-foreground">
