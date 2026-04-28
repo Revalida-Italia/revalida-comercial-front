@@ -8,6 +8,7 @@ import Dashboard from "./pages/Dashboard";
 import NewSale from "./pages/NewSale";
 import SalesList from "./pages/SalesList";
 import AdminDashboard from "./pages/AdminDashboard";
+import CareerPlan from "./pages/CareerPlan";
 import AppLayout from "./components/AppLayout";
 import NotFound from "./pages/NotFound";
 
@@ -26,6 +27,7 @@ const App = () => (
             <Route path="/nova-venda" element={<NewSale />} />
             <Route path="/vendas" element={<SalesList />} />
             <Route path="/admin" element={<AdminDashboard />} />
+            <Route path="/plano-de-carreira" element={<CareerPlan />} />
           </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>

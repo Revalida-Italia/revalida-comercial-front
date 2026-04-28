@@ -98,6 +98,248 @@ export const demoSellerName = "Paula Costa";
 export const defaultCommissionPercentage = 5;
 export const storageKey = "sales-flow.mock-sales.v2";
 
+// ─── Career Plan ──────────────────────────────────────────────────────────────
+
+export type CareerLevel =
+  | "TRAINEE_JUNIOR"
+  | "TRAINEE_PLENO"
+  | "TRAINEE_SENIOR"
+  | "LANCAMENTO_GERENTE"
+  | "GERENTE"
+  | "GERENTE_PLENO"
+  | "GERENTE_SENIOR"
+  | "DIRETOR";
+
+export interface CareerLevelConfig {
+  label: string;
+  fixedSalary: number;
+  individualCommissionPct: number;
+  teamCommissionPct: number;
+  salesPerStar: number;
+  starsToLevelUp: number | "special";
+  monthlyGoalSales: number;
+  minMonthlySales: number;
+  traineeTeamSize: number;
+}
+
+export const careerLevelOrder: CareerLevel[] = [
+  "TRAINEE_JUNIOR",
+  "TRAINEE_PLENO",
+  "TRAINEE_SENIOR",
+  "LANCAMENTO_GERENTE",
+  "GERENTE",
+  "GERENTE_PLENO",
+  "GERENTE_SENIOR",
+  "DIRETOR",
+];
+
+export const careerConfig: Record<CareerLevel, CareerLevelConfig> = {
+  TRAINEE_JUNIOR: {
+    label: "Trainee Junior",
+    fixedSalary: 1500,
+    individualCommissionPct: 5,
+    teamCommissionPct: 0,
+    salesPerStar: 2,
+    starsToLevelUp: 4,
+    monthlyGoalSales: 8,
+    minMonthlySales: 3,
+    traineeTeamSize: 0,
+  },
+  TRAINEE_PLENO: {
+    label: "Trainee Pleno",
+    fixedSalary: 1500,
+    individualCommissionPct: 6,
+    teamCommissionPct: 0,
+    salesPerStar: 3,
+    starsToLevelUp: 4,
+    monthlyGoalSales: 12,
+    minMonthlySales: 4,
+    traineeTeamSize: 0,
+  },
+  TRAINEE_SENIOR: {
+    label: "Trainee Sênior",
+    fixedSalary: 1500,
+    individualCommissionPct: 7,
+    teamCommissionPct: 0,
+    salesPerStar: 4,
+    starsToLevelUp: 4,
+    monthlyGoalSales: 16,
+    minMonthlySales: 5,
+    traineeTeamSize: 0,
+  },
+  LANCAMENTO_GERENTE: {
+    label: "Lançamento a Gerente",
+    fixedSalary: 2500,
+    individualCommissionPct: 8,
+    teamCommissionPct: 2,
+    salesPerStar: 5,
+    starsToLevelUp: "special",
+    monthlyGoalSales: 20,
+    minMonthlySales: 5,
+    traineeTeamSize: 1,
+  },
+  GERENTE: {
+    label: "Gerente",
+    fixedSalary: 4000,
+    individualCommissionPct: 8,
+    teamCommissionPct: 2,
+    salesPerStar: 6,
+    starsToLevelUp: 4,
+    monthlyGoalSales: 20,
+    minMonthlySales: 6,
+    traineeTeamSize: 2,
+  },
+  GERENTE_PLENO: {
+    label: "Gerente Pleno",
+    fixedSalary: 6000,
+    individualCommissionPct: 9,
+    teamCommissionPct: 2.5,
+    salesPerStar: 7,
+    starsToLevelUp: 4,
+    monthlyGoalSales: 24,
+    minMonthlySales: 7,
+    traineeTeamSize: 3,
+  },
+  GERENTE_SENIOR: {
+    label: "Gerente Sênior",
+    fixedSalary: 8000,
+    individualCommissionPct: 10,
+    teamCommissionPct: 3,
+    salesPerStar: 8,
+    starsToLevelUp: 4,
+    monthlyGoalSales: 28,
+    minMonthlySales: 8,
+    traineeTeamSize: 6,
+  },
+  DIRETOR: {
+    label: "Diretor",
+    fixedSalary: 10000,
+    individualCommissionPct: 10,
+    teamCommissionPct: 4,
+    salesPerStar: 9,
+    starsToLevelUp: 4,
+    monthlyGoalSales: 32,
+    minMonthlySales: 8,
+    traineeTeamSize: 12,
+  },
+};
+
+export interface SellerCareerProfile {
+  sellerId: string;
+  sellerName: string;
+  currentLevel: CareerLevel;
+  salesCountCurrentCycle: number;
+  salesCountCurrentMonth: number;
+  subordinateIds?: string[];
+  subordinateName?: string;
+  subordinateCycleStars?: number;
+  monthlyHistory?: MonthlyPerformance[];
+}
+
+export interface MonthlyPerformance {
+  month: string;
+  sales: number;
+  stars: number;
+  goal: number;
+}
+
+export const mockSellerProfiles: SellerCareerProfile[] = [
+  {
+    sellerId: demoSellerId,
+    sellerName: demoSellerName,
+    currentLevel: "TRAINEE_SENIOR",
+    salesCountCurrentCycle: 11,
+    salesCountCurrentMonth: 4,
+    monthlyHistory: [
+      { month: "Nov/25", sales: 3, stars: 0, goal: 16 },
+      { month: "Dez/25", sales: 5, stars: 1, goal: 16 },
+      { month: "Jan/26", sales: 8, stars: 2, goal: 16 },
+      { month: "Fev/26", sales: 12, stars: 3, goal: 16 },
+      { month: "Mar/26", sales: 14, stars: 3, goal: 16 },
+      { month: "Abr/26", sales: 4, stars: 1, goal: 16 },
+    ],
+  },
+  {
+    sellerId: "seller-joana",
+    sellerName: "Joana Santos",
+    currentLevel: "LANCAMENTO_GERENTE",
+    salesCountCurrentCycle: 8,
+    salesCountCurrentMonth: 5,
+    subordinateIds: ["seller-trainee-1"],
+    subordinateName: "Carlos Ferreira",
+    subordinateCycleStars: 2,
+    monthlyHistory: [
+      { month: "Nov/25", sales: 6, stars: 1, goal: 20 },
+      { month: "Dez/25", sales: 9, stars: 1, goal: 20 },
+      { month: "Jan/26", sales: 15, stars: 3, goal: 20 },
+      { month: "Fev/26", sales: 20, stars: 4, goal: 20 },
+      { month: "Mar/26", sales: 18, stars: 3, goal: 20 },
+      { month: "Abr/26", sales: 5, stars: 1, goal: 20 },
+    ],
+  },
+  {
+    sellerId: "seller-carla",
+    sellerName: "Carla Oliveira",
+    currentLevel: "GERENTE",
+    salesCountCurrentCycle: 14,
+    salesCountCurrentMonth: 5,
+    subordinateIds: ["seller-trainee-2", "seller-trainee-3"],
+    monthlyHistory: [
+      { month: "Nov/25", sales: 10, stars: 1, goal: 20 },
+      { month: "Dez/25", sales: 14, stars: 2, goal: 20 },
+      { month: "Jan/26", sales: 20, stars: 3, goal: 20 },
+      { month: "Fev/26", sales: 22, stars: 3, goal: 20 },
+      { month: "Mar/26", sales: 19, stars: 3, goal: 20 },
+      { month: "Abr/26", sales: 5, stars: 0, goal: 20 },
+    ],
+  },
+  {
+    sellerId: "seller-marcos",
+    sellerName: "Marcos Ribeiro",
+    currentLevel: "TRAINEE_JUNIOR",
+    salesCountCurrentCycle: 3,
+    salesCountCurrentMonth: 2,
+    monthlyHistory: [
+      { month: "Nov/25", sales: 1, stars: 0, goal: 8 },
+      { month: "Dez/25", sales: 2, stars: 1, goal: 8 },
+      { month: "Jan/26", sales: 4, stars: 2, goal: 8 },
+      { month: "Fev/26", sales: 6, stars: 3, goal: 8 },
+      { month: "Mar/26", sales: 5, stars: 2, goal: 8 },
+      { month: "Abr/26", sales: 2, stars: 1, goal: 8 },
+    ],
+  },
+  {
+    sellerId: "seller-ana",
+    sellerName: "Ana Beatriz",
+    currentLevel: "GERENTE_PLENO",
+    salesCountCurrentCycle: 20,
+    salesCountCurrentMonth: 8,
+    subordinateIds: ["seller-t1", "seller-t2", "seller-t3"],
+    monthlyHistory: [
+      { month: "Nov/25", sales: 18, stars: 2, goal: 24 },
+      { month: "Dez/25", sales: 22, stars: 3, goal: 24 },
+      { month: "Jan/26", sales: 24, stars: 3, goal: 24 },
+      { month: "Fev/26", sales: 26, stars: 3, goal: 24 },
+      { month: "Mar/26", sales: 24, stars: 4, goal: 24 },
+      { month: "Abr/26", sales: 8, stars: 1, goal: 24 },
+    ],
+  },
+];
+
+export const getAggregatedMonthlyHistory = (): MonthlyPerformance[] => {
+  const allMonths = new Map<string, { sales: number; stars: number; goal: number }>();
+  for (const profile of mockSellerProfiles) {
+    for (const entry of profile.monthlyHistory ?? []) {
+      const existing = allMonths.get(entry.month) ?? { sales: 0, stars: 0, goal: 0 };
+      existing.sales += entry.sales;
+      existing.stars += entry.stars;
+      existing.goal += entry.goal;
+      allMonths.set(entry.month, existing);
+    }
+  }
+  return Array.from(allMonths.entries()).map(([month, data]) => ({ month, ...data }));
+};
+
 export const currencySymbols: Record<Currency, string> = {
   EUR: "€",
   USD: "$",

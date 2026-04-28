@@ -1,10 +1,11 @@
 import { useNavigate, useLocation } from "react-router-dom";
-import { LayoutDashboard, PlusCircle, FileText, Settings, LogOut, Building2, Shield } from "lucide-react";
+import { LayoutDashboard, PlusCircle, FileText, Settings, LogOut, Building2, Shield, TrendingUp } from "lucide-react";
 
 const navItems = [
   { label: "Dashboard", icon: LayoutDashboard, path: "/dashboard" },
   { label: "Nova Venda", icon: PlusCircle, path: "/nova-venda" },
   { label: "Minhas Vendas", icon: FileText, path: "/vendas" },
+  { label: "Plano de Carreira", icon: TrendingUp, path: "/plano-de-carreira" },
   { label: "Admin", icon: Shield, path: "/admin" },
 ];
 

@@ -1,28 +1,36 @@
 import { motion } from "framer-motion";
-import { ArrowUpRight, CreditCard, DollarSign, Users, Wallet } from "lucide-react";
+import { ArrowUpRight, CreditCard, DollarSign, Search, Users } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { getSellerSummary, formatMoney, paymentTypeLabels, gatewayLabels, saleStatusLabels, moduleNames } from "@/lib/mockData";
+import { Input } from "@/components/ui/input";
+import { getSellerSummary, formatMoney, paymentTypeLabels, gatewayLabels, saleStatusLabels, moduleNames, mockSellerProfiles, demoSellerId } from "@/lib/mockData";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { useState } from "react";
+import CareerBadge from "@/components/CareerBadge";
+import CareerProgressCard from "@/components/CareerProgressCard";
+import SellerProgressChart from "@/components/SellerProgressChart";
 
 const Dashboard = () => {
   const navigate = useNavigate();
-  const { sales, totalContractsBRL, totalSlots, totalCommissionBRL, paidAmountBRL, pendingLines } = getSellerSummary();
-  const recentSales = sales.slice(0, 3);
-  const upcomingLines = sales
-    .flatMap((sale) =>
-      sale.commissionLines
-        .filter((line) => line.status === "PENDING")
-        .map((line) => ({ line, clientNames: sale.clientNames }))
-    )
-    .sort((left, right) => left.line.paymentDate.localeCompare(right.line.paymentDate))
-    .slice(0, 4);
+  const { sales, totalContractsBRL, totalSlots, totalCommissionBRL } = getSellerSummary();
+  const [search, setSearch] = useState("");
+
+  const filteredSales = sales.filter((sale) => {
+    const q = search.toLowerCase();
+    return (
+      sale.sellerName.toLowerCase().includes(q) ||
+      sale.clientNames.some((name) => name.toLowerCase().includes(q))
+    );
+  });
+
+  const recentSales = search ? filteredSales : sales.slice(0, 3);
+
+  const profile = mockSellerProfiles.find((p) => p.sellerId === demoSellerId);
 
   const stats = [
     { label: "Contratos em BRL", value: formatMoney(totalContractsBRL), icon: DollarSign, helper: `${sales.length} venda(s)` },
     { label: "Comissão prevista", value: formatMoney(totalCommissionBRL), icon: CreditCard, helper: "Cálculo completo do pipeline" },
-    { label: "Recebido no período", value: formatMoney(paidAmountBRL), icon: Wallet, helper: `${pendingLines} linha(s) pendente(s)` },
     { label: "Vagas vendidas", value: totalSlots.toString(), icon: Users, helper: "Contagem somada das vendas" },
   ];
 
@@ -33,12 +41,15 @@ const Dashboard = () => {
           <h1 className="text-3xl font-display font-bold text-foreground">Dashboard comercial</h1>
           <p className="mt-1 text-muted-foreground">Acompanhe contratos, recebimentos e a comissão estimada por linha de pagamento.</p>
         </div>
-        <Button onClick={() => navigate("/nova-venda")} size="lg">
+        <div className="flex items-center gap-3">
+          <CareerBadge sellerId={demoSellerId} />
+          <Button onClick={() => navigate("/nova-venda")} size="lg">
           + Nova venda
-        </Button>
+          </Button>
+        </div>
       </div>
 
-      <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-5 md:grid-cols-3">
         {stats.map((stat, index) => (
           <motion.div
             key={stat.label}
@@ -65,13 +76,42 @@ const Dashboard = () => {
         ))}
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
-        <Card className="glass-card">
-          <CardHeader>
-            <CardTitle className="font-display">Vendas recentes</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {recentSales.map((sale) => (
+      {/* Career progress + chart */}
+      {profile && (
+        <div className="grid gap-6 xl:grid-cols-[0.4fr_0.6fr]">
+          <div>
+            <h2 className="mb-3 text-lg font-display font-semibold text-foreground">Meu Plano de Carreira</h2>
+            <CareerProgressCard profile={profile} highlighted />
+          </div>
+          <Card className="glass-card">
+            <CardHeader>
+              <CardTitle className="font-display">Progresso mensal</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <SellerProgressChart data={profile.monthlyHistory ?? []} />
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      <Card className="glass-card">
+        <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <CardTitle className="font-display">Vendas recentes</CardTitle>
+          <div className="relative w-full sm:w-72">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+            <Input
+              placeholder="Filtrar por vendedor ou cliente…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {recentSales.length === 0 ? (
+            <p className="py-6 text-center text-sm text-muted-foreground">Nenhuma venda encontrada para "{search}".</p>
+          ) : (
+            recentSales.map((sale) => (
               <div key={sale.id} className="rounded-3xl border border-border/60 bg-background/70 p-5">
                 <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                   <div>
@@ -99,40 +139,10 @@ const Dashboard = () => {
                   </div>
                 </div>
               </div>
-            ))}
-          </CardContent>
-        </Card>
-
-        <Card className="glass-card">
-          <CardHeader>
-            <CardTitle className="font-display">Próximas comissões</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {upcomingLines.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Nenhuma linha pendente no momento.</p>
-            ) : (
-              upcomingLines.map(({ line, clientNames }) => (
-                <div key={line.id} className="rounded-2xl border border-border/60 p-4">
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <p className="font-medium text-foreground">{clientNames.join(", ")}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {paymentTypeLabels[line.paymentType]}
-                        {line.installmentNumber ? ` • Parcela ${line.installmentNumber}` : ""}
-                      </p>
-                    </div>
-                    <Badge variant="outline">{line.paymentDate}</Badge>
-                  </div>
-                  <div className="mt-3 flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">{gatewayLabels[line.gateway]}</span>
-                    <span className="font-semibold text-primary">{formatMoney(line.finalValueBRL)}</span>
-                  </div>
-                </div>
-              ))
-            )}
-          </CardContent>
-        </Card>
-      </div>
+            ))
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 };

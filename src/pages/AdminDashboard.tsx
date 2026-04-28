@@ -3,24 +3,40 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import {
-  defaultCommissionPercentage,
   formatMoney,
   formatPercent,
   gatewayLabels,
   getAdminSummary,
+  getAggregatedMonthlyHistory,
+  mockSellerProfiles,
   monthlyCostOptions,
   moduleNames,
   paymentTaxRules,
   paymentTypeLabels,
 } from "@/lib/mockData";
 import { useState } from "react";
+import AdminCareerTable from "@/components/AdminCareerTable";
+import AdminCareerOverview from "@/components/AdminCareerOverview";
+import SellerProgressChart from "@/components/SellerProgressChart";
+import { Search } from "lucide-react";
 
 const AdminDashboard = () => {
   const summary = getAdminSummary();
-  const [commissionRate, setCommissionRate] = useState(String(defaultCommissionPercentage));
   const [fixedCosts, setFixedCosts] = useState(String(summary.monthlyCost));
+  const [sellerSearch, setSellerSearch] = useState("");
+  const [selectedSellerId, setSelectedSellerId] = useState<string | null>(null);
   const fixedCostNumber = Number(fixedCosts) || 0;
   const liveMargin = fixedCostNumber > 0 ? (summary.paidAmountBRL / fixedCostNumber) * 100 : 0;
+
+  const filteredSellers = mockSellerProfiles.filter((p) =>
+    p.sellerName.toLowerCase().includes(sellerSearch.toLowerCase())
+  );
+  const selectedProfile = selectedSellerId
+    ? mockSellerProfiles.find((p) => p.sellerId === selectedSellerId)
+    : null;
+  const chartData = selectedProfile
+    ? (selectedProfile.monthlyHistory ?? [])
+    : getAggregatedMonthlyHistory();
 
   return (
     <div className="space-y-8">
@@ -29,32 +45,7 @@ const AdminDashboard = () => {
         <p className="mt-1 text-muted-foreground">Visão consolidada das vendas, regras de taxação e impacto em margem e comissão.</p>
       </div>
 
-      <div className="grid gap-5 md:grid-cols-3">
-        <Card className="glass-card">
-          <CardContent className="space-y-3 p-6">
-            <Label>Comissão padrão do vendedor (%)</Label>
-            <Input type="number" value={commissionRate} onChange={(event) => setCommissionRate(event.target.value)} />
-            <p className="text-xs text-muted-foreground">Mock editável para a demo. Os contratos atuais seguem a configuração gravada em cada venda.</p>
-          </CardContent>
-        </Card>
-
-        <Card className="glass-card">
-          <CardContent className="space-y-3 p-6">
-            <Label>Custos fixos mensais (R$)</Label>
-            <Input type="number" value={fixedCosts} onChange={(event) => setFixedCosts(event.target.value)} placeholder="0.00" />
-            <p className="text-xs text-muted-foreground">Referências mockadas: {monthlyCostOptions.map((option) => `${option.monthLabel} ${formatMoney(option.amount)}`).join(" • ")}</p>
-          </CardContent>
-        </Card>
-
-        <Card className="glass-card">
-          <CardContent className="space-y-3 p-6">
-            <Label>Margem real mensal</Label>
-            <p className="text-3xl font-semibold text-primary">{formatPercent(liveMargin)}</p>
-            <p className="text-xs text-muted-foreground">Fórmula de demo: valor real recebido dividido por custos fixos do mês.</p>
-          </CardContent>
-        </Card>
-      </div>
-
+      {/* ── Métricas ─────────────────────────────────────────────────────── */}
       <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
         <Card className="glass-card">
           <CardContent className="p-6">
@@ -81,6 +72,109 @@ const AdminDashboard = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* ── Plano de Carreira ─────────────────────────────────────────────── */}
+      <div>
+        <h2 className="text-2xl font-display font-bold text-foreground">Plano de Carreira</h2>
+        <p className="mt-1 text-muted-foreground">Tabela de cargos e progresso dos vendedores.</p>
+      </div>
+
+      <Card className="glass-card">
+        <CardHeader>
+          <CardTitle className="font-display">Tabela de Cargos e Benefícios</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <AdminCareerTable />
+        </CardContent>
+      </Card>
+
+      <Card className="glass-card">
+        <CardHeader>
+          <CardTitle className="font-display">Progresso dos Vendedores</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <AdminCareerOverview />
+        </CardContent>
+      </Card>
+
+      <Card className="glass-card">
+        <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <CardTitle className="font-display">
+              Progresso mensal
+              {selectedProfile && (
+                <span className="ml-2 text-base font-normal text-muted-foreground">
+                  — {selectedProfile.sellerName}
+                </span>
+              )}
+            </CardTitle>
+            {!selectedProfile && (
+              <p className="mt-1 text-xs text-muted-foreground">Visão consolidada de todos os vendedores</p>
+            )}
+          </div>
+          <div className="relative w-full sm:w-64">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+            <Input
+              placeholder="Buscar vendedor…"
+              value={sellerSearch}
+              onChange={(e) => {
+                setSellerSearch(e.target.value);
+                if (e.target.value === "") setSelectedSellerId(null);
+              }}
+              className="pl-9"
+            />
+            {sellerSearch && filteredSellers.length > 0 && !selectedProfile && (
+              <div className="absolute z-10 mt-1 w-full rounded-xl border border-border/60 bg-background shadow-lg overflow-hidden">
+                {filteredSellers.map((p) => (
+                  <button
+                    key={p.sellerId}
+                    onClick={() => {
+                      setSelectedSellerId(p.sellerId);
+                      setSellerSearch(p.sellerName);
+                    }}
+                    className="w-full px-4 py-2.5 text-left text-sm hover:bg-muted/50 transition-colors"
+                  >
+                    <span className="font-medium text-foreground">{p.sellerName}</span>
+                    <span className="ml-2 text-xs text-muted-foreground">{p.currentLevel.replace(/_/g, " ")}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+            {selectedProfile && (
+              <button
+                onClick={() => { setSelectedSellerId(null); setSellerSearch(""); }}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground hover:text-foreground transition-colors"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent>
+          <SellerProgressChart data={chartData} showGoal={!!selectedProfile} />
+        </CardContent>
+      </Card>
+
+      {/* ── Financeiro ────────────────────────────────────────────────────── */}
+      <div className="grid gap-5 md:grid-cols-2">
+        <Card className="glass-card">
+          <CardContent className="space-y-3 p-6">
+            <Label>Custos fixos mensais (R$)</Label>
+            <Input type="number" value={fixedCosts} onChange={(event) => setFixedCosts(event.target.value)} placeholder="0.00" />
+            <p className="text-xs text-muted-foreground">Referências mockadas: {monthlyCostOptions.map((option) => `${option.monthLabel} ${formatMoney(option.amount)}`).join(" • ")}</p>
+          </CardContent>
+        </Card>
+
+        <Card className="glass-card">
+          <CardContent className="space-y-3 p-6">
+            <Label>Margem real mensal</Label>
+            <p className="text-3xl font-semibold text-primary">{formatPercent(liveMargin)}</p>
+            <p className="text-xs text-muted-foreground">Fórmula de demo: valor real recebido dividido por custos fixos do mês.</p>
+          </CardContent>
+        </Card>
+      </div>
+
+
 
       <div className="grid gap-6 xl:grid-cols-[0.95fr_1.05fr]">
         <Card className="glass-card">
