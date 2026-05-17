@@ -1,907 +1,847 @@
-import { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { useNavigate } from "react-router-dom";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useMemo, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { Award, Banknote, CreditCard, Landmark, MinusCircle, Package, Plus, Trash2, TrendingDown, TrendingUp, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
-import { Check, ChevronLeft, ChevronRight, Plus, Trash2 } from "lucide-react";
-import { toast } from "sonner";
-import {
-  createMockSale,
-  currencyLabels,
-  currencySymbols,
-  demoSellerName,
-  formatMoney,
-  formatPercent,
-  gatewayLabels,
-  gatewayOptions,
-  getGatewayTaxRate,
-  moduleNames,
-  paymentTypeDescriptions,
-  paymentTypeLabels,
-  previewSaleFromDraft,
-  productOptions,
-  type Currency,
-  type PaymentGateway,
-  type PaymentType,
-  type ProductCode,
-} from "@/lib/mockData";
+import { Separator } from "@/components/ui/separator";
+import { createSale, listGatewayFees, listProducts } from "@/lib/commercialApi";
+import type { CreateSaleCustomer } from "@/lib/commercialApi";
+import { buildCommissionBreakdown, normalizeCommissionRate } from "@/lib/commission";
+import { getProfile } from "@/lib/session";
 
-const steps = ["Dados da venda", "Cronograma dos módulos", "Pagamentos", "Revisão"];
-const today = new Date().toISOString().slice(0, 10);
+const STEP_LABELS = ["Clientes", "Produto", "Pagamentos", "Resumo"];
+const MAX_INSTALLMENTS = 120;
 
-interface PaymentFormRow {
-  id: string;
-  type: PaymentType | "";
-  value: string;
-  currency: Currency;
-  gateway: PaymentGateway | "";
-  firstDueDate: string;
-  installments: string;
-  installmentValue: string;
+const PAYMENT_TYPE_LABELS: Record<string, string> = {
+  ENTRY: "Entrada",
+  INSTALLMENT: "Parcelamento",
+  SUBSCRIPTION: "Assinatura",
+  FULL_PAYMENT: "A vista",
+};
+
+type SalePaymentDraft = {
+  gateway: string;
+  paymentType: string;
+  amount: string;
+  totalInstallments: string;
+};
+
+const EMPTY_CUSTOMER: CreateSaleCustomer = { name: "", document: "" };
+const EMPTY_PAYMENT: SalePaymentDraft = { gateway: "", paymentType: "", amount: "", totalInstallments: "1" };
+
+function normalizeInstallments(rawValue: string): string {
+  const digitsOnly = rawValue.replace(/\D/g, "");
+  if (!digitsOnly) {
+    return "";
+  }
+  const normalized = Math.max(1, Math.min(Number(digitsOnly), MAX_INSTALLMENTS));
+  return String(normalized);
 }
-
-interface ModuleFormFields {
-  releaseDate: string;
-  value: string;
-}
-
-const createPaymentRow = (currency: Currency): PaymentFormRow => ({
-  id: `payment-${Math.random().toString(36).slice(2, 10)}`,
-  type: "",
-  value: "",
-  currency,
-  gateway: "",
-  firstDueDate: today,
-  installments: "",
-  installmentValue: "",
-});
-
-const isRecurringType = (paymentType: PaymentType | "") =>
-  paymentType === "INSTALLMENT" || paymentType === "SUBSCRIPTION";
 
 const NewSale = () => {
-  const navigate = useNavigate();
-  const [step, setStep] = useState(0);
+  const queryClient = useQueryClient();
+  const profile = getProfile();
 
-  const [slots, setSlots] = useState("1");
-  const [clientNames, setClientNames] = useState<string[]>([""]);
-  const [contractValue, setContractValue] = useState("");
-  const [currency, setCurrency] = useState<Currency>("BRL");
+  const [step, setStep] = useState(1);
 
-  const [selectedProducts, setSelectedProducts] = useState<ProductCode[]>([]);
-  const [moduleFields, setModuleFields] = useState<Record<string, ModuleFormFields>>({});
+  // Step 1: Customers
+  const [customers, setCustomers] = useState<CreateSaleCustomer[]>([{ ...EMPTY_CUSTOMER }]);
 
-  const [payments, setPayments] = useState<PaymentFormRow[]>([createPaymentRow("BRL")]);
+  // Step 2: Product
+  const [productId, setProductId] = useState("");
+  const [releaseDate, setReleaseDate] = useState("");
 
-  const slotsCount = Math.max(Number(slots) || 1, 1);
-  const contractNumber = Number(contractValue) || 0;
+  // Step 3: Payments
+  const [currency, setCurrency] = useState("BRL");
+  const [payments, setPayments] = useState<SalePaymentDraft[]>([{ ...EMPTY_PAYMENT }]);
 
-  const setSlotsValue = (nextValue: string) => {
-    const nextCount = Math.max(Number(nextValue) || 1, 1);
-    setSlots(nextValue);
-    setClientNames((currentNames) => {
-      const nextNames = [...currentNames];
-      while (nextNames.length < nextCount) {
-        nextNames.push("");
-      }
-      return nextNames.slice(0, nextCount);
-    });
-  };
+  const productsQuery = useQuery({
+    queryKey: ["products"],
+    queryFn: listProducts,
+  });
 
-  const updateClientName = (index: number, value: string) => {
-    setClientNames((currentNames) => currentNames.map((name, currentIndex) => (currentIndex === index ? value : name)));
-  };
+  const gatewayFeesQuery = useQuery({
+    queryKey: ["gateway-fees"],
+    queryFn: listGatewayFees,
+    enabled: step >= 3,
+  });
 
-  const toggleProduct = (product: ProductCode) => {
-    setSelectedProducts((currentProducts) => {
-      const exists = currentProducts.includes(product);
-      if (exists) {
-        return currentProducts.filter((currentProduct) => currentProduct !== product);
-      }
+  const productName = productsQuery.data?.find((p) => p.id === productId)?.name;
+  const commissionRate = useMemo(() => {
+    const profileAny = profile as unknown as Record<string, unknown> | null;
+    const careerPlanAny = (profileAny?.careerPlan as Record<string, unknown> | undefined) ?? {};
 
-      return [...currentProducts, product];
-    });
+    const candidates: unknown[] = [
+      careerPlanAny.individualCommissionRate,
+      careerPlanAny.commissionPercentage,
+      profileAny?.individualCommissionRate,
+      profileAny?.commissionPercentage,
+    ];
 
-    setModuleFields((currentFields) => ({
-      ...currentFields,
-      [product]: currentFields[product] ?? { releaseDate: today, value: "" },
-    }));
-  };
-
-  const updateModuleField = (product: ProductCode, field: keyof ModuleFormFields, value: string) => {
-    setModuleFields((currentFields) => ({
-      ...currentFields,
-      [product]: {
-        ...(currentFields[product] ?? { releaseDate: today, value: "" }),
-        [field]: value,
-      },
-    }));
-  };
-
-  const addPayment = () => {
-    setPayments((currentPayments) => [...currentPayments, createPaymentRow(currency)]);
-  };
-
-  const removePayment = (paymentId: string) => {
-    setPayments((currentPayments) => currentPayments.filter((payment) => payment.id !== paymentId));
-  };
-
-  const updatePayment = (paymentId: string, field: keyof PaymentFormRow, value: string) => {
-    setPayments((currentPayments) =>
-      currentPayments.map((payment) => {
-        if (payment.id !== paymentId) {
-          return payment;
-        }
-
-        if (field === "type") {
-          const nextType = value as PaymentType;
-          return {
-            ...payment,
-            type: nextType,
-            gateway: nextType === "SLOT_RESERVATION" ? "PIX" : payment.gateway,
-            value: isRecurringType(nextType) ? "" : payment.value,
-          };
-        }
-
-        if (field === "gateway") {
-          return { ...payment, gateway: value as PaymentGateway };
-        }
-
-        if (field === "currency") {
-          return { ...payment, currency: value as Currency };
-        }
-
-        return { ...payment, [field]: value };
-      })
-    );
-  };
-
-  const moduleTotal = selectedProducts.reduce((total, product) => {
-    const value = Number(moduleFields[product]?.value) || 0;
-    return total + value;
-  }, 0);
-
-  const paymentTotal = payments.reduce((total, payment) => {
-    if (isRecurringType(payment.type)) {
-      return total + (Number(payment.installments) || 0) * (Number(payment.installmentValue) || 0);
-    }
-
-    return total + (Number(payment.value) || 0);
-  }, 0);
-
-  const getDraftPreview = () => {
-    if (!contractNumber || selectedProducts.length === 0) {
-      return null;
-    }
-
-    const normalizedClientNames = clientNames.map((name) => name.trim()).filter(Boolean);
-    const moduleSchedules = selectedProducts
-      .map((product) => {
-        const fields = moduleFields[product];
-        const value = Number(fields?.value);
-
-        if (!fields?.releaseDate || !value) {
-          return null;
-        }
-
-        return {
-          product,
-          releaseDate: fields.releaseDate,
-          value,
-        };
-      })
-      .filter(Boolean);
-
-    if (moduleSchedules.length !== selectedProducts.length) {
-      return null;
-    }
-
-    const paymentDrafts = payments
-      .map((payment) => {
-        if (!payment.type || !payment.firstDueDate) {
-          return null;
-        }
-
-        const gateway = payment.type === "SLOT_RESERVATION" ? "PIX" : payment.gateway;
-        if (!gateway) {
-          return null;
-        }
-
-        const recurring = isRecurringType(payment.type);
-        const installments = recurring ? Number(payment.installments) : undefined;
-        const installmentValue = recurring ? Number(payment.installmentValue) : undefined;
-        const totalValue = recurring
-          ? (installments || 0) * (installmentValue || 0)
-          : Number(payment.value);
-
-        if (!totalValue) {
-          return null;
-        }
-
-        return {
-          type: payment.type,
-          value: totalValue,
-          currency: payment.currency,
-          gateway,
-          firstDueDate: payment.firstDueDate,
-          installments,
-          installmentValue,
-        };
-      })
-      .filter(Boolean);
-
-    if (paymentDrafts.length !== payments.length) {
-      return null;
-    }
-
-    return previewSaleFromDraft({
-      sellerName: demoSellerName,
-      clientNames: normalizedClientNames,
-      slots: slotsCount,
-      contractValue: contractNumber,
-      currency,
-      moduleSchedules,
-      payments: paymentDrafts,
-    });
-  };
-
-  const preview = getDraftPreview();
-
-  const validateStep = (stepIndex: number) => {
-    if (stepIndex === 0) {
-      if (!contractNumber || contractNumber <= 0) {
-        return "Informe o valor total do contrato.";
-      }
-
-      if (slotsCount < 1) {
-        return "A venda precisa ter pelo menos uma vaga.";
-      }
-
-      const emptyClientName = clientNames.some((name) => !name.trim());
-      if (emptyClientName) {
-        return "Preencha o nome de todos os clientes vinculados à venda.";
+    for (const candidate of candidates) {
+      const normalized = normalizeCommissionRate(candidate);
+      if (normalized > 0) {
+        return normalized;
       }
     }
 
-    if (stepIndex === 1) {
-      if (selectedProducts.length === 0) {
-        return "Selecione pelo menos um módulo vendido.";
-      }
+    return 0;
+  }, [profile]);
 
-      const missingModuleFields = selectedProducts.some((product) => {
-        const fields = moduleFields[product];
-        return !fields?.releaseDate || !(Number(fields.value) > 0);
-      });
-
-      if (missingModuleFields) {
-        return "Cada módulo precisa de data de liberação e valor específico.";
-      }
-
-      if (Math.abs(moduleTotal - contractNumber) > 0.01) {
-        return "A soma dos módulos precisa fechar o valor total do contrato.";
-      }
-    }
-
-    if (stepIndex === 2) {
-      if (payments.length === 0) {
-        return "Adicione pelo menos uma linha de pagamento.";
-      }
-
-      const invalidPayment = payments.some((payment) => {
-        if (!payment.type || !payment.firstDueDate) {
-          return true;
-        }
-
-        if (payment.type !== "SLOT_RESERVATION" && !payment.gateway) {
-          return true;
-        }
-
-        if (isRecurringType(payment.type)) {
-          return !(Number(payment.installments) > 0 && Number(payment.installmentValue) > 0);
-        }
-
-        return !(Number(payment.value) > 0);
-      });
-
-      if (invalidPayment) {
-        return "Revise as linhas de pagamento e preencha todos os campos obrigatórios.";
-      }
-
-      if (Math.abs(paymentTotal - contractNumber) > 0.01) {
-        return "A soma dos pagamentos precisa fechar o valor total do contrato.";
-      }
-    }
-
-    return null;
-  };
-
-  const goToNextStep = () => {
-    const validationError = validateStep(step);
-    if (validationError) {
-      toast.error(validationError);
-      return;
-    }
-
-    setStep((currentStep) => Math.min(currentStep + 1, steps.length - 1));
-  };
-
-  const submitSale = () => {
-    const validationError = validateStep(0) || validateStep(1) || validateStep(2);
-    if (validationError) {
-      toast.error(validationError);
-      return;
-    }
-
-    if (!preview) {
-      toast.error("Não foi possível gerar a prévia da venda. Revise os dados e tente novamente.");
-      return;
-    }
-
-    const sale = createMockSale({
-      clientNames: preview.clientNames,
-      slots: preview.slots,
-      contractValue: preview.contractValue,
-      currency: preview.currency,
-      moduleSchedules: preview.moduleSchedules,
-      payments: preview.payments.map((payment) => ({
-        type: payment.type,
-        value: payment.value,
-        currency: payment.currency,
-        gateway: payment.gateway,
-        firstDueDate: payment.firstDueDate,
-        installments: payment.installments,
-        installmentValue: payment.installmentValue,
-      })),
-    });
-
-    toast.success("Venda registrada com sucesso.", {
-      description: `Comissão prevista: ${formatMoney(sale.totalCommissionBRL)} em ${sale.commissionLines.length} linha(s) de pagamento.`,
-    });
-    navigate("/vendas");
-  };
-
-  const renderStepNavigation = () => (
-    <div className="flex items-center gap-2 self-start md:self-auto">
-      <Button type="button" variant="outline" onClick={() => (step === 0 ? navigate("/dashboard") : setStep(step - 1))}>
-        <ChevronLeft className="mr-2 h-4 w-4" />
-        {step === 0 ? "Cancelar" : "Voltar"}
-      </Button>
-
-      {step < steps.length - 1 ? (
-        <Button type="button" onClick={goToNextStep}>
-          Próximo
-          <ChevronRight className="ml-2 h-4 w-4" />
-        </Button>
-      ) : (
-        <Button type="button" onClick={submitSale}>
-          Registrar venda
-        </Button>
-      )}
-    </div>
+  const filledCustomers = useMemo(
+    () => customers.filter((c) => c.name.trim()).map((c) => ({ name: c.name.trim(), document: c.document?.trim() || undefined })),
+    [customers],
   );
 
+  function getFeeRate(gateway: string, paymentType: string): number {
+    if (!gateway || !paymentType) return 0;
+    const feeConfig = gatewayFeesQuery.data?.find((item) => item.gateway === gateway);
+    return feeConfig?.paymentOptions.find((option) => option.paymentType === paymentType)?.feeRate ?? 0;
+  }
+
+  function paymentGrossValue(payment: SalePaymentDraft): number {
+    const amount = Number(payment.amount);
+    if (!amount) return 0;
+    if (["INSTALLMENT", "SUBSCRIPTION"].includes(payment.paymentType)) {
+      return amount * (Number(normalizeInstallments(payment.totalInstallments || "1")) || 1);
+    }
+    return amount;
+  }
+
+  const configuredPayments = useMemo(
+    () => payments
+      .filter((payment) => Number(payment.amount) > 0 && payment.gateway && payment.paymentType)
+      .map((payment) => ({
+        gateway: payment.gateway,
+        paymentType: payment.paymentType,
+        amount: Number(payment.amount),
+        totalInstallments: ["INSTALLMENT", "SUBSCRIPTION"].includes(payment.paymentType)
+          ? Number(normalizeInstallments(payment.totalInstallments || "1"))
+          : undefined,
+        feeRate: getFeeRate(payment.gateway, payment.paymentType),
+      })),
+    [payments, gatewayFeesQuery.data],
+  );
+
+  const commissionBreakdown = useMemo(
+    () => buildCommissionBreakdown(configuredPayments, commissionRate),
+    [configuredPayments, commissionRate],
+  );
+
+  const totalSaleValue = commissionBreakdown.totalGross;
+  const estimatedCommission = commissionBreakdown.totalCommission;
+
+  const canGoStep2 = filledCustomers.length > 0;
+  const canGoStep3 = Boolean(productId && releaseDate);
+
+  const hasValidPayments = payments.length > 0
+    && payments.every((payment) => {
+      const amountOk = Number(payment.amount) > 0;
+      const baseOk = Boolean(payment.gateway && payment.paymentType && amountOk);
+      if (!baseOk) return false;
+      if (["INSTALLMENT", "SUBSCRIPTION"].includes(payment.paymentType)) {
+        return Number(normalizeInstallments(payment.totalInstallments || "1")) >= 1;
+      }
+      return true;
+    });
+
+  const canGoStep4 = hasValidPayments;
+  const canSubmit = canGoStep2 && canGoStep3 && canGoStep4 && Boolean(profile?.sub);
+
+  function updateCustomer(index: number, field: keyof CreateSaleCustomer, value: string) {
+    setCustomers((prev) => prev.map((customer, i) => (i === index ? { ...customer, [field]: value } : customer)));
+  }
+
+  function addCustomer() {
+    setCustomers((prev) => [...prev, { ...EMPTY_CUSTOMER }]);
+  }
+
+  function removeCustomer(index: number) {
+    setCustomers((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  function updatePayment(index: number, field: keyof SalePaymentDraft, value: string) {
+    setPayments((prev) => prev.map((payment, i) => {
+      if (i !== index) return payment;
+      if (field === "gateway") {
+        return { ...payment, gateway: value, paymentType: "" };
+      }
+      if (field === "paymentType") {
+        return {
+          ...payment,
+          paymentType: value,
+          totalInstallments: payment.totalInstallments || "1",
+        };
+      }
+      if (field === "totalInstallments") {
+        return { ...payment, totalInstallments: normalizeInstallments(value) };
+      }
+      return { ...payment, [field]: value };
+    }));
+  }
+
+  function addPayment() {
+    setPayments((prev) => [...prev, { ...EMPTY_PAYMENT }]);
+  }
+
+  function removePayment(index: number) {
+    setPayments((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  const mutation = useMutation({
+    mutationFn: async () => {
+      if (!profile?.sub) {
+        throw new Error("Usuario sem sub/externalId no perfil.");
+      }
+
+      if (configuredPayments.length === 0) {
+        throw new Error("Adicione pelo menos um pagamento valido.");
+      }
+
+      await createSale({
+        sellerId: profile.sub,
+        currency,
+        clients: filledCustomers.map((c) => ({
+          nameCiphertext: c.name,
+          documentCiphertext: c.document ?? "",
+        })),
+        items: [{ productId, releaseDate }],
+        payments: configuredPayments.map((payment) => ({
+          gateway: payment.gateway,
+          type: payment.paymentType,
+          amount: payment.amount,
+          ...(payment.totalInstallments ? { totalInstallments: payment.totalInstallments } : {}),
+        })),
+      });
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["sales"] });
+      toast.success("Venda criada com sucesso.");
+      setStep(1);
+      setCustomers([{ ...EMPTY_CUSTOMER }]);
+      setProductId("");
+      setReleaseDate("");
+      setCurrency("BRL");
+      setPayments([{ ...EMPTY_PAYMENT }]);
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : "Erro ao criar venda.");
+    },
+  });
+
   return (
-    <div className="mx-auto w-full max-w-[1460px] space-y-6">
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-3xl font-bold text-foreground">Nova venda</h1>
+        <p className="text-muted-foreground">Preencha as informacoes passo a passo.</p>
+      </div>
+
+      <div className="flex items-center">
+        {STEP_LABELS.map((label, index) => {
+          const n = index + 1;
+          const isActive = step === n;
+          const isDone = step > n;
+          return (
+            <div key={n} className="flex items-center">
+              <div className="flex items-center gap-2">
+                <div
+                  className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium transition-colors ${
+                    isDone
+                      ? "bg-primary text-primary-foreground"
+                      : isActive
+                        ? "border-2 border-primary text-primary"
+                        : "border-2 border-muted text-muted-foreground"
+                  }`}
+                >
+                  {isDone ? "\u2713" : n}
+                </div>
+                <span className={`text-sm ${isActive ? "font-medium text-foreground" : "text-muted-foreground"}`}>
+                  {label}
+                </span>
+              </div>
+              {index < STEP_LABELS.length - 1 && (
+                <div className={`mx-4 h-px w-8 flex-shrink-0 ${isDone ? "bg-primary" : "bg-muted"}`} />
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
         <div>
-          <h1 className="text-3xl font-display font-bold text-foreground">Nova venda</h1>
-          <p className="mt-1 text-muted-foreground">
-            Monte o contrato, distribua os módulos e simule a comissão conforme gateway e forma de pagamento.
-          </p>
-        </div>
-        <Card className="glass-card w-full lg:max-w-sm">
-          <CardContent className="flex items-center justify-between p-4">
-            <div>
-              <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">Vendedora da demo</p>
-              <p className="text-lg font-semibold text-foreground">{demoSellerName}</p>
-            </div>
-            <Badge variant="secondary">Comissão padrão 5%</Badge>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="flex flex-wrap items-center gap-3">
-        {steps.map((label, index) => (
-          <div key={label} className="flex items-center gap-3">
-            <div
-              className={`flex h-9 w-9 items-center justify-center rounded-full text-sm font-semibold transition-colors ${
-                index < step
-                  ? "bg-success text-success-foreground"
-                  : index === step
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-muted text-muted-foreground"
-              }`}
-            >
-              {index < step ? <Check className="h-4 w-4" /> : index + 1}
-            </div>
-            <span className={`text-sm ${index === step ? "font-semibold text-foreground" : "text-muted-foreground"}`}>
-              {label}
-            </span>
-          </div>
-        ))}
-      </div>
-
-      <div className="grid gap-5 xl:grid-cols-[1.62fr_0.88fr]">
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={step}
-            initial={{ opacity: 0, y: 18 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -18 }}
-            transition={{ duration: 0.22 }}
-          >
-            {step === 0 && (
-              <Card className="glass-card">
-                <CardHeader className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-                  <CardTitle className="font-display">Dados básicos da venda</CardTitle>
-                  {renderStepNavigation()}
-                </CardHeader>
-                <CardContent className="space-y-5">
-                  <div className="grid gap-5 md:grid-cols-3">
-                    <div className="space-y-2">
-                      <Label>Quantidade de vagas</Label>
-                      <Input type="number" min="1" value={slots} onChange={(event) => setSlotsValue(event.target.value)} />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Moeda do contrato</Label>
-                      <Select value={currency} onValueChange={(value) => setCurrency(value as Currency)}>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {Object.entries(currencyLabels).map(([value, label]) => (
-                            <SelectItem key={value} value={value}>
-                              {currencySymbols[value as Currency]} {label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Valor total do contrato</Label>
-                      <div className="relative">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
-                          {currencySymbols[currency]}
-                        </span>
-                        <Input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          className="pl-14"
-                          value={contractValue}
-                          onChange={(event) => setContractValue(event.target.value)}
-                          placeholder="0.00"
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="space-y-3">
+          {step === 1 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Clientes</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {customers.map((customer, index) => (
+                  <div key={index} className="space-y-3 rounded-lg border p-4">
                     <div className="flex items-center justify-between">
-                      <Label>Nome(s) dos clientes</Label>
-                      <Badge variant="outline">{slotsCount} vaga(s)</Badge>
-                    </div>
-                    <div className="grid gap-3 md:grid-cols-2">
-                      {clientNames.map((name, index) => (
-                        <Input
-                          key={`${index}-${slotsCount}`}
-                          placeholder={`Cliente ${index + 1}`}
-                          value={name}
-                          onChange={(event) => updateClientName(index, event.target.value)}
-                        />
-                      ))}
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      Quando houver mais de uma vaga, todos os nomes precisam ser informados para a venda seguir para revisão.
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {step === 1 && (
-              <Card className="glass-card">
-                <CardHeader className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-                  <CardTitle className="font-display">Cronograma de liberação</CardTitle>
-                  {renderStepNavigation()}
-                </CardHeader>
-                <CardContent className="space-y-5">
-                  <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                    {productOptions.map((product) => {
-                      const isActive = selectedProducts.includes(product);
-
-                      return (
-                        <button
-                          key={product}
-                          type="button"
-                          onClick={() => toggleProduct(product)}
-                          className={`rounded-2xl border p-4 text-left transition-all ${
-                            isActive
-                              ? "border-primary bg-primary/5 shadow-[0_0_0_1px_hsl(var(--primary)/0.25)]"
-                              : "border-border bg-background hover:border-primary/40"
-                          }`}
+                      <span className="text-sm font-medium text-muted-foreground">Cliente {index + 1}</span>
+                      {customers.length > 1 && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+                          onClick={() => removeCustomer(index)}
                         >
-                          <div className="mb-5 flex items-center justify-between">
-                            <Badge variant={isActive ? "default" : "secondary"}>{product.replace("MODULE_", "Módulo ")}</Badge>
-                            {isActive && <Check className="h-4 w-4 text-primary" />}
-                          </div>
-                          <p className="font-medium text-foreground">{moduleNames[product]}</p>
-                          <p className="mt-1 text-sm text-muted-foreground">Defina valor e data de liberação para este produto.</p>
-                        </button>
-                      );
-                    })}
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div className="space-y-1.5">
+                        <Label>Nome *</Label>
+                        <Input
+                          value={customer.name}
+                          onChange={(event) => updateCustomer(index, "name", event.target.value)}
+                          placeholder="Nome completo"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label>Documento</Label>
+                        <Input
+                          value={customer.document ?? ""}
+                          onChange={(event) => updateCustomer(index, "document", event.target.value)}
+                          placeholder="CPF, RG, passaporte..."
+                        />
+                      </div>
+                    </div>
                   </div>
+                ))}
 
-                  {selectedProducts.length > 0 && (
-                    <div className="space-y-4 rounded-3xl border border-border/70 bg-background/70 p-4">
+                <Button variant="outline" size="sm" className="w-full gap-2" onClick={addCustomer}>
+                  <Plus className="h-4 w-4" />
+                  Adicionar cliente
+                </Button>
+
+                <div className="flex justify-end pt-2">
+                  <Button onClick={() => setStep(2)} disabled={!canGoStep2}>
+                    Proximo
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {step === 2 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Produto</CardTitle>
+              </CardHeader>
+              <CardContent className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2 md:col-span-2">
+                  <Label>Produto *</Label>
+                  <Select value={productId} onValueChange={setProductId}>
+                    <SelectTrigger>
+                      <SelectValue
+                        placeholder={productsQuery.isLoading ? "Carregando produtos..." : "Selecione um produto"}
+                      />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(productsQuery.data ?? []).map((product) => (
+                        <SelectItem key={product.id} value={product.id}>
+                          {product.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2 md:col-span-2">
+                  <Label>Data de liberacao *</Label>
+                  <Input type="date" value={releaseDate} onChange={(event) => setReleaseDate(event.target.value)} />
+                  <p className="text-xs text-muted-foreground">
+                    Data em que o produto estara disponivel para o cliente.
+                  </p>
+                </div>
+
+                <div className="md:col-span-2 flex justify-between">
+                  <Button variant="outline" onClick={() => setStep(1)}>
+                    Voltar
+                  </Button>
+                  <Button onClick={() => setStep(3)} disabled={!canGoStep3}>
+                    Proximo
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {step === 3 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Pagamentos</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Moeda</Label>
+                  <Select value={currency} onValueChange={setCurrency}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="BRL">BRL</SelectItem>
+                      <SelectItem value="USD">USD</SelectItem>
+                      <SelectItem value="EUR">EUR</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {payments.map((payment, index) => {
+                  const gatewayConfig = gatewayFeesQuery.data?.find((item) => item.gateway === payment.gateway);
+                  const feeRate = getFeeRate(payment.gateway, payment.paymentType);
+                  const amount = Number(payment.amount);
+                  const installments = Number(payment.totalInstallments) || 1;
+                  const paymentValue = paymentGrossValue(payment);
+
+                  return (
+                    <div key={index} className="space-y-3 rounded-lg border p-4">
                       <div className="flex items-center justify-between">
-                        <Label>Detalhamento por módulo</Label>
-                        <Badge variant={Math.abs(moduleTotal - contractNumber) <= 0.01 ? "default" : "secondary"}>
-                          Total dos módulos: {formatMoney(moduleTotal, currency)}
-                        </Badge>
+                        <span className="text-sm font-medium text-muted-foreground">Pagamento {index + 1}</span>
+                        {payments.length > 1 && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+                            onClick={() => removePayment(index)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
                       </div>
 
-                      <div className="space-y-4">
-                        {selectedProducts.map((product) => (
-                          <div key={product} className="grid gap-3 rounded-2xl border border-border/60 p-3.5 md:grid-cols-[1.1fr_1fr_1fr]">
-                            <div>
-                              <p className="text-sm font-semibold text-foreground">{moduleNames[product]}</p>
-                              <p className="text-xs text-muted-foreground">{product}</p>
-                            </div>
-                            <div className="space-y-2">
-                              <Label>Data de liberação</Label>
-                              <Input
-                                type="date"
-                                value={moduleFields[product]?.releaseDate ?? today}
-                                onChange={(event) => updateModuleField(product, "releaseDate", event.target.value)}
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <Label>Valor do módulo</Label>
-                              <Input
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                value={moduleFields[product]?.value ?? ""}
-                                onChange={(event) => updateModuleField(product, "value", event.target.value)}
-                                placeholder="0.00"
-                              />
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-
-                      <p className="text-sm text-muted-foreground">
-                        O somatório dos módulos precisa fechar exatamente o valor total do contrato para a venda ser registrada.
-                      </p>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            )}
-
-            {step === 2 && (
-              <Card className="glass-card">
-                <CardHeader>
-                  <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                    <CardTitle className="font-display">Configuração de pagamentos</CardTitle>
-                    <div className="flex flex-col gap-2 md:flex-row md:flex-wrap md:items-center md:justify-end">
-                      <Button type="button" variant="outline" onClick={addPayment}>
-                        <Plus className="mr-2 h-4 w-4" />
-                        Adicionar linha
-                      </Button>
-                      {renderStepNavigation()}
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {payments.map((payment, index) => {
-                    const recurring = isRecurringType(payment.type);
-                    const effectiveGateway = payment.type === "SLOT_RESERVATION" ? "PIX" : payment.gateway;
-                    const taxRate = payment.type && effectiveGateway ? getGatewayTaxRate(effectiveGateway, payment.type) : 0;
-                    const scheduledTotal = recurring
-                      ? (Number(payment.installments) || 0) * (Number(payment.installmentValue) || 0)
-                      : Number(payment.value) || 0;
-
-                    return (
-                      <div key={payment.id} className="rounded-3xl border border-border/70 bg-background/70 p-4">
-                        <div className="mb-4 flex items-center justify-between">
-                          <div>
-                            <p className="font-semibold text-foreground">Pagamento {index + 1}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {payment.type ? paymentTypeDescriptions[payment.type] : "Escolha a forma de pagamento para liberar a regra de taxação."}
-                            </p>
-                          </div>
-                          {payments.length > 1 && (
-                            <Button type="button" variant="ghost" size="icon" onClick={() => removePayment(payment.id)}>
-                              <Trash2 className="h-4 w-4 text-destructive" />
-                            </Button>
-                          )}
+                      <div className="grid gap-3 md:grid-cols-2">
+                        <div className="space-y-1.5">
+                          <Label>Gateway *</Label>
+                          <Select
+                            value={payment.gateway}
+                            onValueChange={(value) => updatePayment(index, "gateway", value)}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder={gatewayFeesQuery.isLoading ? "Carregando..." : "Selecione"} />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {(gatewayFeesQuery.data ?? []).map((gatewayItem) => (
+                                <SelectItem key={gatewayItem.gateway} value={gatewayItem.gateway}>
+                                  {gatewayItem.gateway}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                         </div>
 
-                        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[1.15fr_1.1fr_0.95fr_1fr]">
-                          <div className="space-y-2">
-                            <Label>Forma de pagamento</Label>
-                            <Select value={payment.type || undefined} onValueChange={(value) => updatePayment(payment.id, "type", value)}>
-                              <SelectTrigger className="text-sm">
-                                <SelectValue placeholder="Selecione" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {Object.entries(paymentTypeLabels).map(([value, label]) => (
-                                  <SelectItem key={value} value={value}>
-                                    {label}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
+                        <div className="space-y-1.5">
+                          <Label>Forma de pagamento *</Label>
+                          <Select
+                            value={payment.paymentType}
+                            onValueChange={(value) => updatePayment(index, "paymentType", value)}
+                            disabled={!payment.gateway}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Selecione" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {(gatewayConfig?.paymentOptions ?? []).map((option) => (
+                                <SelectItem key={option.paymentType} value={option.paymentType}>
+                                  {PAYMENT_TYPE_LABELS[option.paymentType] ?? option.paymentType} - taxa {option.feeRate}%
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
 
-                          <div className="space-y-2">
-                            <Label>Gateway</Label>
-                            <Select
-                              value={effectiveGateway || undefined}
-                              onValueChange={(value) => updatePayment(payment.id, "gateway", value)}
-                              disabled={payment.type === "SLOT_RESERVATION"}
-                            >
-                              <SelectTrigger className="text-sm">
-                                <SelectValue placeholder="Selecione" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {(payment.type === "SLOT_RESERVATION" ? ["PIX"] : gatewayOptions).map((gateway) => (
-                                  <SelectItem key={gateway} value={gateway}>
-                                    {gatewayLabels[gateway]}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
+                        <div className="space-y-1.5">
+                          <Label>
+                            Valor{["INSTALLMENT", "SUBSCRIPTION"].includes(payment.paymentType) ? " por parcela/mes" : ""} *
+                          </Label>
+                          <Input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={payment.amount}
+                            onChange={(event) => updatePayment(index, "amount", event.target.value)}
+                            placeholder="0,00"
+                          />
+                        </div>
 
-                          <div className="space-y-2">
-                            <Label>Moeda</Label>
-                            <Select value={payment.currency} onValueChange={(value) => updatePayment(payment.id, "currency", value)}>
-                              <SelectTrigger className="text-sm">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {Object.entries(currencyLabels).map(([value, label]) => (
-                                  <SelectItem key={value} value={value}>
-                                    {currencySymbols[value as Currency]} {label}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-
-                          <div className="space-y-2">
-                            <Label>{recurring ? "Primeira cobrança" : "Data do pagamento"}</Label>
+                        {["INSTALLMENT", "SUBSCRIPTION"].includes(payment.paymentType) && (
+                          <div className="space-y-1.5">
+                            <Label>{payment.paymentType === "SUBSCRIPTION" ? "Meses *" : "Parcelas *"}</Label>
                             <Input
-                              type="date"
-                              value={payment.firstDueDate}
-                              onChange={(event) => updatePayment(payment.id, "firstDueDate", event.target.value)}
+                              type="number"
+                              min="1"
+                              max={MAX_INSTALLMENTS}
+                              value={payment.totalInstallments}
+                              onChange={(event) => updatePayment(index, "totalInstallments", event.target.value)}
+                              onWheel={(event) => event.currentTarget.blur()}
                             />
                           </div>
-                        </div>
-
-                        {recurring ? (
-                          <div className="mt-4 grid gap-4 md:grid-cols-3">
-                            <div className="space-y-2">
-                              <Label>Quantidade de parcelas/cobranças</Label>
-                              <Input
-                                type="number"
-                                min="1"
-                                value={payment.installments}
-                                onChange={(event) => updatePayment(payment.id, "installments", event.target.value)}
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <Label>Valor por parcela</Label>
-                              <Input
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                value={payment.installmentValue}
-                                onChange={(event) => updatePayment(payment.id, "installmentValue", event.target.value)}
-                                placeholder="0.00"
-                              />
-                            </div>
-                            <div className="rounded-2xl border border-border/60 bg-muted/30 p-3.5">
-                              <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">Total agendado</p>
-                              <p className="mt-2 text-xl font-semibold text-foreground">{formatMoney(scheduledTotal, payment.currency)}</p>
-                              <p className="mt-1 text-xs text-muted-foreground">
-                                Comissão calculada por cobrança, nunca sobre o total agregado.
-                              </p>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="mt-4 grid gap-4 md:grid-cols-2">
-                            <div className="space-y-2">
-                              <Label>Valor do pagamento</Label>
-                              <Input
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                value={payment.value}
-                                onChange={(event) => updatePayment(payment.id, "value", event.target.value)}
-                                placeholder="0.00"
-                              />
-                            </div>
-                            <div className="rounded-2xl border border-border/60 bg-muted/30 p-3.5">
-                              <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">Taxa aplicada</p>
-                              <p className="mt-2 text-xl font-semibold text-foreground">{formatPercent(taxRate)}</p>
-                              <p className="mt-1 text-xs text-muted-foreground">
-                                {payment.type === "SLOT_RESERVATION"
-                                  ? "Reserva de vaga fica fixa no PIX, com taxa de 0%."
-                                  : "Taxa puxada da combinação gateway + forma de pagamento."}
-                              </p>
-                            </div>
-                          </div>
-                        )}
-
-                        {payment.type && (
-                          <div className="mt-4 flex flex-wrap gap-2">
-                            <Badge variant="outline">Taxa {formatPercent(taxRate)}</Badge>
-                            <Badge variant="outline">Total da linha {formatMoney(scheduledTotal, payment.currency)}</Badge>
-                            {recurring && <Badge variant="secondary">Comissão por parcela</Badge>}
-                          </div>
                         )}
                       </div>
-                    );
-                  })}
 
-                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-dashed border-border px-3.5 py-2.5">
-                    <div>
-                      <p className="text-sm font-medium text-foreground">Fechamento financeiro do contrato</p>
-                      <p className="text-xs text-muted-foreground">Use a soma dos pagamentos para fechar exatamente o valor do contrato.</p>
-                    </div>
-                    <Badge variant={Math.abs(paymentTotal - contractNumber) <= 0.01 ? "default" : "secondary"}>
-                      Pagamentos: {formatMoney(paymentTotal, currency)}
-                    </Badge>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {step === 3 && (
-              <Card className="glass-card">
-                <CardHeader className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-                  <CardTitle className="font-display">Revisão final da venda</CardTitle>
-                  {renderStepNavigation()}
-                </CardHeader>
-                <CardContent className="space-y-5">
-                  <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                    <div className="rounded-2xl border border-border/60 p-4">
-                      <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">Clientes</p>
-                      <p className="mt-2 font-semibold text-foreground">{clientNames.join(", ")}</p>
-                    </div>
-                    <div className="rounded-2xl border border-border/60 p-4">
-                      <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">Vagas</p>
-                      <p className="mt-2 font-semibold text-foreground">{slotsCount}</p>
-                    </div>
-                    <div className="rounded-2xl border border-border/60 p-4">
-                      <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">Contrato</p>
-                      <p className="mt-2 font-semibold text-foreground">{formatMoney(contractNumber, currency)}</p>
-                    </div>
-                    <div className="rounded-2xl border border-border/60 p-4">
-                      <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">Comissão prevista</p>
-                      <p className="mt-2 font-semibold text-primary">{preview ? formatMoney(preview.totalCommissionBRL) : "Preencha os dados"}</p>
-                    </div>
-                  </div>
-
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <Label>Módulos vendidos</Label>
-                      <Badge variant="outline">{selectedProducts.length} item(ns)</Badge>
-                    </div>
-                    <div className="space-y-3">
-                      {preview?.moduleSchedules.map((moduleSchedule) => (
-                        <div key={moduleSchedule.product} className="flex flex-col gap-2 rounded-2xl border border-border/60 p-4 md:flex-row md:items-center md:justify-between">
-                          <div>
-                            <p className="font-medium text-foreground">{moduleNames[moduleSchedule.product]}</p>
-                            <p className="text-sm text-muted-foreground">Liberação em {moduleSchedule.releaseDate}</p>
+                      <div className="rounded-md bg-muted/40 p-3 text-xs text-muted-foreground">
+                        {amount > 0 ? (
+                          <div className="space-y-1">
+                            <p>
+                              Taxa do gateway: <strong>{feeRate}%</strong>
+                            </p>
+                            <p>
+                              Valor deste pagamento: <strong>{paymentValue.toLocaleString("pt-BR", { style: "currency", currency })}</strong>
+                            </p>
+                            {["INSTALLMENT", "SUBSCRIPTION"].includes(payment.paymentType) && (
+                              <p>
+                                {payment.paymentType === "SUBSCRIPTION" ? "Meses" : "Parcelas"}: <strong>{installments}</strong>
+                              </p>
+                            )}
                           </div>
-                          <p className="font-semibold text-foreground">{formatMoney(moduleSchedule.value, currency)}</p>
+                        ) : (
+                          <p>Preencha o valor para visualizar os totais.</p>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+
+                <Button variant="outline" size="sm" className="w-full gap-2" onClick={addPayment}>
+                  <Plus className="h-4 w-4" />
+                  Adicionar pagamento
+                </Button>
+
+                <div className="md:col-span-2 flex justify-between">
+                  <Button variant="outline" onClick={() => setStep(2)}>
+                    Voltar
+                  </Button>
+                  <Button onClick={() => setStep(4)} disabled={!canGoStep4}>
+                    Proximo
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {step === 4 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Confirmar venda</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="mx-auto max-w-2xl space-y-4 text-sm">
+                  <div className="space-y-1.5">
+                    <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      <User className="h-3.5 w-3.5" />
+                      Clientes
+                    </div>
+                    {filledCustomers.length === 0 ? (
+                      <p className="italic text-muted-foreground">Nenhum cliente adicionado</p>
+                    ) : (
+                      <ul className="space-y-1">
+                        {filledCustomers.map((customer, index) => (
+                          <li key={index}>
+                            <p className="font-medium leading-tight">{customer.name}</p>
+                            {customer.document && <p className="text-xs text-muted-foreground">{customer.document}</p>}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+
+                  <Separator />
+
+                  <div className="space-y-1.5">
+                    <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      <Package className="h-3.5 w-3.5" />
+                      Produto
+                    </div>
+                    {productName ? (
+                      <>
+                        <p className="font-medium">{productName}</p>
+                        {releaseDate && <p className="text-xs text-muted-foreground">Liberacao: {releaseDate}</p>}
+                      </>
+                    ) : (
+                      <p className="italic text-muted-foreground">Nao selecionado</p>
+                    )}
+                  </div>
+
+                  <Separator />
+
+                  <div className="space-y-1.5">
+                    <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      <CreditCard className="h-3.5 w-3.5" />
+                      Pagamentos
+                    </div>
+                    {configuredPayments.length === 0 ? (
+                      <p className="italic text-muted-foreground">Nenhum pagamento configurado</p>
+                    ) : (
+                      <ul className="space-y-2">
+                        {configuredPayments.map((payment, index) => (
+                          <li key={index} className="rounded-md border p-2">
+                            <p className="font-medium">{payment.gateway}</p>
+                            <p className="text-muted-foreground">
+                              {PAYMENT_TYPE_LABELS[payment.paymentType] ?? payment.paymentType}
+                              {(() => {
+                                const feeRate = getFeeRate(payment.gateway, payment.paymentType);
+                                return feeRate > 0 ? ` - taxa ${feeRate}%` : "";
+                              })()}
+                            </p>
+                            <p className="font-medium">
+                              {paymentGrossValue({
+                                gateway: payment.gateway,
+                                paymentType: payment.paymentType,
+                                amount: String(payment.amount),
+                                totalInstallments: String(payment.totalInstallments ?? 1),
+                              }).toLocaleString("pt-BR", { style: "currency", currency })}
+                            </p>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+
+                  <Separator />
+
+                  <div className="space-y-1.5">
+                    <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      <TrendingUp className="h-3.5 w-3.5" />
+                      Comissao estimada
+                    </div>
+                    {configuredPayments.length > 0 ? (
+                      <div className="space-y-2 rounded-md border border-primary/20 bg-primary/5 p-3">
+                        <p className="text-xl font-bold text-primary">
+                          {estimatedCommission.toLocaleString("pt-BR", { style: "currency", currency })}
+                        </p>
+                        <div className="space-y-0.5">
+                          <p className="flex items-center gap-1 text-xs text-muted-foreground">
+                            <Award className="h-3 w-3" />
+                            {profile?.careerPlan?.name ?? "Nao carregado"} · {commissionBreakdown.commissionRate}%
+                          </p>
+                          <p className="flex items-center gap-1 text-xs text-muted-foreground">
+                            <Banknote className="h-3 w-3" />
+                            Bruto total: {commissionBreakdown.totalGross.toLocaleString("pt-BR", { style: "currency", currency })}
+                          </p>
+                          <p className="flex items-center gap-1 text-xs text-muted-foreground">
+                            <Landmark className="h-3 w-3" />
+                            Taxas gateway: {commissionBreakdown.totalFees.toLocaleString("pt-BR", { style: "currency", currency })}
+                          </p>
+                          <p className="flex items-center gap-1 text-xs text-muted-foreground">
+                            <TrendingDown className="h-3 w-3" />
+                            Liquido: {commissionBreakdown.totalNet.toLocaleString("pt-BR", { style: "currency", currency })}
+                          </p>
+                        </div>
+                        <div className="space-y-2 pt-1">
+                          {commissionBreakdown.payments.map((payment, idx) => (
+                            <div key={`${payment.gateway}-${payment.paymentType}-${idx}`} className="rounded-md border bg-background p-2 space-y-0.5">
+                              <p className="text-xs font-semibold text-foreground">
+                                {payment.gateway} · {PAYMENT_TYPE_LABELS[payment.paymentType] ?? payment.paymentType}
+                              </p>
+                              <p className="flex items-center gap-1 text-xs text-muted-foreground"><Banknote className="h-3 w-3" /> Bruto: {payment.grossAmount.toLocaleString("pt-BR", { style: "currency", currency })}</p>
+                              <p className="flex items-center gap-1 text-xs text-muted-foreground"><MinusCircle className="h-3 w-3" /> Taxa ({payment.feeRate}%): {payment.feeAmount.toLocaleString("pt-BR", { style: "currency", currency })}</p>
+                              <p className="flex items-center gap-1 text-xs text-muted-foreground"><TrendingDown className="h-3 w-3" /> Liquido: {payment.netAmount.toLocaleString("pt-BR", { style: "currency", currency })}</p>
+                              <p className="flex items-center gap-1 text-xs font-medium text-primary"><TrendingUp className="h-3 w-3" /> Comissao: {payment.commissionAmount.toLocaleString("pt-BR", { style: "currency", currency })}</p>
+                              {payment.paymentType === "SUBSCRIPTION" && payment.monthlyCommissions && (
+                                <div className="mt-1.5 rounded border border-dashed p-1.5 space-y-1">
+                                  <p className="flex items-center gap-1 text-[11px] font-semibold text-muted-foreground">
+                                    <CreditCard className="h-3 w-3" /> {payment.monthlyCommissions.length} parcelas mensais
+                                  </p>
+                                  {payment.monthlyCommissions.slice(0, 24).map((month) => (
+                                    <div key={month.month} className="flex justify-between text-[11px] text-muted-foreground">
+                                      <span>Mês {month.month}</span>
+                                      <span className="space-x-2">
+                                        <span className="text-muted-foreground/70">bruto {month.grossAmount.toLocaleString("pt-BR", { style: "currency", currency })}</span>
+                                        <span className="font-medium text-foreground">→ {month.commissionAmount.toLocaleString("pt-BR", { style: "currency", currency })}</span>
+                                      </span>
+                                    </div>
+                                  ))}
+                                  {payment.monthlyCommissions.length > 24 && (
+                                    <p className="text-[11px] text-muted-foreground">... +{payment.monthlyCommissions.length - 24} meses</p>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="italic text-muted-foreground">Preencha os pagamentos para calcular</p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex justify-between">
+                  <Button variant="outline" onClick={() => setStep(3)}>
+                    Voltar
+                  </Button>
+                  <Button onClick={() => mutation.mutate()} disabled={!canSubmit || mutation.isPending}>
+                    {mutation.isPending ? "Salvando..." : "Confirmar venda"}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+
+        <div className="hidden lg:block">
+          <Card className="sticky top-6">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Previa da venda</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4 text-sm">
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  <User className="h-3.5 w-3.5" />
+                  Clientes
+                </div>
+                {filledCustomers.length === 0 ? (
+                  <p className="italic text-muted-foreground">Nenhum cliente adicionado</p>
+                ) : (
+                  <ul className="space-y-1">
+                    {filledCustomers.map((customer, index) => (
+                      <li key={index}>
+                        <p className="font-medium leading-tight">{customer.name}</p>
+                        {customer.document && <p className="text-xs text-muted-foreground">{customer.document}</p>}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
+              <Separator />
+
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  <Package className="h-3.5 w-3.5" />
+                  Produto
+                </div>
+                {productName ? (
+                  <>
+                    <p className="font-medium">{productName}</p>
+                    {releaseDate && <p className="text-xs text-muted-foreground">Liberacao: {releaseDate}</p>}
+                  </>
+                ) : (
+                  <p className="italic text-muted-foreground">Nao selecionado</p>
+                )}
+              </div>
+
+              <Separator />
+
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  <CreditCard className="h-3.5 w-3.5" />
+                  Pagamentos
+                </div>
+                {configuredPayments.length === 0 ? (
+                  <p className="italic text-muted-foreground">Nenhum pagamento configurado</p>
+                ) : (
+                  <ul className="space-y-2">
+                    {configuredPayments
+                      .map((payment, index) => (
+                        <li key={index} className="rounded-md border p-2">
+                          <p className="font-medium">{payment.gateway}</p>
+                          <p className="text-muted-foreground">
+                            {PAYMENT_TYPE_LABELS[payment.paymentType] ?? payment.paymentType}
+                            {(() => {
+                              const feeRate = getFeeRate(payment.gateway, payment.paymentType);
+                              return feeRate > 0 ? ` - taxa ${feeRate}%` : "";
+                            })()}
+                          </p>
+                          <p className="font-medium">
+                            {paymentGrossValue({
+                              gateway: payment.gateway,
+                              paymentType: payment.paymentType,
+                              amount: String(payment.amount),
+                              totalInstallments: String(payment.totalInstallments ?? 1),
+                            }).toLocaleString("pt-BR", { style: "currency", currency })}
+                          </p>
+                        </li>
+                      ))}
+                  </ul>
+                )}
+              </div>
+
+              <Separator />
+
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  <TrendingUp className="h-3.5 w-3.5" />
+                  Comissao estimada
+                </div>
+                {configuredPayments.length > 0 ? (
+                  <div className="space-y-2 rounded-md border border-primary/20 bg-primary/5 p-3">
+                    <p className="text-xl font-bold text-primary">
+                      {estimatedCommission.toLocaleString("pt-BR", { style: "currency", currency })}
+                    </p>
+
+                    <div className="space-y-0.5">
+                      <p className="flex items-center gap-1 text-xs text-muted-foreground">
+                        <Award className="h-3 w-3" />
+                        {profile?.careerPlan?.name ?? "Nao carregado"} · {commissionBreakdown.commissionRate}%
+                      </p>
+                      {commissionBreakdown.commissionRate === 0 && (
+                        <p className="text-xs text-amber-700">
+                          Taxa nao encontrada; recarregue o login.
+                        </p>
+                      )}
+                      <p className="flex items-center gap-1 text-xs text-muted-foreground">
+                        <Banknote className="h-3 w-3" />
+                        Bruto total: {commissionBreakdown.totalGross.toLocaleString("pt-BR", { style: "currency", currency })}
+                      </p>
+                      <p className="flex items-center gap-1 text-xs text-muted-foreground">
+                        <Landmark className="h-3 w-3" />
+                        Taxas gateway: {commissionBreakdown.totalFees.toLocaleString("pt-BR", { style: "currency", currency })}
+                      </p>
+                      <p className="flex items-center gap-1 text-xs text-muted-foreground">
+                        <TrendingDown className="h-3 w-3" />
+                        Liquido: {commissionBreakdown.totalNet.toLocaleString("pt-BR", { style: "currency", currency })}
+                      </p>
+                    </div>
+
+                    <div className="space-y-2 pt-1">
+                      {commissionBreakdown.payments.map((payment, idx) => (
+                        <div key={`${payment.gateway}-${payment.paymentType}-${idx}`} className="rounded-md border bg-background p-2 space-y-0.5">
+                          <p className="text-xs font-semibold text-foreground">
+                            {payment.gateway} · {PAYMENT_TYPE_LABELS[payment.paymentType] ?? payment.paymentType}
+                          </p>
+                          <p className="flex items-center gap-1 text-xs text-muted-foreground"><Banknote className="h-3 w-3" /> Bruto: {payment.grossAmount.toLocaleString("pt-BR", { style: "currency", currency })}</p>
+                          <p className="flex items-center gap-1 text-xs text-muted-foreground"><MinusCircle className="h-3 w-3" /> Taxa ({payment.feeRate}%): {payment.feeAmount.toLocaleString("pt-BR", { style: "currency", currency })}</p>
+                          <p className="flex items-center gap-1 text-xs text-muted-foreground"><TrendingDown className="h-3 w-3" /> Liquido: {payment.netAmount.toLocaleString("pt-BR", { style: "currency", currency })}</p>
+                          <p className="flex items-center gap-1 text-xs font-medium text-primary"><TrendingUp className="h-3 w-3" /> Comissao: {payment.commissionAmount.toLocaleString("pt-BR", { style: "currency", currency })}</p>
+
+                          {payment.paymentType === "SUBSCRIPTION" && payment.monthlyCommissions && (
+                            <div className="mt-1.5 rounded border border-dashed p-1.5 space-y-1">
+                              <p className="flex items-center gap-1 text-[11px] font-semibold text-muted-foreground">
+                                <CreditCard className="h-3 w-3" /> {payment.monthlyCommissions.length} parcelas mensais
+                              </p>
+                              {payment.monthlyCommissions.slice(0, 24).map((month) => (
+                                <div key={month.month} className="flex justify-between text-[11px] text-muted-foreground">
+                                  <span>Mês {month.month}</span>
+                                  <span className="space-x-2">
+                                    <span className="text-muted-foreground/70">bruto {month.grossAmount.toLocaleString("pt-BR", { style: "currency", currency })}</span>
+                                    <span className="font-medium text-foreground">→ {month.commissionAmount.toLocaleString("pt-BR", { style: "currency", currency })}</span>
+                                  </span>
+                                </div>
+                              ))}
+                              {payment.monthlyCommissions.length > 24 && (
+                                <p className="text-[11px] text-muted-foreground">... +{payment.monthlyCommissions.length - 24} meses</p>
+                              )}
+                            </div>
+                          )}
                         </div>
                       ))}
                     </div>
                   </div>
-
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <Label>Prévia das linhas de comissão</Label>
-                      <Badge variant="secondary">{preview?.commissionLines.length ?? 0} eventos</Badge>
-                    </div>
-                    <div className="space-y-3">
-                      {preview?.commissionLines.map((line) => (
-                        <div key={line.id} className="grid gap-2.5 rounded-2xl border border-border/60 p-3.5 md:grid-cols-[1.2fr_1fr_1fr_1fr] md:items-center">
-                          <div>
-                            <p className="font-medium text-foreground">
-                              {paymentTypeLabels[line.paymentType]}
-                              {line.installmentNumber ? ` • Parcela ${line.installmentNumber}` : ""}
-                            </p>
-                            <p className="text-sm text-muted-foreground">
-                              {gatewayLabels[line.gateway]} • {line.paymentDate}
-                            </p>
-                          </div>
-                          <div>
-                            <p className="text-xs text-muted-foreground">Base</p>
-                            <p className="font-medium text-foreground">{formatMoney(line.originalAmount, line.originalCurrency)}</p>
-                          </div>
-                          <div>
-                            <p className="text-xs text-muted-foreground">Após taxa</p>
-                            <p className="font-medium text-foreground">{formatMoney(line.valueAfterTaxBRL)}</p>
-                          </div>
-                          <div>
-                            <p className="text-xs text-muted-foreground">Comissão</p>
-                            <p className="font-semibold text-primary">{formatMoney(line.finalValueBRL)}</p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-          </motion.div>
-        </AnimatePresence>
-
-        <div className="space-y-5">
-          <Card className="glass-card">
-            <CardHeader>
-              <CardTitle className="font-display">Resumo operacional</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3.5">
-              <div className="flex items-center justify-between rounded-2xl bg-muted/30 p-3.5">
-                <div>
-                  <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">Contrato</p>
-                  <p className="mt-2 text-xl font-semibold text-foreground">{formatMoney(contractNumber, currency)}</p>
-                </div>
-                <Badge variant="outline">{currency}</Badge>
+                ) : (
+                  <p className="italic text-muted-foreground">Preencha os pagamentos para calcular</p>
+                )}
               </div>
-
-              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-1">
-                <div className="rounded-2xl border border-border/60 p-3.5">
-                  <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">Módulos alocados</p>
-                  <p className="mt-2 text-lg font-semibold text-foreground">{selectedProducts.length}</p>
-                  <p className="text-sm text-muted-foreground">{formatMoney(moduleTotal, currency)} distribuídos</p>
-                </div>
-                <div className="rounded-2xl border border-border/60 p-3.5">
-                  <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">Pagamentos configurados</p>
-                  <p className="mt-2 text-lg font-semibold text-foreground">{payments.length}</p>
-                  <p className="text-sm text-muted-foreground">{formatMoney(paymentTotal, currency)} planejados</p>
-                </div>
-              </div>
-
-              <div className="rounded-2xl border border-primary/20 bg-primary/5 p-3.5">
-                <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">Comissão em BRL</p>
-                <p className="mt-2 text-2xl font-semibold text-primary">
-                  {preview ? formatMoney(preview.totalCommissionBRL) : "Preencha os dados para simular"}
-                </p>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Cálculo considerando taxa por gateway + método e comissão padrão de 5%.
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="glass-card">
-            <CardHeader>
-              <CardTitle className="font-display">Regras aplicadas</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3 text-sm text-muted-foreground">
-              <p>Reserva de vaga força PIX e taxa zero.</p>
-              <p>Hotmart e Asaas cobram 4% em pagamento simples e 17% em parcelamento.</p>
-              <p>Nubank e Wise aplicam 2% em qualquer forma de pagamento.</p>
-              <p>PayPal aplica 10% em todas as modalidades.</p>
-              <p>Parcelamento e assinatura geram uma linha de comissão para cada cobrança agendada.</p>
             </CardContent>
           </Card>
         </div>
       </div>
-
     </div>
   );
 };

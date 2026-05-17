@@ -1,24 +1,125 @@
+# ============================================================================
+# Environment & Secrets
+# ============================================================================
+.env
+.env.local
+.env.*.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.example
+.env.backup
+*.pem
+*.key
+*.crt
+secrets/
+/keys
+credentials.json
+
+# ============================================================================
+# Dependencies
+# ============================================================================
+node_modules/
+jspm_packages/
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# ============================================================================
+# Build & Dist
+# ============================================================================
+dist/
+build/
+out/
+.next/
+.nuxt/
+.vuepress/dist/
+.serverless/
+.fusebox/
+.dynamodb/
+.parcel-cache
+.cache/
+
+# ============================================================================
 # Logs
-logs
+# ============================================================================
+logs/
+log/
 *.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-pnpm-debug.log*
 lerna-debug.log*
+.pnpm-debug.log*
 
-node_modules
-dist
-dist-ssr
-*.local
+# ============================================================================
+# Runtime & Processes
+# ============================================================================
+pids/
+*.pid
+*.seed
+*.pid.lock
 
-# Editor directories and files
-.vscode/*
-!.vscode/extensions.json
-.idea
+# ============================================================================
+# Coverage & Testing
+# ============================================================================
+coverage/
+.nyc_output/
+*.coverage
+.c8out
+junit.xml
+
+# ============================================================================
+# IDE & Editor
+# ============================================================================
+.vscode/
+.vscode-test/
+.idea/
 .DS_Store
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
+.AppleDouble
+.LSOverride
+*.swp
+*.swo
+*~
+.history/
+.editorconfig.swp
+.vscode-workspace
+*.code-workspace
+.eslintcache
+.stylelintcache
+
+# ============================================================================
+# OS Files
+# ============================================================================
+.DS_Store
+Thumbs.db
+ehthumbs.db
+.env.*.swp
+
+# ============================================================================
+# Node & NPM
+# ============================================================================
+.npm/
+.node_repl_history
+.lock-wscript
+
+# ============================================================================
+# Debugging & Profiling
+# ============================================================================
+profile-*
+*clinic*
+*flamegraph*
+.v8code-cache-*
+
+# ============================================================================
+# Temporary & Generated Files
+# ============================================================================
+*.tmp
+*.temp
+*.bak
+*.backup
+tmp/
+temp/
+data-test/
+migrations/
+prisma/migrations/

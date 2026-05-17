@@ -1,10 +1,14 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useMutation } from "@tanstack/react-query";
 import { motion } from "framer-motion";
-import { Eye, EyeOff, Building2 } from "lucide-react";
+import { Building2, Eye, EyeOff } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { login, resolveProfile } from "@/lib/authApi";
+import { setProfile, setSession } from "@/lib/session";
 import loginBg from "@/assets/login-bg.jpg";
 
 const Login = () => {
@@ -14,23 +18,52 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
 
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    const newErrors: typeof errors = {};
-    if (!email) newErrors.email = "E-mail é obrigatório";
-    if (!password) newErrors.password = "Senha é obrigatória";
-    setErrors(newErrors);
-    if (Object.keys(newErrors).length === 0) {
-      // Prototype: just navigate
-      navigate("/dashboard");
+  const mutation = useMutation({
+    mutationFn: async () => {
+      const authResult = await login(email, password);
+      setSession(authResult.session);
+
+      const profile = await resolveProfile(authResult.userId, {
+        email: authResult.email,
+        role: authResult.role,
+      });
+      setProfile(profile);
+      return profile;
+    },
+    onSuccess: (profile) => {
+      toast.success("Login realizado com sucesso.");
+      navigate(profile.role === "ADMIN" ? "/admin" : "/dashboard", { replace: true });
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : "Nao foi possivel autenticar.");
+    },
+  });
+
+  const onSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    const nextErrors: typeof errors = {};
+    if (!email) {
+      nextErrors.email = "E-mail e obrigatorio";
     }
+    if (!password) {
+      nextErrors.password = "Senha e obrigatoria";
+    }
+
+    setErrors(nextErrors);
+
+    if (Object.keys(nextErrors).length > 0) {
+      toast.error("Preencha os campos obrigatorios.");
+      return;
+    }
+
+    mutation.mutate();
   };
 
   return (
     <div className="flex min-h-screen">
-      {/* Left - Image */}
-      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden">
-        <img src={loginBg} alt="Background" className="absolute inset-0 w-full h-full object-cover" />
+      <div className="relative hidden overflow-hidden lg:flex lg:w-1/2">
+        <img src={loginBg} alt="Background" className="absolute inset-0 h-full w-full object-cover" />
         <div className="absolute inset-0 gradient-primary opacity-70" />
         <div className="relative z-10 flex items-end p-12">
           <motion.div
@@ -38,39 +71,30 @@ const Login = () => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3, duration: 0.8 }}
           >
-            <h2 className="text-4xl font-display font-bold text-primary-foreground mb-2">
-              Sistema Comercial
-            </h2>
-            <p className="text-primary-foreground/70 text-lg">
-              Gerencie suas vendas de forma eficiente
-            </p>
+            <h2 className="mb-2 text-4xl font-display font-bold text-primary-foreground">Sistema Comercial</h2>
+            <p className="text-lg text-primary-foreground/70">Gerencie suas vendas de forma eficiente</p>
           </motion.div>
         </div>
       </div>
 
-      {/* Right - Form */}
-      <div className="flex-1 flex items-center justify-center p-8 bg-background">
+      <div className="flex flex-1 items-center justify-center bg-background p-8">
         <motion.div
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.6 }}
           className="w-full max-w-md space-y-8"
         >
-          <div className="text-center space-y-2">
-            <div className="inline-flex items-center gap-2 text-primary mb-4">
+          <div className="space-y-2 text-center">
+            <div className="mb-4 inline-flex items-center gap-2 text-primary">
               <Building2 className="h-8 w-8" />
             </div>
-            <h1 className="text-3xl font-body font-bold text-foreground">
-              Bem-vindo!
-            </h1>
-            <p className="text-muted-foreground">
-              Insira seu e-mail e senha para continuar.
-            </p>
+            <h1 className="text-3xl font-body font-bold text-foreground">Bem-vindo!</h1>
+            <p className="text-muted-foreground">Insira seu e-mail e senha para continuar.</p>
           </div>
 
           <div className="h-px bg-border" />
 
-          <form onSubmit={handleLogin} className="space-y-6">
+          <form onSubmit={onSubmit} className="space-y-6">
             <div className="space-y-2">
               <Label htmlFor="email">E-mail</Label>
               <Input
@@ -78,12 +102,16 @@ const Login = () => {
                 type="email"
                 placeholder="E-mail"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(event) => {
+                  setEmail(event.target.value);
+                  if (errors.email) {
+                    setErrors((current) => ({ ...current, email: undefined }));
+                  }
+                }}
                 className={errors.email ? "border-destructive" : ""}
+                disabled={mutation.isPending}
               />
-              {errors.email && (
-                <p className="text-sm text-destructive">{errors.email}</p>
-              )}
+              {errors.email && <p className="text-sm text-destructive">{errors.email}</p>}
             </div>
 
             <div className="space-y-2">
@@ -94,20 +122,25 @@ const Login = () => {
                   type={showPassword ? "text" : "password"}
                   placeholder="Senha"
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(event) => {
+                    setPassword(event.target.value);
+                    if (errors.password) {
+                      setErrors((current) => ({ ...current, password: undefined }));
+                    }
+                  }}
                   className={errors.password ? "border-destructive" : ""}
+                  disabled={mutation.isPending}
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
+                  aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
                 >
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
-              {errors.password && (
-                <p className="text-sm text-destructive">{errors.password}</p>
-              )}
+              {errors.password && <p className="text-sm text-destructive">{errors.password}</p>}
             </div>
 
             <div className="text-right">
@@ -116,16 +149,14 @@ const Login = () => {
               </button>
             </div>
 
-            <Button type="submit" className="w-full h-12 text-base font-semibold">
-              Acessar
+            <Button type="submit" className="h-12 w-full text-base font-semibold" disabled={mutation.isPending}>
+              {mutation.isPending ? "Entrando..." : "Acessar"}
             </Button>
           </form>
 
           <div className="h-px bg-border" />
 
-          <p className="text-center text-xs text-muted-foreground">
-            Sistema Comercial © 2026
-          </p>
+          <p className="text-center text-xs text-muted-foreground">Sistema Comercial © 2026</p>
         </motion.div>
       </div>
     </div>
