@@ -12,4 +12,10 @@ export const PAYMENT_TYPE_LABELS: Record<string, string> = {
 };
 
 export const EMPTY_CUSTOMER: CreateSaleCustomer = { name: "", document: "" };
-export const EMPTY_PAYMENT: SalePaymentDraft = { gateway: "", paymentType: "", amount: "", totalInstallments: "1" };
+export const EMPTY_PAYMENT: SalePaymentDraft = {
+  gateway: "",
+  paymentType: "",
+  amount: "",
+  totalInstallments: "1",
+  dueDate: "",
+};

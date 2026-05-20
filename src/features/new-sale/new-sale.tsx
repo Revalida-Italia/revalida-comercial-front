@@ -15,15 +15,6 @@ import ProductStep from "./organisms/ProductStep";
 import SaleSummary from "./organisms/SaleSummary";
 import StepIndicator from "./organisms/StepIndicator";
 
-function normalizeInstallments(rawValue: string): string {
-  const digitsOnly = rawValue.replace(/\D/g, "");
-  if (!digitsOnly) {
-    return "";
-  }
-  const normalized = Math.max(1, Math.min(Number(digitsOnly), MAX_INSTALLMENTS));
-  return String(normalized);
-}
-
 const NewSaleFeature = () => {
   const queryClient = useQueryClient();
   const profile = getProfile();
@@ -107,21 +98,22 @@ const NewSaleFeature = () => {
     const amount = Number(payment.amount);
     if (!amount) return 0;
     if (["INSTALLMENT", "SUBSCRIPTION"].includes(payment.paymentType)) {
-      return amount * (Number(normalizeInstallments(payment.totalInstallments || "1")) || 1);
+      return amount * (Number(payment.totalInstallments || "1") || 1);
     }
     return amount;
   }
 
   const configuredPayments = useMemo(
     () => payments
-      .filter((payment) => Number(payment.amount) > 0 && payment.gateway && payment.paymentType)
+      .filter((payment) => Number(payment.amount) > 0 && payment.gateway && payment.paymentType && payment.dueDate)
       .map((payment) => ({
         gateway: payment.gateway,
         paymentType: payment.paymentType,
         amount: Number(payment.amount),
         totalInstallments: ["INSTALLMENT", "SUBSCRIPTION"].includes(payment.paymentType)
-          ? Number(normalizeInstallments(payment.totalInstallments || "1"))
+          ? Number(payment.totalInstallments || "1")
           : undefined,
+        dueDate: payment.dueDate,
         feeRate: getFeeRate(payment.gateway, payment.paymentType),
       })),
     [payments, gatewayFeesQuery.data],
@@ -142,10 +134,11 @@ const NewSaleFeature = () => {
   const hasValidPayments = payments.length > 0
     && payments.every((payment) => {
       const amountOk = Number(payment.amount) > 0;
-      const baseOk = Boolean(payment.gateway && payment.paymentType && amountOk);
+      const baseOk = Boolean(payment.gateway && payment.paymentType && payment.dueDate && amountOk);
       if (!baseOk) return false;
       if (["INSTALLMENT", "SUBSCRIPTION"].includes(payment.paymentType)) {
-        return Number(normalizeInstallments(payment.totalInstallments || "1")) >= 1;
+        const installments = Number(payment.totalInstallments);
+        return Number.isInteger(installments) && installments >= 1 && installments <= MAX_INSTALLMENTS;
       }
       return true;
     });
@@ -191,7 +184,7 @@ const NewSaleFeature = () => {
         };
       }
       if (field === "totalInstallments") {
-        return { ...payment, totalInstallments: normalizeInstallments(value) };
+        return { ...payment, totalInstallments: value };
       }
       return { ...payment, [field]: value };
     }));
@@ -235,6 +228,7 @@ const NewSaleFeature = () => {
           gateway: payment.gateway,
           type: payment.paymentType,
           amount: payment.amount,
+          dueDate: payment.dueDate,
           ...(payment.totalInstallments ? { totalInstallments: payment.totalInstallments } : {}),
         })),
       });

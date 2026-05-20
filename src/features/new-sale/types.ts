@@ -5,6 +5,7 @@ export type SalePaymentDraft = {
   paymentType: string;
   amount: string;
   totalInstallments: string;
+  dueDate: string;
 };
 
 export type SaleItemDraft = {
@@ -22,6 +23,7 @@ export type ConfiguredSalePayment = {
   paymentType: string;
   amount: number;
   totalInstallments?: number;
+  dueDate?: string;
   feeRate: number;
 };
 

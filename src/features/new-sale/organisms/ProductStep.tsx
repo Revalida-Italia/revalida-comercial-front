@@ -1,12 +1,10 @@
 import type { Product } from "@/lib/commercialApi";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Calendar } from "@/components/ui/calendar";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Label } from "@/components/ui/label";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { format } from "date-fns";
-import { CalendarIcon, Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
 import type { SaleItemDraft } from "../types";
 
 type ProductStepProps = {
@@ -40,8 +38,6 @@ const ProductStep = ({
     </CardHeader>
     <CardContent className="space-y-4">
       {items.map((item, index) => {
-        const selectedDate = item.releaseDate ? new Date(`${item.releaseDate}T00:00:00`) : undefined;
-
         return (
           <div key={index} className="space-y-3 rounded-lg border p-4">
             <div className="flex items-center justify-between">
@@ -83,25 +79,7 @@ const ProductStep = ({
 
               <div className="space-y-1.5">
                 <Label>Data de liberacao *</Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button type="button" variant="outline" className="w-full justify-between font-normal">
-                      {selectedDate ? format(selectedDate, "dd/MM/yyyy") : "Selecionar data"}
-                      <CalendarIcon className="h-4 w-4 text-muted-foreground" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={selectedDate}
-                      onSelect={(date) => onUpdateItem(index, "releaseDate", date ? format(date, "yyyy-MM-dd") : "")}
-                      captionLayout="dropdown"
-                      fromYear={new Date().getFullYear() - 1}
-                      toYear={new Date().getFullYear() + 10}
-                      initialFocus
-                    />
-                  </PopoverContent>
-                </Popover>
+                <DatePicker value={item.releaseDate} onChange={(value) => onUpdateItem(index, "releaseDate", value)} />
               </div>
             </div>
           </div>

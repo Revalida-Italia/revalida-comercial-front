@@ -1,6 +1,7 @@
 import type { GatewayFees } from "@/lib/commercialApi";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -62,6 +63,8 @@ const PaymentsStep = ({
         const amount = Number(payment.amount);
         const installments = Number(payment.totalInstallments) || 1;
         const paymentValue = paymentGrossValue(payment);
+        const isSplitOrSubscription = ["INSTALLMENT", "SUBSCRIPTION"].includes(payment.paymentType);
+        const isSubscription = payment.paymentType === "SUBSCRIPTION";
 
         return (
           <div key={index} className="space-y-3 rounded-lg border p-4">
@@ -115,7 +118,9 @@ const PaymentsStep = ({
                   </SelectContent>
                 </Select>
               </div>
+            </div>
 
+            <div className="grid gap-3 md:grid-cols-3">
               <div className="space-y-1.5">
                 <Label>
                   Valor{["INSTALLMENT", "SUBSCRIPTION"].includes(payment.paymentType) ? " por parcela/mes" : ""} *
@@ -130,19 +135,31 @@ const PaymentsStep = ({
                 />
               </div>
 
-              {["INSTALLMENT", "SUBSCRIPTION"].includes(payment.paymentType) && (
+              {isSplitOrSubscription && (
                 <div className="space-y-1.5">
-                  <Label>{payment.paymentType === "SUBSCRIPTION" ? "Meses *" : "Parcelas *"}</Label>
+                  <Label>{isSubscription ? "Meses *" : "Parcelas *"}</Label>
                   <Input
                     type="number"
                     min="1"
                     max={MAX_INSTALLMENTS}
+                    step="1"
+                    inputMode="numeric"
                     value={payment.totalInstallments}
                     onChange={(event) => onUpdatePayment(index, "totalInstallments", event.target.value)}
                     onWheel={(event) => event.currentTarget.blur()}
                   />
                 </div>
               )}
+
+              <div className="space-y-1.5">
+                <Label>{isSubscription ? "Inicio da cobrança *" : "Data de pagamento *"}</Label>
+                <DatePicker value={payment.dueDate} onChange={(value) => onUpdatePayment(index, "dueDate", value)} />
+                {isSubscription && (
+                  <p className="-mt-0.5 rounded-sm bg-amber-50/45 px-2 py-1 text-[11px] leading-tight text-amber-900/60">
+                    Esta data define o início da cobrança (primeiro pagamento).
+                  </p>
+                )}
+              </div>
             </div>
 
             <div className="rounded-md bg-muted/40 p-3 text-xs text-muted-foreground">
@@ -153,6 +170,9 @@ const PaymentsStep = ({
                   </p>
                   <p>
                     Valor deste pagamento: <strong>{paymentValue.toLocaleString("pt-BR", { style: "currency", currency })}</strong>
+                  </p>
+                  <p>
+                    Data de pagamento: <strong>{payment.dueDate || "Nao definida"}</strong>
                   </p>
                   {["INSTALLMENT", "SUBSCRIPTION"].includes(payment.paymentType) && (
                     <p>

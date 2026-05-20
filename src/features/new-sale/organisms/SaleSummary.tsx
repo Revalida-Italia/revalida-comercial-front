@@ -107,8 +107,10 @@ const SaleSummary = ({
                   paymentType: payment.paymentType,
                   amount: String(payment.amount),
                   totalInstallments: String(payment.totalInstallments ?? 1),
+                  dueDate: payment.dueDate ?? "",
                 }).toLocaleString("pt-BR", { style: "currency", currency })}
               </p>
+              {payment.dueDate && <p className="text-xs text-muted-foreground">Pagamento: {payment.dueDate}</p>}
             </li>
           ))}
         </ul>
