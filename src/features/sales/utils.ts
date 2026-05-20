@@ -35,3 +35,15 @@ export const getSaleCustomerNames = (sale: SaleRecord): string => {
 
 export const getSaleProductName = (sale: SaleRecord): string =>
   sale.items[0]?.product?.name ?? "Produto nao informado";
+
+export const getSaleSellerInfo = (sale: SaleRecord): string => {
+  if (!sale.seller) {
+    return "Vendedor nao informado";
+  }
+  
+  if (sale.seller.name) {
+    return `${sale.seller.name} (${sale.seller.email || "sem email"})`;
+  }
+  
+  return sale.seller.email || "Vendedor nao informado";
+};

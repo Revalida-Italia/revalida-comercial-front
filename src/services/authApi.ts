@@ -60,7 +60,7 @@ function normalizeRole(role?: UserRole): UserRole | undefined {
 export async function login(email: string, password: string): Promise<LoginResult> {
   const payload = await apiRequest<LoginResponse>(AUTH_API_URL, "/auth/login", {
     method: "POST",
-    body: { email, password },
+    body: { email, password, provider: "cognito" },
   });
 
   const accessToken = payload.accessToken ?? payload.token;

@@ -209,8 +209,20 @@ export async function updateGatewayFees(input: GatewayFees[]): Promise<void> {
   });
 }
 
-export async function listSales(): Promise<SalesListResponse> {
-  const payload = await apiRequest<ApiEnvelope<SalesListResponse> | SalesListResponse>(CORE_API_URL, "/sales");
+export interface ListSalesOptions {
+  searchTerm?: string;
+  gateway?: string;
+}
+
+export async function listSales(options?: ListSalesOptions): Promise<SalesListResponse> {
+  const params = new URLSearchParams();
+  if (options?.searchTerm) params.set("searchTerm", options.searchTerm);
+  if (options?.gateway) params.set("gateway", options.gateway);
+  
+  const queryString = params.toString();
+  const url = `/sales${queryString ? `?${queryString}` : ""}`;
+  
+  const payload = await apiRequest<ApiEnvelope<SalesListResponse> | SalesListResponse>(CORE_API_URL, url);
 
   if ("sales" in payload && Array.isArray(payload.sales)) {
     return payload;

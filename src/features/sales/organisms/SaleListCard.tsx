@@ -3,12 +3,13 @@ import type { SaleRecord } from "@/services/commercialApi";
 import { formatCurrency, formatDateTime } from "@/shared/utils/format";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { CalendarDays, CircleDollarSign, Users } from "lucide-react";
+import { CalendarDays, CircleDollarSign, Users, UserCircle } from "lucide-react";
 import {
   getSaleCommissionValue,
   getSaleContractValue,
   getSaleCustomerNames,
   getSaleProductName,
+  getSaleSellerInfo,
 } from "../utils";
 
 type SaleListCardProps = {
@@ -19,6 +20,7 @@ const SaleListCard = ({ sale }: SaleListCardProps) => {
   const customerNames = getSaleCustomerNames(sale);
   const contractValue = getSaleContractValue(sale);
   const commissionValue = getSaleCommissionValue(sale);
+  const sellerInfo = getSaleSellerInfo(sale);
 
   return (
     <Link
@@ -31,6 +33,7 @@ const SaleListCard = ({ sale }: SaleListCardProps) => {
             <div className="space-y-0.5 min-w-0">
               <p className="truncate text-sm font-semibold text-foreground">{getSaleProductName(sale)}</p>
               <p className="truncate text-xs text-muted-foreground flex items-center gap-1"><Users className="h-3.5 w-3.5" />{customerNames}</p>
+              <p className="truncate text-xs text-muted-foreground flex items-center gap-1"><UserCircle className="h-3.5 w-3.5" />{sellerInfo}</p>
               <p className="text-[11px] text-muted-foreground flex items-center gap-1"><CalendarDays className="h-3 w-3" />{formatDateTime(sale.createdAt)}</p>
             </div>
 
