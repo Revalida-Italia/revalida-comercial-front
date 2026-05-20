@@ -20,19 +20,6 @@ const SaleListCard = ({ sale }: SaleListCardProps) => {
   const contractValue = getSaleContractValue(sale);
   const commissionValue = getSaleCommissionValue(sale);
 
-  const futureCommission = sale.commissions.reduce((acc, commission) => {
-    const commissionPaymentType = (commission.payment?.type || "").toUpperCase();
-    const linkedPaymentType = (sale.payments.find((payment) => payment.id === commission.paymentId)?.type || "").toUpperCase();
-    const paymentType = commissionPaymentType || linkedPaymentType;
-
-    if (paymentType !== "SUBSCRIPTION") {
-      return acc;
-    }
-
-    return acc + Number(commission.amount || 0);
-  }, 0);
-  const availableNowCommission = Math.max(commissionValue - futureCommission, 0);
-
   return (
     <Link
       to={`/vendas/${sale.id}`}
@@ -40,7 +27,7 @@ const SaleListCard = ({ sale }: SaleListCardProps) => {
     >
       <Card className="border-border/70 transition-all hover:border-primary/40 hover:shadow-md">
         <CardContent className="p-3.5">
-          <div className="grid gap-x-3 gap-y-2 md:grid-cols-[1.3fr_repeat(5,minmax(0,1fr))_auto] md:items-start">
+          <div className="grid gap-x-3 gap-y-2 md:grid-cols-[1.3fr_repeat(4,minmax(0,1fr))_auto] md:items-start">
             <div className="space-y-0.5 min-w-0">
               <p className="truncate text-sm font-semibold text-foreground">{getSaleProductName(sale)}</p>
               <p className="truncate text-xs text-muted-foreground flex items-center gap-1"><Users className="h-3.5 w-3.5" />{customerNames}</p>
@@ -62,14 +49,6 @@ const SaleListCard = ({ sale }: SaleListCardProps) => {
             <div>
               <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Comissao total</p>
               <p className="text-xs font-semibold text-primary">{formatCurrency(commissionValue, "BRL")}</p>
-              <p className="text-[10px] leading-tight text-muted-foreground">
-                {formatCurrency(commissionValue, "BRL")} = {formatCurrency(availableNowCommission, "BRL")} agora + {formatCurrency(futureCommission, "BRL")} futura
-              </p>
-            </div>
-            <div>
-              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Futura</p>
-              <p className="text-xs font-semibold text-amber-700">{formatCurrency(futureCommission, "BRL")}</p>
-              <p className="text-[10px] leading-tight text-muted-foreground">Parte da comissao total (ainda a receber)</p>
             </div>
 
             <div className="flex items-center justify-end gap-2">

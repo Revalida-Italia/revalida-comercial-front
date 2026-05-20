@@ -12,7 +12,6 @@ const SalesSummaryCards = ({ summary }: SalesSummaryCardsProps) => {
   const totalAmount = toNumberOrZero(summary.totalAmount);
   const commission = toNumberOrZero(summary.comission ?? summary.commission);
   const commissionFuture = toNumberOrZero(summary.comissionFuture ?? summary.commissionFuture);
-  const commissionAvailableNow = Math.max(commission - commissionFuture, 0);
 
   return (
     <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
@@ -42,14 +41,11 @@ const SalesSummaryCards = ({ summary }: SalesSummaryCardsProps) => {
 
       <Card className="border-primary/20">
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm text-muted-foreground flex items-center gap-2"><TrendingUp className="h-4 w-4" />Comissao total</CardTitle>
+          <CardTitle className="text-sm text-muted-foreground flex items-center gap-2"><TrendingUp className="h-4 w-4" />Comissao desse mês</CardTitle>
         </CardHeader>
         <CardContent className="flex items-end justify-between gap-3">
           <div className="space-y-1">
             <p className="text-xl font-semibold tracking-tight text-primary">{formatCurrency(commission, "BRL")}</p>
-            <p className="text-[11px] leading-tight text-muted-foreground">
-              {formatCurrency(commission, "BRL")} = {formatCurrency(commissionAvailableNow, "BRL")} agora + {formatCurrency(commissionFuture, "BRL")} futura
-            </p>
           </div>
           <div className="rounded-lg bg-primary/15 p-2 text-primary">
             <TrendingUp className="h-5 w-5" />
@@ -64,7 +60,6 @@ const SalesSummaryCards = ({ summary }: SalesSummaryCardsProps) => {
         <CardContent className="flex items-end justify-between gap-3">
           <div className="space-y-1">
             <p className="text-xl font-semibold tracking-tight text-emerald-700">{formatCurrency(commissionFuture, "BRL")}</p>
-            <p className="text-[11px] leading-tight text-muted-foreground">Parte da comissao total (ainda a receber)</p>
           </div>
           <div className="rounded-lg bg-emerald-500/15 p-2 text-emerald-700">
             <Calculator className="h-5 w-5" />
