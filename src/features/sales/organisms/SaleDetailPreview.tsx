@@ -15,6 +15,11 @@ const SaleDetailPreview = ({ sale }: SaleDetailPreviewProps) => {
     document: client.documentCiphertext || undefined,
   }));
 
+  const saleItems = sale.items.map((item) => ({
+    productName: item.product?.name || "Produto nao identificado",
+    releaseDate: item.releaseDate?.slice(0, 10) ?? "",
+  }));
+
   const configuredPayments: ConfiguredSalePayment[] = sale.payments.map((payment) => ({
     gateway: payment.gateway,
     paymentType: payment.type,
@@ -66,8 +71,7 @@ const SaleDetailPreview = ({ sale }: SaleDetailPreviewProps) => {
   return (
     <SaleSummary
       filledCustomers={filledCustomers}
-      productName={sale.items[0]?.product?.name}
-      releaseDate={sale.items[0]?.releaseDate?.slice(0, 10) ?? ""}
+      saleItems={saleItems}
       configuredPayments={configuredPayments}
       commissionBreakdown={commissionBreakdown}
       estimatedCommission={totalCommission}

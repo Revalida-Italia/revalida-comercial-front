@@ -1,13 +1,12 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { CommissionBreakdownResult } from "@/lib/commission";
-import type { ConfiguredSalePayment, FilledSaleCustomer, SalePaymentDraft } from "../types";
+import type { ConfiguredSalePayment, FilledSaleCustomer, SalePaymentDraft, SaleSummaryItem } from "../types";
 import SaleSummary from "./SaleSummary";
 
 type ConfirmStepProps = {
   filledCustomers: FilledSaleCustomer[];
-  productName?: string;
-  releaseDate: string;
+  saleItems: SaleSummaryItem[];
   configuredPayments: ConfiguredSalePayment[];
   commissionBreakdown: CommissionBreakdownResult;
   estimatedCommission: number;
@@ -23,8 +22,7 @@ type ConfirmStepProps = {
 
 const ConfirmStep = ({
   filledCustomers,
-  productName,
-  releaseDate,
+  saleItems,
   configuredPayments,
   commissionBreakdown,
   estimatedCommission,
@@ -45,8 +43,7 @@ const ConfirmStep = ({
       <div className="mx-auto max-w-2xl">
         <SaleSummary
           filledCustomers={filledCustomers}
-          productName={productName}
-          releaseDate={releaseDate}
+          saleItems={saleItems}
           configuredPayments={configuredPayments}
           commissionBreakdown={commissionBreakdown}
           estimatedCommission={estimatedCommission}

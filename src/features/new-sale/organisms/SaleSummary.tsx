@@ -12,12 +12,11 @@ import {
   User,
 } from "lucide-react";
 import { PAYMENT_TYPE_LABELS } from "../constants";
-import type { ConfiguredSalePayment, FilledSaleCustomer, SalePaymentDraft } from "../types";
+import type { ConfiguredSalePayment, FilledSaleCustomer, SalePaymentDraft, SaleSummaryItem } from "../types";
 
 type SaleSummaryProps = {
   filledCustomers: FilledSaleCustomer[];
-  productName?: string;
-  releaseDate: string;
+  saleItems: SaleSummaryItem[];
   configuredPayments: ConfiguredSalePayment[];
   commissionBreakdown: CommissionBreakdownResult;
   estimatedCommission: number;
@@ -30,8 +29,7 @@ type SaleSummaryProps = {
 
 const SaleSummary = ({
   filledCustomers,
-  productName,
-  releaseDate,
+  saleItems,
   configuredPayments,
   commissionBreakdown,
   estimatedCommission,
@@ -66,13 +64,17 @@ const SaleSummary = ({
     <div className="space-y-1.5">
       <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
         <Package className="h-3.5 w-3.5" />
-        Produto
+        Produtos
       </div>
-      {productName ? (
-        <>
-          <p className="font-medium">{productName}</p>
-          {releaseDate && <p className="text-xs text-muted-foreground">Liberacao: {releaseDate}</p>}
-        </>
+      {saleItems.length > 0 ? (
+        <ul className="space-y-1.5">
+          {saleItems.map((item, index) => (
+            <li key={`${item.productName}-${item.releaseDate}-${index}`}>
+              <p className="font-medium leading-tight">{item.productName}</p>
+              {item.releaseDate && <p className="text-xs text-muted-foreground">Liberacao: {item.releaseDate}</p>}
+            </li>
+          ))}
+        </ul>
       ) : (
         <p className="italic text-muted-foreground">Nao selecionado</p>
       )}

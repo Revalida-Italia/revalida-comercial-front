@@ -7,6 +7,16 @@ export type SalePaymentDraft = {
   totalInstallments: string;
 };
 
+export type SaleItemDraft = {
+  productId: string;
+  releaseDate: string;
+};
+
+export type SaleSummaryItem = {
+  productName: string;
+  releaseDate: string;
+};
+
 export type ConfiguredSalePayment = {
   gateway: string;
   paymentType: string;

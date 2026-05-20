@@ -7,7 +7,7 @@ import type { CreateSaleCustomer } from "@/lib/commercialApi";
 import { buildCommissionBreakdown, normalizeCommissionRate } from "@/lib/commission";
 import { getProfile } from "@/lib/session";
 import { EMPTY_CUSTOMER, EMPTY_PAYMENT, MAX_INSTALLMENTS, STEP_LABELS } from "./constants";
-import type { SalePaymentDraft } from "./types";
+import type { SaleItemDraft, SalePaymentDraft } from "./types";
 import ConfirmStep from "./organisms/ConfirmStep";
 import CustomersStep from "./organisms/CustomersStep";
 import PaymentsStep from "./organisms/PaymentsStep";
@@ -32,8 +32,7 @@ const NewSaleFeature = () => {
 
   const [customers, setCustomers] = useState<CreateSaleCustomer[]>([{ ...EMPTY_CUSTOMER }]);
 
-  const [productId, setProductId] = useState("");
-  const [releaseDate, setReleaseDate] = useState("");
+  const [saleItemsDraft, setSaleItemsDraft] = useState<SaleItemDraft[]>([{ productId: "", releaseDate: "" }]);
 
   const [currency, setCurrency] = useState("BRL");
   const [payments, setPayments] = useState<SalePaymentDraft[]>([{ ...EMPTY_PAYMENT }]);
@@ -49,7 +48,29 @@ const NewSaleFeature = () => {
     enabled: step >= 3,
   });
 
-  const productName = productsQuery.data?.find((p) => p.id === productId)?.name;
+  const selectedSaleItems = useMemo(
+    () => saleItemsDraft
+      .filter((item) => item.productId && item.releaseDate)
+      .map((item) => ({
+        productId: item.productId,
+        releaseDate: item.releaseDate,
+      })),
+    [saleItemsDraft],
+  );
+
+  const hasDuplicateProducts = useMemo(() => {
+    const ids = saleItemsDraft.map((item) => item.productId).filter(Boolean);
+    return new Set(ids).size !== ids.length;
+  }, [saleItemsDraft]);
+
+  const saleSummaryItems = useMemo(
+    () => selectedSaleItems.map((item) => ({
+      productName: productsQuery.data?.find((product) => product.id === item.productId)?.name ?? "Produto nao identificado",
+      releaseDate: item.releaseDate,
+    })),
+    [selectedSaleItems, productsQuery.data],
+  );
+
   const commissionRate = useMemo(() => {
     const profileAny = profile as unknown as Record<string, unknown> | null;
     const careerPlanAny = (profileAny?.careerPlan as Record<string, unknown> | undefined) ?? {};
@@ -114,7 +135,9 @@ const NewSaleFeature = () => {
   const estimatedCommission = commissionBreakdown.totalCommission;
 
   const canGoStep2 = filledCustomers.length > 0;
-  const canGoStep3 = Boolean(productId && releaseDate);
+  const canGoStep3 = selectedSaleItems.length > 0
+    && selectedSaleItems.length === saleItemsDraft.length
+    && !hasDuplicateProducts;
 
   const hasValidPayments = payments.length > 0
     && payments.every((payment) => {
@@ -140,6 +163,18 @@ const NewSaleFeature = () => {
 
   function removeCustomer(index: number) {
     setCustomers((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  function updateSaleItem(index: number, field: keyof SaleItemDraft, value: string) {
+    setSaleItemsDraft((prev) => prev.map((item, i) => (i === index ? { ...item, [field]: value } : item)));
+  }
+
+  function addSaleItem() {
+    setSaleItemsDraft((prev) => [...prev, { productId: "", releaseDate: "" }]);
+  }
+
+  function removeSaleItem(index: number) {
+    setSaleItemsDraft((prev) => prev.filter((_, i) => i !== index));
   }
 
   function updatePayment(index: number, field: keyof SalePaymentDraft, value: string) {
@@ -180,6 +215,14 @@ const NewSaleFeature = () => {
         throw new Error("Adicione pelo menos um pagamento valido.");
       }
 
+      if (selectedSaleItems.length === 0 || selectedSaleItems.length !== saleItemsDraft.length) {
+        throw new Error("Adicione pelo menos um modulo com data de liberacao.");
+      }
+
+      if (hasDuplicateProducts) {
+        throw new Error("Nao e permitido selecionar o mesmo modulo mais de uma vez.");
+      }
+
       await createSale({
         sellerId: profile.sub,
         currency,
@@ -187,7 +230,7 @@ const NewSaleFeature = () => {
           nameCiphertext: c.name,
           documentCiphertext: c.document ?? "",
         })),
-        items: [{ productId, releaseDate }],
+        items: selectedSaleItems,
         payments: configuredPayments.map((payment) => ({
           gateway: payment.gateway,
           type: payment.paymentType,
@@ -201,8 +244,7 @@ const NewSaleFeature = () => {
       toast.success("Venda criada com sucesso.");
       setStep(1);
       setCustomers([{ ...EMPTY_CUSTOMER }]);
-      setProductId("");
-      setReleaseDate("");
+      setSaleItemsDraft([{ productId: "", releaseDate: "" }]);
       setCurrency("BRL");
       setPayments([{ ...EMPTY_PAYMENT }]);
     },
@@ -237,11 +279,12 @@ const NewSaleFeature = () => {
             <ProductStep
               products={productsQuery.data ?? []}
               productsLoading={productsQuery.isLoading}
-              productId={productId}
-              releaseDate={releaseDate}
+              items={saleItemsDraft}
+              hasDuplicateProducts={hasDuplicateProducts}
               canGoNext={canGoStep3}
-              onProductChange={setProductId}
-              onReleaseDateChange={setReleaseDate}
+              onUpdateItem={updateSaleItem}
+              onAddItem={addSaleItem}
+              onRemoveItem={removeSaleItem}
               onBack={() => setStep(1)}
               onNext={() => setStep(3)}
             />
@@ -268,8 +311,7 @@ const NewSaleFeature = () => {
           {step === 4 && (
             <ConfirmStep
               filledCustomers={filledCustomers}
-              productName={productName}
-              releaseDate={releaseDate}
+              saleItems={saleSummaryItems}
               configuredPayments={configuredPayments}
               commissionBreakdown={commissionBreakdown}
               estimatedCommission={estimatedCommission}
@@ -293,8 +335,7 @@ const NewSaleFeature = () => {
             <CardContent>
               <SaleSummary
                 filledCustomers={filledCustomers}
-                productName={productName}
-                releaseDate={releaseDate}
+                saleItems={saleSummaryItems}
                 configuredPayments={configuredPayments}
                 commissionBreakdown={commissionBreakdown}
                 estimatedCommission={estimatedCommission}
