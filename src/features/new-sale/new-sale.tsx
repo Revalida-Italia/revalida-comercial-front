@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { createSale, listGatewayFees, listProducts } from "@/lib/commercialApi";
-import type { CreateSaleCustomer } from "@/lib/commercialApi";
+import type { CreateSaleCustomer, GatewayFees } from "@/lib/commercialApi";
 import { buildCommissionBreakdown, normalizeCommissionRate } from "@/lib/commission";
 import { getProfile } from "@/lib/session";
 import { EMPTY_CUSTOMER, EMPTY_PAYMENT, MAX_INSTALLMENTS, STEP_LABELS } from "./constants";
@@ -35,7 +35,7 @@ const NewSaleFeature = () => {
 
   const gatewayFeesQuery = useQuery({
     queryKey: ["gateway-fees"],
-    queryFn: listGatewayFees,
+    queryFn: () => listGatewayFees(),
     enabled: step >= 3,
   });
 
@@ -91,7 +91,13 @@ const NewSaleFeature = () => {
   function getFeeRate(gateway: string, paymentType: string): number {
     if (!gateway || !paymentType) return 0;
     const feeConfig = gatewayFeesQuery.data?.find((item) => item.gateway === gateway);
-    return feeConfig?.paymentOptions.find((option) => option.paymentType === paymentType)?.feeRate ?? 0;
+    const feeRate = feeConfig?.paymentOptions.find((option) => option.paymentType === paymentType)?.feeRate;
+
+    if (typeof feeRate === "string") {
+      return Number(feeRate) || 0;
+    }
+
+    return feeRate ?? 0;
   }
 
   function paymentGrossValue(payment: SalePaymentDraft): number {

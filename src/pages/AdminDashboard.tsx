@@ -1,24 +1,7 @@
-import { useMemo, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
+import { useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { listSales } from "@/lib/commercialApi";
-import { updateUserCareerPlan } from "@/lib/authApi";
-
-const careerLevels = [
-  "TRAINEE_JUNIOR",
-  "TRAINEE_PLENO",
-  "TRAINEE_SENIOR",
-  "LANCAMENTO_GERENTE",
-  "GERENTE",
-  "GERENTE_PLENO",
-  "GERENTE_SENIOR",
-  "DIRETOR",
-];
 
 const money = new Intl.NumberFormat("pt-BR", {
   style: "currency",
@@ -26,32 +9,9 @@ const money = new Intl.NumberFormat("pt-BR", {
 });
 
 const AdminDashboard = () => {
-  const queryClient = useQueryClient();
-  const [userSub, setUserSub] = useState("");
-  const [careerLevel, setCareerLevel] = useState("TRAINEE_JUNIOR");
-  const [commissionPct, setCommissionPct] = useState("5");
-
   const salesQuery = useQuery({
     queryKey: ["sales"],
     queryFn: listSales,
-  });
-
-  const careerMutation = useMutation({
-    mutationFn: async () => {
-      if (!userSub.trim()) {
-        throw new Error("Informe o sub/externalId do usuario.");
-      }
-
-      await updateUserCareerPlan(userSub.trim(), careerLevel, Number(commissionPct));
-    },
-    onSuccess: async () => {
-      toast.success("Plano de carreira atualizado com sucesso.");
-      await queryClient.invalidateQueries({ queryKey: ["sales"] });
-      setUserSub("");
-    },
-    onError: (error) => {
-      toast.error(error instanceof Error ? error.message : "Erro ao atualizar plano de carreira.");
-    },
   });
 
   const summary = useMemo(() => {
@@ -114,45 +74,6 @@ const AdminDashboard = () => {
           </CardContent>
         </Card>
       </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Associar usuario a nivel de carreira</CardTitle>
-        </CardHeader>
-        <CardContent className="grid gap-4 md:grid-cols-2">
-          <div className="space-y-2 md:col-span-2">
-            <Label>Sub/externalId do usuario</Label>
-            <Input value={userSub} onChange={(event) => setUserSub(event.target.value)} placeholder="ex: auth0|abc123" />
-          </div>
-
-          <div className="space-y-2">
-            <Label>Nivel de carreira</Label>
-            <Select value={careerLevel} onValueChange={setCareerLevel}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {careerLevels.map((level) => (
-                  <SelectItem key={level} value={level}>
-                    {level}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label>Percentual de comissao (%)</Label>
-            <Input type="number" step="0.01" value={commissionPct} onChange={(event) => setCommissionPct(event.target.value)} />
-          </div>
-
-          <div className="md:col-span-2">
-            <Button onClick={() => careerMutation.mutate()} disabled={careerMutation.isPending}>
-              {careerMutation.isPending ? "Atualizando..." : "Atualizar carreira"}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 };

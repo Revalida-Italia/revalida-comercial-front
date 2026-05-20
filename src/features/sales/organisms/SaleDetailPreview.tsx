@@ -1,9 +1,9 @@
 import type { CommissionBreakdownResult } from "@/lib/commission";
 import type { SaleRecord } from "@/lib/commercialApi";
 import { toNumberOrZero } from "@/shared/utils/number";
-import SaleSummary from "@/features/new-sale/organisms/SaleSummary";
 import type { ConfiguredSalePayment, FilledSaleCustomer, SalePaymentDraft } from "@/features/new-sale/types";
 import { getSaleCommissionValue } from "../utils";
+import SaleSummary from "@/features/new-sale/organisms/SaleSummary";
 
 type SaleDetailPreviewProps = {
   sale: SaleRecord;

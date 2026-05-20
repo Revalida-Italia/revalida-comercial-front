@@ -132,16 +132,3 @@ export async function resolveProfile(userId: string, fallback?: ResolveProfileFa
   };
 }
 
-export async function updateUserCareerPlan(
-  userSub: string,
-  careerLevel: string,
-  commissionPct: number,
-): Promise<void> {
-  await apiRequest<void>(CORE_API_URL, `/users/${userSub}/career-plan`, {
-    method: "PATCH",
-    body: {
-      level: careerLevel,
-      commissionPercentage: commissionPct,
-    },
-  });
-}

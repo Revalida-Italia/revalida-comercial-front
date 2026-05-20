@@ -7,6 +7,8 @@ import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import SalesList from "./pages/SalesList";
 import AdminDashboard from "./pages/AdminDashboard";
+import AdminCareerPlan from "./pages/AdminCareerPlan";
+import AdminPaymentGateways from "./pages/AdminPaymentGateways";
 import SaleDetails from "./pages/SaleDetails";
 import AppLayout from "./components/AppLayout";
 import NotFound from "./pages/NotFound";
@@ -31,6 +33,8 @@ const App = () => (
               <Route path="/vendas/:id" element={<SaleDetails />} />
               <Route element={<RequireAdmin />}>
                 <Route path="/admin" element={<AdminDashboard />} />
+                <Route path="/admin/carreira" element={<AdminCareerPlan />} />
+                <Route path="/admin/payment-gateways" element={<AdminPaymentGateways />} />
               </Route>
             </Route>
           </Route>
