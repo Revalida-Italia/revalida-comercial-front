@@ -25,7 +25,32 @@ type SaleSummaryProps = {
   showCommissionRateWarning?: boolean;
   getFeeRate: (gateway: string, paymentType: string) => number;
   paymentGrossValue: (payment: SalePaymentDraft) => number;
+  subscriptionMonthLabelMode?: "long" | "compact";
 };
+
+function getSubscriptionMonthLabel(
+  baseDueDate: string | undefined,
+  monthIndex: number,
+  mode: "long" | "compact",
+): string {
+  if (!baseDueDate) {
+    return `Mes ${monthIndex}`;
+  }
+
+  const baseDate = new Date(`${baseDueDate}T00:00:00`);
+  if (Number.isNaN(baseDate.getTime())) {
+    return `Mes ${monthIndex}`;
+  }
+
+  const targetDate = new Date(baseDate);
+  targetDate.setMonth(targetDate.getMonth() + (monthIndex - 1));
+
+  if (mode === "compact") {
+    return targetDate.toLocaleDateString("pt-BR", { month: "2-digit", year: "2-digit" });
+  }
+
+  return targetDate.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+}
 
 const SaleSummary = ({
   filledCustomers,
@@ -38,6 +63,7 @@ const SaleSummary = ({
   showCommissionRateWarning = false,
   getFeeRate,
   paymentGrossValue,
+  subscriptionMonthLabelMode = "long",
 }: SaleSummaryProps) => (
   <div className="space-y-4 text-sm">
     <div className="space-y-1.5">
@@ -171,9 +197,9 @@ const SaleSummary = ({
                       <CreditCard className="h-3 w-3" /> {payment.monthlyCommissions.length} parcelas mensais
                     </p>
                     {payment.monthlyCommissions.slice(0, 24).map((month) => (
-                      <div key={month.month} className="flex justify-between text-[11px] text-muted-foreground">
-                        <span>Mes {month.month}</span>
-                        <span className="space-x-2">
+                      <div key={month.month} className="grid gap-0.5 text-[11px] text-muted-foreground md:grid-cols-[1fr_auto] md:items-center md:gap-2">
+                        <span>{getSubscriptionMonthLabel(configuredPayments[idx]?.dueDate, month.month, subscriptionMonthLabelMode)}</span>
+                        <span className="flex flex-wrap items-center gap-x-1.5 md:justify-end">
                           <span className="text-muted-foreground/70">bruto {month.grossAmount.toLocaleString("pt-BR", { style: "currency", currency })}</span>
                           <span className="font-medium text-foreground">→ {month.commissionAmount.toLocaleString("pt-BR", { style: "currency", currency })}</span>
                         </span>

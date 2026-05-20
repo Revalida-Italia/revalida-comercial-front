@@ -12,7 +12,7 @@ import ConfirmStep from "./organisms/ConfirmStep";
 import CustomersStep from "./organisms/CustomersStep";
 import PaymentsStep from "./organisms/PaymentsStep";
 import ProductStep from "./organisms/ProductStep";
-import SaleSummary from "./organisms/SaleSummary";
+import SaleSummary from "@/features/new-sale/organisms/SaleSummary";
 import StepIndicator from "./organisms/StepIndicator";
 
 const NewSaleFeature = () => {
@@ -338,6 +338,7 @@ const NewSaleFeature = () => {
                 showCommissionRateWarning
                 getFeeRate={getFeeRate}
                 paymentGrossValue={paymentGrossValue}
+                subscriptionMonthLabelMode="compact"
               />
             </CardContent>
           </Card>

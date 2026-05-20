@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation } from "@tanstack/react-query";
 import { motion } from "framer-motion";
@@ -8,8 +8,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { login, resolveProfile } from "@/lib/authApi";
-import { setProfile, setSession } from "@/lib/session";
+import { consumeAuthNotice, setProfile, setSession } from "@/lib/session";
 import loginBg from "@/assets/login-bg.jpg";
+
+const SESSION_EXPIRED_REASON = "session-expired";
+const SESSION_EXPIRED_MESSAGE = "Sessao encerrada. Faca login novamente.";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -17,6 +20,20 @@ const Login = () => {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
+  const [authMessage, setAuthMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    const notice = consumeAuthNotice();
+    const reason = new URLSearchParams(window.location.search).get("reason");
+
+    if (!notice && reason !== SESSION_EXPIRED_REASON) {
+      return;
+    }
+
+    const message = notice ?? SESSION_EXPIRED_MESSAGE;
+    setAuthMessage(message);
+    toast.error(message);
+  }, []);
 
   const mutation = useMutation({
     mutationFn: async () => {
@@ -94,6 +111,12 @@ const Login = () => {
           </div>
 
           <div className="h-px bg-border" />
+
+          {authMessage && (
+            <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+              {authMessage}
+            </div>
+          )}
 
           <form onSubmit={onSubmit} className="space-y-6">
             <div className="space-y-2">

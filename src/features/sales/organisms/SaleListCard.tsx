@@ -31,6 +31,7 @@ const SaleListCard = ({ sale }: SaleListCardProps) => {
 
     return acc + Number(commission.amount || 0);
   }, 0);
+  const availableNowCommission = Math.max(commissionValue - futureCommission, 0);
 
   return (
     <Link
@@ -59,12 +60,16 @@ const SaleListCard = ({ sale }: SaleListCardProps) => {
               <p className="text-xs font-semibold flex items-center gap-1"><CircleDollarSign className="h-3.5 w-3.5" />{formatCurrency(contractValue, sale.currency || "BRL")}</p>
             </div>
             <div>
-              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Comissao</p>
+              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Comissao total</p>
               <p className="text-xs font-semibold text-primary">{formatCurrency(commissionValue, "BRL")}</p>
+              <p className="text-[10px] leading-tight text-muted-foreground">
+                {formatCurrency(commissionValue, "BRL")} = {formatCurrency(availableNowCommission, "BRL")} agora + {formatCurrency(futureCommission, "BRL")} futura
+              </p>
             </div>
             <div>
               <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Futura</p>
               <p className="text-xs font-semibold text-amber-700">{formatCurrency(futureCommission, "BRL")}</p>
+              <p className="text-[10px] leading-tight text-muted-foreground">Parte da comissao total (ainda a receber)</p>
             </div>
 
             <div className="flex items-center justify-end gap-2">

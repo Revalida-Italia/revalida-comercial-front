@@ -28,6 +28,7 @@ export interface UserProfile {
 
 const SESSION_KEY = "sales-flow.session.v1";
 const PROFILE_KEY = "sales-flow.profile.v1";
+const AUTH_NOTICE_KEY = "sales-flow.auth.notice.v1";
 
 export function getSession(): AuthSession | null {
   const value = window.localStorage.getItem(SESSION_KEY);
@@ -53,6 +54,20 @@ export function setSession(session: AuthSession): void {
 export function clearSession(): void {
   window.localStorage.removeItem(SESSION_KEY);
   window.localStorage.removeItem(PROFILE_KEY);
+}
+
+export function setAuthNotice(message: string): void {
+  window.localStorage.setItem(AUTH_NOTICE_KEY, message);
+}
+
+export function consumeAuthNotice(): string | null {
+  const message = window.localStorage.getItem(AUTH_NOTICE_KEY);
+  if (!message) {
+    return null;
+  }
+
+  window.localStorage.removeItem(AUTH_NOTICE_KEY);
+  return message;
 }
 
 export function getProfile(): UserProfile | null {
