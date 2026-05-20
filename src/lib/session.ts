@@ -16,6 +16,8 @@ export interface CareerPlan {
 }
 
 export interface UserProfile {
+  id?: string;
+  externalId?: string;
   sub: string;
   email?: string;
   name?: string;

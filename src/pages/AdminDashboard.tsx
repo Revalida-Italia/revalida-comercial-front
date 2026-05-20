@@ -55,9 +55,22 @@ const AdminDashboard = () => {
   });
 
   const summary = useMemo(() => {
-    const sales = salesQuery.data ?? [];
-    const totalAmount = sales.reduce((acc, sale) => acc + (sale.amount || 0), 0);
-    const totalCommission = sales.reduce((acc, sale) => acc + (sale.commissionAmount || 0), 0);
+    const sales = salesQuery.data?.sales ?? [];
+    const apiSummary = salesQuery.data?.summary;
+
+    if (apiSummary) {
+      return {
+        totalSales: apiSummary.totalSales ?? sales.length,
+        totalAmount: Number(apiSummary.totalAmount ?? 0),
+        totalCommission: Number(apiSummary.comission ?? apiSummary.commission ?? 0),
+      };
+    }
+
+    const totalAmount = sales.reduce((acc, sale) => acc + Number(sale.contractValue || 0), 0);
+    const totalCommission = sales.reduce(
+      (acc, sale) => acc + sale.commissions.reduce((cAcc, commission) => cAcc + Number(commission.amount || 0), 0),
+      0,
+    );
 
     return {
       totalSales: sales.length,

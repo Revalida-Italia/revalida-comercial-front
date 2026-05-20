@@ -27,6 +27,7 @@ const Login = () => {
         email: authResult.email,
         role: authResult.role,
       });
+
       setProfile(profile);
       return profile;
     },

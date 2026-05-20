@@ -100,15 +100,6 @@ export async function resolveProfile(userId: string, fallback?: ResolveProfileFa
     },
   });
 
-  const sub = payload.externalId;
-  if (!sub) {
-    throw new Error("Perfil retornado sem sub/externalId.");
-  }
-
-  if (!payload.role) {
-    throw new Error("Perfil retornado sem role/grupo.");
-  }
-
   const normalizedCareerPlan: CareerPlan | undefined = payload.careerPlan
     ? {
       ...payload.careerPlan,
@@ -118,12 +109,25 @@ export async function resolveProfile(userId: string, fallback?: ResolveProfileFa
     }
     : undefined;
 
+  const sub = payload.externalId || userId;
+  const role = normalizeRole(payload.role ?? fallback?.role);
+
+  if (!sub) {
+    throw new Error("Perfil retornado sem sub/externalId.");
+  }
+
+  if (!role) {
+    throw new Error("Perfil retornado sem role/grupo.");
+  }
+
   return {
+    id: payload.id,
+    externalId: payload.externalId,
     sub,
-    email: payload.email,
+    email: payload.email ?? fallback?.email,
     name: payload.name,
-    role: normalizeRole(payload.role),
-    roles: payload.role ? [normalizeRole(payload.role)] : [],
+    role,
+    roles: [role],
     careerPlan: normalizedCareerPlan,
   };
 }

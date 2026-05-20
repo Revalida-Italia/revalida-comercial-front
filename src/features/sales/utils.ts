@@ -1,0 +1,37 @@
+import type { SaleRecord } from "@/lib/commercialApi";
+import { toNumberOrZero } from "@/shared/utils/number";
+
+export const getSaleContractValue = (sale: SaleRecord): number => {
+  const contract = toNumberOrZero(sale.contractValue);
+  if (contract > 0) {
+    return contract;
+  }
+  return sale.payments.reduce((acc, payment) => acc + toNumberOrZero(payment.amount), 0);
+};
+
+export const getSaleCommissionValue = (sale: SaleRecord): number => {
+  const fromCommissions = sale.commissions.reduce((acc, commission) => acc + toNumberOrZero(commission.amount), 0);
+  if (fromCommissions > 0) {
+    return fromCommissions;
+  }
+  return sale.payments.reduce((acc, payment) => acc + toNumberOrZero(payment.commission?.amount), 0);
+};
+
+export const getSaleCustomerNames = (sale: SaleRecord): string => {
+  const names = sale.clients
+    .map((client) => client.nameCiphertext?.trim())
+    .filter((name): name is string => Boolean(name));
+
+  if (names.length === 0) {
+    return "Cliente nao informado";
+  }
+
+  if (names.length === 1) {
+    return names[0];
+  }
+
+  return `${names[0]} +${names.length - 1}`;
+};
+
+export const getSaleProductName = (sale: SaleRecord): string =>
+  sale.items[0]?.product?.name ?? "Produto nao informado";

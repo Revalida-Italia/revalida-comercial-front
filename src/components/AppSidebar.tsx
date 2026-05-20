@@ -1,6 +1,7 @@
 import { useNavigate, useLocation } from "react-router-dom";
 import { LayoutDashboard, PlusCircle, FileText, LogOut, Building2, Shield } from "lucide-react";
-import { clearSession, hasRole } from "@/lib/session";
+import { Badge } from "@/components/ui/badge";
+import { clearSession, getProfile, hasRole } from "@/lib/session";
 
 const navItems = [
   { label: "Dashboard", icon: LayoutDashboard, path: "/dashboard" },
@@ -12,6 +13,7 @@ const navItems = [
 const AppSidebar = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const profile = getProfile();
   const isAdmin = hasRole("ADMIN");
 
   const visibleItems = navItems.filter((item) => (item.path === "/admin" ? isAdmin : true));
@@ -21,6 +23,8 @@ const AppSidebar = () => {
     navigate("/");
   };
 
+  const roleLabel = profile?.role === "ADMIN" ? "Admin" : "Vendedor";
+
   return (
     <aside className="w-64 min-h-screen gradient-primary flex flex-col">
       <div className="p-6 flex items-center gap-3">
@@ -28,6 +32,17 @@ const AppSidebar = () => {
         <span className="text-lg font-display font-bold text-sidebar-foreground">
           Comercial
         </span>
+      </div>
+
+      <div className="mx-3 mb-3 rounded-lg border border-sidebar-border bg-sidebar-accent/60 p-3 text-sidebar-foreground">
+        <p className="truncate text-sm font-semibold">{profile?.name || "Usuario"}</p>
+        <p className="truncate text-xs text-sidebar-foreground/70">{profile?.email || "email nao informado"}</p>
+        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+          <Badge variant="secondary" className="text-[10px]">{roleLabel}</Badge>
+          <Badge variant="outline" className="text-[10px] border-sidebar-border text-sidebar-foreground/80">
+            {profile?.careerPlan?.name || "Sem career plan"}
+          </Badge>
+        </div>
       </div>
 
       <nav className="flex-1 px-3 space-y-1">

@@ -120,6 +120,6 @@ profile-*
 *.backup
 tmp/
 temp/
-data-test/
+/data-sample/
 migrations/
 prisma/migrations/
