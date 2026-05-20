@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { listGatewayFees, updateGatewayFees, type GatewayFees, type GatewayPaymentOption } from "@/lib/commercialApi";
+import { listGatewayFees, updateGatewayFees, type GatewayFees, type GatewayPaymentOption } from "@/services/commercialApi";
 import GatewayFeesCard from "./organisms/GatewayFeesCard";
 import type { EditingGateway } from "./types";
 

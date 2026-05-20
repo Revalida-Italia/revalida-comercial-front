@@ -1,4 +1,4 @@
-import type { CreateSaleCustomer } from "@/lib/commercialApi";
+import type { CreateSaleCustomer } from "@/services/commercialApi";
 
 export type SalePaymentDraft = {
   gateway: string;

@@ -1,4 +1,4 @@
-import type { GatewayFees } from "@/lib/commercialApi";
+import type { GatewayFees } from "@/services/commercialApi";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DatePicker } from "@/components/ui/date-picker";

@@ -5,7 +5,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { PAYMENT_TYPE_LABELS } from "@/features/new-sale/constants";
-import type { GatewayFees, GatewayPaymentOption } from "@/lib/commercialApi";
+import type { GatewayFees, GatewayPaymentOption } from "@/services/commercialApi";
 import { ChevronDown, Pencil } from "lucide-react";
 
 type GatewayFeesCardProps = {

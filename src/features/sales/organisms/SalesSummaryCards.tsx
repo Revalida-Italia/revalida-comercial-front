@@ -1,4 +1,4 @@
-import type { SalesSummary } from "@/lib/commercialApi";
+import type { SalesSummary } from "@/services/commercialApi";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatCurrency } from "@/shared/utils/format";
 import { toNumberOrZero } from "@/shared/utils/number";

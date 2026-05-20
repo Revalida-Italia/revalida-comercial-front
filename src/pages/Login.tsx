@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { login, resolveProfile } from "@/lib/authApi";
+import { login, resolveProfile } from "@/services/authApi";
 import { consumeAuthNotice, setProfile, setSession } from "@/lib/session";
 import loginBg from "@/assets/login-bg.jpg";
 

@@ -1,4 +1,4 @@
-import type { CreateSaleCustomer } from "@/lib/commercialApi";
+import type { CreateSaleCustomer } from "@/services/commercialApi";
 import type { SalePaymentDraft } from "./types";
 
 export const STEP_LABELS = ["Clientes", "Produto", "Pagamentos", "Resumo"];

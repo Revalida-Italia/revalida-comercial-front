@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { listSales } from "@/lib/commercialApi";
+import { listSales } from "@/services/commercialApi";
 
 const money = new Intl.NumberFormat("pt-BR", {
   style: "currency",

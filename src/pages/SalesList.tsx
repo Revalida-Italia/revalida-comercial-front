@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
-import { listSales } from "@/lib/commercialApi";
+import { listSales } from "@/services/commercialApi";
 import SaleListCard from "@/features/sales/organisms/SaleListCard";
 import SalesSummaryCards from "@/features/sales/organisms/SalesSummaryCards";
 

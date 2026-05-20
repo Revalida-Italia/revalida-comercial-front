@@ -7,7 +7,7 @@ import { clearSession, getProfile, hasRole } from "@/lib/session";
 const navItems = [
   { label: "Dashboard", icon: LayoutDashboard, path: "/dashboard" },
   { label: "Nova Venda", icon: PlusCircle, path: "/nova-venda" },
-  { label: "Minhas Vendas", icon: FileText, path: "/vendas" },
+  { label: "Vendas", icon: FileText, path: "/vendas" },
   {
     label: "Admin",
     icon: Shield,

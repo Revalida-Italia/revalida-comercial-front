@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import SaleDetailPreview from "@/features/sales/organisms/SaleDetailPreview";
 import { getSaleCommissionValue, getSaleContractValue } from "@/features/sales/utils";
-import { listSales } from "@/lib/commercialApi";
+import { listSales } from "@/services/commercialApi";
 import { formatCurrency, formatDateTime } from "@/shared/utils/format";
 
 const SaleDetails = () => {

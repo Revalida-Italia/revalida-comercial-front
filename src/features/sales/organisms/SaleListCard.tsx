@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import type { SaleRecord } from "@/lib/commercialApi";
+import type { SaleRecord } from "@/services/commercialApi";
 import { formatCurrency, formatDateTime } from "@/shared/utils/format";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";

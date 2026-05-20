@@ -1,4 +1,4 @@
-import type { CreateSaleCustomer } from "@/lib/commercialApi";
+import type { CreateSaleCustomer } from "@/services/commercialApi";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";

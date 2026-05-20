@@ -1,4 +1,4 @@
-import type { SaleRecord } from "@/lib/commercialApi";
+import type { SaleRecord } from "@/services/commercialApi";
 import { toNumberOrZero } from "@/shared/utils/number";
 
 export const getSaleContractValue = (sale: SaleRecord): number => {
