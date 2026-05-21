@@ -18,6 +18,7 @@ const navItems = [
       { label: "Dashboard", path: "/admin" },
       { label: "Associar Usuário", path: "/admin/carreira" },
       { label: "Editar Taxas", path: "/admin/payment-gateways" },
+      { label: "Products", path: "/admin/products" },
     ],
   },
 ];

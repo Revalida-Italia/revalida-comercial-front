@@ -2,12 +2,6 @@ import { apiRequest } from "@/lib/http";
 
 const CORE_API_URL = import.meta.env.VITE_CORE_API_URL as string;
 
-export interface Product {
-  id: string;
-  name: string;
-  code?: string;
-}
-
 export interface GatewayPaymentOption {
   paymentType: string;
   feeRate: string | number;
@@ -182,11 +176,6 @@ function unwrapArray<T>(payload: T[] | ListWrapper<T>): T[] {
     return payload;
   }
   return payload.data ?? [];
-}
-
-export async function listProducts(): Promise<Product[]> {
-  const payload = await apiRequest<Product[] | ListWrapper<Product>>(CORE_API_URL, "/products");
-  return unwrapArray(payload);
 }
 
 type ListGatewayFeesOptions = {

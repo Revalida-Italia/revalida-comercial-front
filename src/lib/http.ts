@@ -26,9 +26,13 @@ function buildUrl(baseUrl: string, path: string): string {
   return `${normalizedBase}${normalizedPath}`;
 }
 
-function buildHeaders(accessToken?: string, extraHeaders?: Record<string, string>): Record<string, string> {
+function buildHeaders(
+  accessToken?: string,
+  extraHeaders?: Record<string, string>,
+  hasBody?: boolean,
+): Record<string, string> {
   return {
-    "Content-Type": "application/json",
+    ...(hasBody ? { "Content-Type": "application/json" } : {}),
     ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
     ...(extraHeaders ?? {}),
   };
@@ -85,11 +89,12 @@ export async function apiRequest<T>(baseUrl: string, path: string, options: Requ
 
   const session = getSession();
   const requestUrl = buildUrl(baseUrl, path);
+  const hasBody = options.body !== undefined;
 
   const makeRequest = (accessToken?: string) => fetch(requestUrl, {
     method: options.method ?? "GET",
-    headers: buildHeaders(accessToken, options.headers),
-    body: options.body ? JSON.stringify(options.body) : undefined,
+    headers: buildHeaders(accessToken, options.headers, hasBody),
+    body: hasBody ? JSON.stringify(options.body) : undefined,
   });
 
   let response = await makeRequest(session?.accessToken);

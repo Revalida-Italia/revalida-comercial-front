@@ -9,6 +9,8 @@ import SalesList from "./pages/SalesList";
 import AdminDashboard from "./pages/AdminDashboard";
 import AdminCareerPlan from "./pages/AdminCareerPlan";
 import AdminPaymentGateways from "./pages/AdminPaymentGateways";
+import AdminProducts from "@/pages/AdminProducts";
+import AdminProductsCreate from "@/pages/AdminProductsCreate";
 import SaleDetails from "./pages/SaleDetails";
 import AppLayout from "./components/AppLayout";
 import NotFound from "./pages/NotFound";
@@ -35,6 +37,8 @@ const App = () => (
                 <Route path="/admin" element={<AdminDashboard />} />
                 <Route path="/admin/carreira" element={<AdminCareerPlan />} />
                 <Route path="/admin/payment-gateways" element={<AdminPaymentGateways />} />
+                <Route path="/admin/products" element={<AdminProducts />} />
+                <Route path="/admin/products/new" element={<AdminProductsCreate />} />
               </Route>
             </Route>
           </Route>
