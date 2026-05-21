@@ -2,6 +2,16 @@ import { apiRequest } from "@/lib/http";
 
 const CORE_API_URL = import.meta.env.VITE_CORE_API_URL as string;
 
+export type UserRole = "ADMIN" | "SELLER";
+
+export interface CreateUserInput {
+  email: string;
+  role: UserRole;
+  name?: string;
+  careerPlanId?: string;
+  temporaryPassword?: string;
+}
+
 export interface UserSearchResult {
   id: string;
   externalId: string;
@@ -37,4 +47,11 @@ export async function searchUsers(searchTerm: string): Promise<UserSearchResult[
   );
 
   return unwrapArray(payload);
+}
+
+export async function createUserByAdmin(input: CreateUserInput): Promise<void> {
+  await apiRequest<void>(CORE_API_URL, "/users", {
+    method: "POST",
+    body: input,
+  });
 }

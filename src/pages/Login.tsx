@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { login, resolveProfile } from "@/services/authApi";
+import { login, resolveProfile, type LoginChallengeResult } from "@/services/authApi";
 import { consumeAuthNotice, setProfile, setSession } from "@/lib/session";
 import loginBg from "@/assets/login-bg.jpg";
 
@@ -38,6 +38,11 @@ const Login = () => {
   const mutation = useMutation({
     mutationFn: async () => {
       const authResult = await login(email, password);
+
+      if (authResult.kind === "challenge") {
+        return authResult;
+      }
+
       setSession(authResult.session);
 
       const profile = await resolveProfile(authResult.userId, {
@@ -46,11 +51,25 @@ const Login = () => {
       });
 
       setProfile(profile);
-      return profile;
+      return { kind: "authenticated" as const, profile };
     },
-    onSuccess: (profile) => {
+    onSuccess: (result) => {
+      if (result.kind === "challenge") {
+        const challenge = result as LoginChallengeResult;
+        toast.info("É necessário definir sua nova senha.");
+        navigate("/primeiro-acesso", {
+          replace: true,
+          state: {
+            email: challenge.email,
+            session: challenge.session,
+            challengeName: challenge.challengeName,
+          },
+        });
+        return;
+      }
+
       toast.success("Login realizado com sucesso.");
-      navigate(profile.role === "ADMIN" ? "/admin" : "/dashboard", { replace: true });
+      navigate(result.profile.role === "ADMIN" ? "/admin" : "/dashboard", { replace: true });
     },
     onError: (error) => {
       toast.error(error instanceof Error ? error.message : "Nao foi possivel autenticar.");

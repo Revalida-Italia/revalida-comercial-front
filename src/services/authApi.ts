@@ -6,6 +6,10 @@ const AUTH_API_URL = import.meta.env.VITE_AUTH_API_URL as string;
 const CORE_API_URL = import.meta.env.VITE_CORE_API_URL as string;
 
 interface LoginResponse {
+  requiresChallenge?: boolean;
+  challengeName?: string;
+  session?: string;
+  email?: string;
   accessToken?: string;
   refreshToken?: string;
   token?: string;
@@ -61,11 +65,21 @@ interface ResolveProfileResponse {
 }
 
 export interface LoginResult {
+  kind: "authenticated";
   session: AuthSession;
   userId: string;
   email?: string;
   role?: UserRole;
 }
+
+export interface LoginChallengeResult {
+  kind: "challenge";
+  challengeName: "NEW_PASSWORD_REQUIRED";
+  session: string;
+  email: string;
+}
+
+export type LoginResultOrChallenge = LoginResult | LoginChallengeResult;
 
 function normalizeRole(role?: UserRole): UserRole | undefined {
   if (!role) {
@@ -75,11 +89,24 @@ function normalizeRole(role?: UserRole): UserRole | undefined {
   return role.toUpperCase();
 }
 
-export async function login(email: string, password: string): Promise<LoginResult> {
+export async function login(email: string, password: string): Promise<LoginResultOrChallenge> {
   const payload = await apiRequest<LoginResponse>(AUTH_API_URL, "/auth/login", {
     method: "POST",
     body: { email, password, provider: "cognito" },
   });
+
+  if (payload.requiresChallenge && payload.challengeName === "NEW_PASSWORD_REQUIRED") {
+    if (!payload.session || !payload.email) {
+      throw new Error("Resposta de challenge incompleta.");
+    }
+
+    return {
+      kind: "challenge",
+      challengeName: "NEW_PASSWORD_REQUIRED",
+      session: payload.session,
+      email: payload.email,
+    };
+  }
 
   const accessToken = payload.accessToken ?? payload.token;
   const userId = payload.user?.id;
@@ -93,6 +120,7 @@ export async function login(email: string, password: string): Promise<LoginResul
   }
 
   return {
+    kind: "authenticated",
     session: {
       accessToken,
       refreshToken: payload.refreshToken,
@@ -101,6 +129,17 @@ export async function login(email: string, password: string): Promise<LoginResul
     email: payload.user?.email,
     role: normalizeRole(payload.user?.role),
   };
+}
+
+export async function completeNewPasswordChallenge(input: {
+  email: string;
+  session: string;
+  newPassword: string;
+}): Promise<void> {
+  await apiRequest<void>(AUTH_API_URL, "/auth/cognito/challenge", {
+    method: "POST",
+    body: input,
+  });
 }
 
 interface ResolveProfileFallback {

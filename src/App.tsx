@@ -11,6 +11,8 @@ import AdminCareerPlan from "./pages/AdminCareerPlan";
 import AdminPaymentGateways from "./pages/AdminPaymentGateways";
 import AdminProducts from "@/pages/AdminProducts";
 import AdminProductsCreate from "@/pages/AdminProductsCreate";
+import AdminCreateUser from "@/pages/AdminCreateUser";
+import FirstAccess from "@/pages/FirstAccess";
 import SaleDetails from "./pages/SaleDetails";
 import AppLayout from "./components/AppLayout";
 import NotFound from "./pages/NotFound";
@@ -27,6 +29,7 @@ const App = () => (
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Login />} />
+          <Route path="/primeiro-acesso" element={<FirstAccess />} />
           <Route element={<RequireAuth />}>
             <Route element={<AppLayout />}>
               <Route path="/dashboard" element={<Dashboard />} />
@@ -39,6 +42,7 @@ const App = () => (
                 <Route path="/admin/payment-gateways" element={<AdminPaymentGateways />} />
                 <Route path="/admin/products" element={<AdminProducts />} />
                 <Route path="/admin/products/new" element={<AdminProductsCreate />} />
+                <Route path="/admin/users/new" element={<AdminCreateUser />} />
               </Route>
             </Route>
           </Route>
