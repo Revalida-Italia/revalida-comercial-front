@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useDebounce } from "use-debounce";
 import { toast } from "sonner";
@@ -6,8 +6,14 @@ import { updateUserCareerPlanById } from "@/services/careerPlansApi";
 import { searchUsers, type UserSearchResult } from "@/services/usersApi";
 import UserSearchCard from "./organisms/UserSearchCard";
 import CareerAssignmentCard from "./organisms/CareerAssignmentCard";
+import { useLocation } from "react-router-dom";
+
+interface CareerLocationState {
+  prefilledUser?: UserSearchResult;
+}
 
 const AdminCareerPlanFeature = () => {
+  const location = useLocation();
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearchTerm] = useDebounce(searchTerm, 300);
   const [selectedUser, setSelectedUser] = useState<UserSearchResult | null>(null);
@@ -43,8 +49,9 @@ const AdminCareerPlanFeature = () => {
     setPercentage("");
   };
 
-  const handleSelectUser = (user: UserSearchResult) => {
+  const applySelectedUser = (user: UserSearchResult, showToast = true) => {
     setSelectedUser(user);
+    setSearchTerm(user.email ?? "");
     
     // Preencher com dados existentes se o usuário já tiver carreira
     if (user.careerPlan) {
@@ -54,9 +61,30 @@ const AdminCareerPlanFeature = () => {
       setCareerPlanId("");
       setPercentage("");
     }
-    
-    toast.success(`Usuário ${user.email} selecionado`);
+
+    if (showToast) {
+      toast.success(`Usuário ${user.email} selecionado`);
+    }
   };
+
+  const handleSelectUser = (user: UserSearchResult) => {
+    applySelectedUser(user, true);
+  };
+
+  useEffect(() => {
+    const state = (location.state as CareerLocationState | null) ?? null;
+    const prefilledUser = state?.prefilledUser;
+
+    if (!prefilledUser) {
+      return;
+    }
+
+    if (selectedUser?.id === prefilledUser.id) {
+      return;
+    }
+
+    applySelectedUser(prefilledUser, false);
+  }, [location.state, selectedUser?.id]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

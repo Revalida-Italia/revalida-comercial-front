@@ -16,10 +16,9 @@ const navItems = [
     path: "/admin",
     subItems: [
       { label: "Dashboard", path: "/admin" },
-      { label: "Gerenciamento de Carreira", path: "/admin/carreira" },
+      { label: "Usuarios", path: "/admin/users" },
       { label: "Editar Taxas", path: "/admin/payment-gateways" },
       { label: "Produtos", path: "/admin/products" },
-      { label: "Criar Usuario", path: "/admin/users/new" },
     ],
   },
 ];

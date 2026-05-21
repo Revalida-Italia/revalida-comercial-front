@@ -17,6 +17,10 @@ export interface UserSearchResult {
   externalId: string;
   email: string;
   name?: string;
+  role?: UserRole;
+  createdAt?: string;
+  updatedAt?: string;
+  careerPlanId?: string | null;
   careerPlan?: {
     id: string;
     name: string;
@@ -46,6 +50,11 @@ export async function searchUsers(searchTerm: string): Promise<UserSearchResult[
     `/users?searchTerm=${encodeURIComponent(searchTerm)}`,
   );
 
+  return unwrapArray(payload);
+}
+
+export async function listUsers(): Promise<UserSearchResult[]> {
+  const payload = await apiRequest<UserSearchResult[] | ListWrapper<UserSearchResult>>(CORE_API_URL, "/users");
   return unwrapArray(payload);
 }
 

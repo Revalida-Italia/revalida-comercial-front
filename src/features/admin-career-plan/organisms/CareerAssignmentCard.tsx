@@ -13,6 +13,16 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { listCareerPlans, type CareerPlanOption } from "@/services/careerPlansApi";
 import type { CareerAssignmentCardProps } from "../types";
 
+function getPlanCommissionRate(plan: CareerPlanOption): string {
+  const rawRate = plan.individualCommissionRate ?? plan.commissionPercentage ?? plan.percentage;
+
+  if (rawRate === undefined || rawRate === null) {
+    return "";
+  }
+
+  return String(rawRate);
+}
+
 const CareerAssignmentCard = ({
   selectedUser,
   careerPlanId,
@@ -60,7 +70,17 @@ const CareerAssignmentCard = ({
               <Label htmlFor="careerPlan">Nível de carreira</Label>
               <Select
                 value={careerPlanId}
-                onValueChange={onCareerPlanIdChange}
+                onValueChange={(value) => {
+                  onCareerPlanIdChange(value);
+
+                  const selectedPlan = careerPlans.find((plan) => plan.id === value);
+                  if (!selectedPlan) {
+                    onPercentageChange("");
+                    return;
+                  }
+
+                  onPercentageChange(getPlanCommissionRate(selectedPlan));
+                }}
                 disabled={isSubmitting || !selectedUser}
               >
                 <SelectTrigger id="careerPlan">
