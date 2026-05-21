@@ -1,14 +1,14 @@
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { useDebounce } from "use-debounce";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AlertCircle } from "lucide-react";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { listSales } from "@/services/commercialApi";
 import SaleListCard from "@/features/sales/organisms/SaleListCard";
-import SalesSummaryCards from "@/features/sales/organisms/SalesSummaryCards";
 import SalesFiltersCard from "@/features/sales/organisms/SalesFiltersCard";
+import SalesSummaryCards from "@/features/sales/organisms/SalesSummaryCards";
+import { listSales } from "@/services/commercialApi";
+import { useQuery } from "@tanstack/react-query";
+import { AlertCircle } from "lucide-react";
+import { useState } from "react";
+import { useDebounce } from "use-debounce";
 
 const SalesList = () => {
   const [searchTerm, setSearchTerm] = useState("");
@@ -43,6 +43,8 @@ const SalesList = () => {
         <p className="text-muted-foreground">Historico comercial com resumo financeiro e acesso ao detalhe completo.</p>
       </div>
 
+      <SalesSummaryCards summary={summary} />
+
       <SalesFiltersCard
         searchTerm={searchTerm}
         gateway={gateway}
@@ -50,8 +52,6 @@ const SalesList = () => {
         onGatewayChange={setGateway}
         onClearFilters={handleClearFilters}
       />
-
-      <SalesSummaryCards summary={summary} />
 
       <Card>
         <CardContent className="space-y-2.5 p-3 md:p-4">

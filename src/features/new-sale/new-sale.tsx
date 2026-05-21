@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { createSale, listGatewayFees, listProducts } from "@/services/commercialApi";
 import type { CreateSaleCustomer, GatewayFees } from "@/services/commercialApi";
-import { buildCommissionBreakdown, normalizeCommissionRate } from "@/lib/commission";
+import { buildCommissionBreakdown, normalizeCommissionRate } from "@/services/commissionApi";
 import { getProfile } from "@/lib/session";
 import { EMPTY_CUSTOMER, EMPTY_PAYMENT, MAX_INSTALLMENTS, STEP_LABELS } from "./constants";
 import type { SaleItemDraft, SalePaymentDraft } from "./types";

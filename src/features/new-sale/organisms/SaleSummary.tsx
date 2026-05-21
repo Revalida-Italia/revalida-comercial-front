@@ -1,4 +1,4 @@
-import type { CommissionBreakdownResult } from "@/lib/commission";
+import type { CommissionBreakdownResult } from "@/services/commissionApi";
 import { Separator } from "@/components/ui/separator";
 import {
   Award,

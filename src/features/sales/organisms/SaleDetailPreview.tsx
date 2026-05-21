@@ -1,4 +1,4 @@
-import type { CommissionBreakdownResult } from "@/lib/commission";
+import type { CommissionBreakdownResult } from "@/services/commissionApi";
 import type { SaleRecord } from "@/services/commercialApi";
 import { toNumberOrZero } from "@/shared/utils/number";
 import type { ConfiguredSalePayment, FilledSaleCustomer, SalePaymentDraft } from "@/features/new-sale/types";

@@ -1,6 +1,6 @@
 import { apiRequest } from "@/lib/http";
 import type { AuthSession, CareerPlan, UserProfile, UserRole } from "@/lib/session";
-import { normalizeCommissionRate } from "@/lib/commission";
+import { normalizeCommissionRate } from "@/services/commissionApi";
 
 const AUTH_API_URL = import.meta.env.VITE_AUTH_API_URL as string;
 const CORE_API_URL = import.meta.env.VITE_CORE_API_URL as string;
@@ -32,10 +32,26 @@ interface ResolveProfileResponse {
       teamCommissionRate: number | null;
       monthlyGoalSales: number | null;
       minimumMonthlySales: number | null;
+      starsToLevelUp?: number | null;
+      salesPerStar?: number | null;
       salesToNextCareerPlan: number | null;
       createdAt: string;
       updatedAt: string;
     },
+    careerProgress?: {
+      stars: number;
+      starsToLevelUp: number;
+      monthlyGoal: {
+        minimumMonthlyGoal: {
+          minimumGoal: number;
+          salesThisMonth: number;
+        };
+        monthlyGoal: {
+          generalGoal: number;
+          salesThisMonth: number;
+        };
+      };
+    };
     createdAt: string;
     updatedAt: string;
   },
@@ -129,5 +145,6 @@ export async function resolveProfile(userId: string, fallback?: ResolveProfileFa
     role,
     roles: [role],
     careerPlan: normalizedCareerPlan,
+    careerProgress: payload.careerProgress,
   };
 }

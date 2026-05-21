@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import type { CommissionBreakdownResult } from "@/lib/commission";
+import type { CommissionBreakdownResult } from "@/services/commissionApi";
 import SaleSummary from "@/features/new-sale/organisms/SaleSummary";
 import type { ConfiguredSalePayment, FilledSaleCustomer, SalePaymentDraft, SaleSummaryItem } from "../types";
 

@@ -9,10 +9,28 @@ export interface CareerPlan {
   id: string;
   name: string;
   individualCommissionRate: number;
+  commissionPercentage?: number | string | null;
   teamCommissionRate: number | null;
   monthlyGoalSales: number | null;
   minimumMonthlySales: number | null;
   salesToNextCareerPlan: number | null;
+  starsToLevelUp?: number | null;
+  salesPerStar?: number | null;
+}
+
+export interface CareerProgress {
+  stars: number;
+  starsToLevelUp: number;
+  monthlyGoal: {
+    minimumMonthlyGoal: {
+      minimumGoal: number;
+      salesThisMonth: number;
+    };
+    monthlyGoal: {
+      generalGoal: number;
+      salesThisMonth: number;
+    };
+  };
 }
 
 export interface UserProfile {
@@ -24,6 +42,7 @@ export interface UserProfile {
   role: UserRole;
   roles: UserRole[];
   careerPlan?: CareerPlan;
+  careerProgress?: CareerProgress;
 }
 
 const SESSION_KEY = "sales-flow.session.v1";
