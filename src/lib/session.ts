@@ -20,6 +20,8 @@ export interface CareerPlan {
 
 export interface CareerProgress {
   stars: number;
+  salesToNextStart?: number;
+  salesToNextStar?: number;
   starsToLevelUp: number;
   monthlyGoal: {
     minimumMonthlyGoal: {

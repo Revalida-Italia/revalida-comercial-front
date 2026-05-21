@@ -40,6 +40,8 @@ interface ResolveProfileResponse {
     },
     careerProgress?: {
       stars: number;
+      salesToNextStart?: number;
+      salesToNextStar?: number;
       starsToLevelUp: number;
       monthlyGoal: {
         minimumMonthlyGoal: {

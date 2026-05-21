@@ -2,7 +2,7 @@ import { Badge } from "@/components/ui/badge";
 import { clearSession, getProfile, hasRole, setProfile } from "@/lib/session";
 import { resolveProfile } from "@/services/authApi";
 import { useQuery } from "@tanstack/react-query";
-import { Building2, ChevronDown, FileText, LayoutDashboard, LogOut, PlusCircle, Shield, Star, User } from "lucide-react";
+import { Building2, Check, ChevronDown, FileText, LayoutDashboard, LogOut, PlusCircle, Shield, Star, User } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
@@ -58,8 +58,13 @@ const AppSidebar = () => {
   const roleLabel = profile?.role === "ADMIN" ? "Admin" : "Vendedor";
   const careerPlanName = profile?.careerPlan?.name || "Sem career plan";
   const currentStars = profile?.careerProgress?.stars ?? 0;
+  const salesToNextStar = profile?.careerProgress?.salesToNextStart ?? profile?.careerProgress?.salesToNextStar;
   const starsToLevelUp = profile?.careerProgress?.starsToLevelUp ?? profile?.careerPlan?.starsToLevelUp ?? 0;
-  const remainingStars = Math.max(starsToLevelUp - currentStars, 0);
+  const minimumMonthlyGoal = profile?.careerProgress?.monthlyGoal?.minimumMonthlyGoal?.minimumGoal ?? 0;
+  const minimumMonthlySales = profile?.careerProgress?.monthlyGoal?.minimumMonthlyGoal?.salesThisMonth ?? 0;
+  const generalMonthlyGoal = profile?.careerProgress?.monthlyGoal?.monthlyGoal?.generalGoal ?? 0;
+  const generalMonthlySales = profile?.careerProgress?.monthlyGoal?.monthlyGoal?.salesThisMonth ?? 0;
+  const hasReachedMinimumMonthlyGoal = minimumMonthlyGoal > 0 && minimumMonthlySales >= minimumMonthlyGoal;
 
   const starSlots = useMemo(() => {
     const totalSlots = Math.max(starsToLevelUp, 1);
@@ -136,9 +141,28 @@ const AppSidebar = () => {
 
           <div className="mt-3 flex items-center justify-between gap-2 text-xs text-sidebar-foreground/75">
             <span>
-              Faltam <span className="font-semibold text-sidebar-foreground">{remainingStars}</span> para subir
+              Prox. estrela em <span className="font-semibold text-sidebar-foreground">{salesToNextStar ?? "-"}</span>{" "}
+              venda{salesToNextStar === 1 ? "" : "s"}
             </span>
             <span>{progressPercentage.toFixed(0)}%</span>
+          </div>
+
+          <hr className="my-2 border-sidebar-border/80" />
+
+          <div className="mt-2 flex flex-col gap-2 text-[11px] text-sidebar-foreground/65">
+            {hasReachedMinimumMonthlyGoal ? (
+              <span className="flex items-center gap-1.5 text-emerald-300">
+                <Check className="h-3.5 w-3.5" />
+                Meta mínima do mês <span className="font-semibold text-emerald-200">{minimumMonthlySales}/{minimumMonthlyGoal}</span>
+              </span>
+            ) : (
+              <span>
+                Meta mínima do mês <span className="font-semibold text-sidebar-foreground/90">{minimumMonthlySales}/{minimumMonthlyGoal}</span>
+              </span>
+            )}
+            <span>
+              Meta do mês <span className="font-semibold text-sidebar-foreground/90">{generalMonthlySales}/{generalMonthlyGoal}</span>
+            </span>
           </div>
         </div>
 
