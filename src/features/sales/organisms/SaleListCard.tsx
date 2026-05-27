@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import type { SaleRecord } from "@/services/commercialApi";
-import { formatCurrency, formatDateTime } from "@/shared/utils/format";
+import { formatCurrency, formatDate } from "@/shared/utils/format";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { CalendarDays, CircleDollarSign, Users, UserCircle } from "lucide-react";
@@ -34,7 +34,7 @@ const SaleListCard = ({ sale }: SaleListCardProps) => {
               <p className="truncate text-sm font-semibold text-foreground">{getSaleProductName(sale)}</p>
               <p className="truncate text-xs text-muted-foreground flex items-center gap-1"><Users className="h-3.5 w-3.5" />{customerNames}</p>
               <p className="truncate text-xs text-muted-foreground flex items-center gap-1"><UserCircle className="h-3.5 w-3.5" />{sellerInfo}</p>
-              <p className="text-[11px] text-muted-foreground flex items-center gap-1"><CalendarDays className="h-3 w-3" />{formatDateTime(sale.createdAt)}</p>
+              <p className="text-[11px] text-muted-foreground flex items-center gap-1"><CalendarDays className="h-3 w-3" />{formatDate(sale.soldAt)}</p>
             </div>
 
             <div>

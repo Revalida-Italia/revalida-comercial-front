@@ -89,6 +89,7 @@ export interface SaleRecord {
   currency: string;
   contractValue?: string | number;
   status: string;
+  soldAt?: string | null;
   createdAt: string;
   updatedAt: string;
   seller?: {
