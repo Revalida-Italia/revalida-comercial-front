@@ -147,16 +147,46 @@ interface ResolveProfileFallback {
   role?: UserRole;
 }
 
-export async function resolveProfile(userId: string, fallback?: ResolveProfileFallback): Promise<UserProfile> {
-  const { data: payload } = await apiRequest<ResolveProfileResponse>(CORE_API_URL, "/users/profile", {
-    method: "POST",
-    body: {
-      id: userId,
-      sub: userId,
-      externalId: userId,
-    },
-  });
+interface UpsertProfilePayload {
+  id: string;
+  externalId: string;
+  email: string;
+  role: UserRole;
+  name: string;
+  careerPlanId: string;
+  careerPlan: {
+    id: string;
+    name: string;
+    individualCommissionRate: number | string | null;
+    commissionPercentage?: number | string | null;
+    teamCommissionRate: number | null;
+    monthlyGoalSales: number | null;
+    minimumMonthlySales: number | null;
+    starsToLevelUp?: number | null;
+    salesPerStar?: number | null;
+    salesToNextCareerPlan: number | null;
+    createdAt: string;
+    updatedAt: string;
+  };
+  careerProgress?: {
+    stars: number;
+    salesToNextStart?: number;
+    salesToNextStar?: number;
+    starsToLevelUp: number;
+    monthlyGoal: {
+      minimumMonthlyGoal: {
+        minimumGoal: number;
+        salesThisMonth: number;
+      };
+      monthlyGoal: {
+        generalGoal: number;
+        salesThisMonth: number;
+      };
+    };
+  };
+}
 
+function toUserProfile(payload: UpsertProfilePayload, userId: string, fallback?: ResolveProfileFallback): UserProfile {
   const normalizedCareerPlan: CareerPlan | undefined = payload.careerPlan
     ? {
       ...payload.careerPlan,
@@ -188,4 +218,41 @@ export async function resolveProfile(userId: string, fallback?: ResolveProfileFa
     careerPlan: normalizedCareerPlan,
     careerProgress: payload.careerProgress,
   };
+}
+
+export async function resolveProfile(userId: string, fallback?: ResolveProfileFallback): Promise<UserProfile> {
+  const { data: payload } = await apiRequest<ResolveProfileResponse>(CORE_API_URL, "/users/profile", {
+    method: "POST",
+    body: {
+      id: userId,
+      sub: userId,
+      externalId: userId,
+    },
+  });
+
+  return toUserProfile(payload, userId, fallback);
+}
+
+export async function updateProfileName(input: {
+  userId: string;
+  name: string;
+  fallback?: ResolveProfileFallback;
+}): Promise<UserProfile> {
+  const trimmedName = input.name.trim();
+
+  if (!trimmedName) {
+    throw new Error("Nome nao pode ser vazio.");
+  }
+
+  const { data: payload } = await apiRequest<ResolveProfileResponse>(CORE_API_URL, "/users/profile", {
+    method: "POST",
+    body: {
+      id: input.userId,
+      sub: input.userId,
+      externalId: input.userId,
+      name: trimmedName,
+    },
+  });
+
+  return toUserProfile(payload, input.userId, input.fallback);
 }

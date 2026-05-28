@@ -13,6 +13,7 @@ import AdminProducts from "@/pages/AdminProducts";
 import AdminProductsCreate from "@/pages/AdminProductsCreate";
 import AdminCreateUser from "@/pages/AdminCreateUser";
 import AdminUsers from "@/pages/AdminUsers";
+import AdminSalesDashboard from "@/pages/AdminSalesDashboard";
 import FirstAccess from "@/pages/FirstAccess";
 import SaleDetails from "./pages/SaleDetails";
 import AppLayout from "./components/AppLayout";
@@ -45,6 +46,7 @@ const App = () => (
                 <Route path="/admin/products/new" element={<AdminProductsCreate />} />
                 <Route path="/admin/users" element={<AdminUsers />} />
                 <Route path="/admin/users/new" element={<AdminCreateUser />} />
+                <Route path="/admin/sales-dashboard" element={<AdminSalesDashboard />} />
               </Route>
             </Route>
           </Route>

@@ -14,6 +14,8 @@ export interface UserSearchCardProps {
   selectedUser: UserSearchResult | null;
   onSelectUser: (user: UserSearchResult) => void;
   disabled?: boolean;
+  hideResultsWhenSelected?: boolean;
+  selectedItemClassName?: string;
 }
 
 export interface CareerAssignmentCardProps {

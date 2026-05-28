@@ -204,14 +204,54 @@ export interface ListSalesOptions {
   gateway?: string;
 }
 
+export type PaymentGateway = "NUBANK" | "HOTMART" | "PAYPAL" | "ASAAS" | "WISE";
+
+export interface SalesDashboardRequest {
+  sellerId?: string;
+  gateway?: PaymentGateway;
+  searchTerm?: string;
+}
+
+export interface SalesDashboardPeriod {
+  period: string;
+  totalSales: number;
+  totalSalesAmount: number;
+  totalComission: number;
+  careerPlanInPeriod: string | null;
+  starsInPeriod: number;
+  minimumMonthlySales: number;
+}
+
+export interface SalesDashboardCareerPlanSummary {
+  minimumMonthlySales: number;
+  monthlyGoalSales: number;
+}
+
+export interface SalesDashboardSummary {
+  careerPlan: SalesDashboardCareerPlanSummary;
+}
+
+export interface SalesDashboardResponse {
+  periods: SalesDashboardPeriod[];
+  summary: SalesDashboardSummary;
+}
+
+interface SalesDashboardEnvelope {
+  success: boolean;
+  data: {
+    summary: SalesDashboardSummary;
+    data: SalesDashboardPeriod[];
+  };
+}
+
 export async function listSales(options?: ListSalesOptions): Promise<SalesListResponse> {
   const params = new URLSearchParams();
   if (options?.searchTerm) params.set("searchTerm", options.searchTerm);
   if (options?.gateway) params.set("gateway", options.gateway);
-  
+
   const queryString = params.toString();
   const url = `/sales${queryString ? `?${queryString}` : ""}`;
-  
+
   const payload = await apiRequest<ApiEnvelope<SalesListResponse> | SalesListResponse>(CORE_API_URL, url);
 
   if ("sales" in payload && Array.isArray(payload.sales)) {
@@ -230,4 +270,21 @@ export async function createSale(input: CreateSaleInput): Promise<void> {
     method: "POST",
     body: input,
   });
+}
+
+export async function fetchSalesDashboard(payload: SalesDashboardRequest): Promise<SalesDashboardResponse> {
+  const response = await apiRequest<SalesDashboardEnvelope>(CORE_API_URL, "/sales/dashboard", {
+    method: "POST",
+    body: payload,
+  });
+
+  return {
+    periods: response.data?.data ?? [],
+    summary: {
+      careerPlan: {
+        minimumMonthlySales: Number(response.data?.summary?.careerPlan?.minimumMonthlySales ?? 0),
+        monthlyGoalSales: Number(response.data?.summary?.careerPlan?.monthlyGoalSales ?? 0),
+      },
+    },
+  };
 }

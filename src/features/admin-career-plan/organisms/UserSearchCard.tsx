@@ -11,7 +11,11 @@ const UserSearchCard = ({
   selectedUser,
   onSelectUser,
   disabled = false,
+  hideResultsWhenSelected = false,
+  selectedItemClassName,
 }: UserSearchCardProps) => {
+  const shouldHideResults = hideResultsWhenSelected && Boolean(selectedUser);
+
   return (
     <Card>
       <CardHeader>
@@ -34,7 +38,7 @@ const UserSearchCard = ({
         </div>
 
         {/* Lista de Resultados */}
-        {searchTerm && (
+        {searchTerm && !shouldHideResults && (
           <div className="border rounded-md overflow-hidden">
             <div className="max-h-[320px] overflow-y-auto">
               {isSearching ? (
@@ -48,26 +52,33 @@ const UserSearchCard = ({
               ) : (
                 <div className="divide-y">
                   {searchResults.map((user) => (
+                    (() => {
+                      const isSelected = selectedUser?.id === user.id;
+                      return (
                     <button
                       key={user.id}
                       onClick={() => onSelectUser(user)}
-                      className={`w-full text-left px-4 py-3 hover:bg-accent transition-colors flex items-start gap-3 ${
-                        selectedUser?.id === user.id ? "bg-accent" : ""
+                      className={`w-full text-left px-4 py-3 hover:bg-[#e9f2f9] hover:text-[#0c3559] transition-colors flex items-start gap-3 ${
+                        isSelected
+                          ? selectedItemClassName ?? "bg-accent"
+                          : ""
                       }`}
                     >
-                      <UserCircle className="h-5 w-5 text-muted-foreground mt-0.5 flex-shrink-0" />
+                      <UserCircle className={`h-5 w-5 mt-0.5 flex-shrink-0 ${isSelected ? "text-white" : "text-muted-foreground"}`} />
                       <div className="flex-1 min-w-0">
                         <div className="font-medium text-sm truncate">{user.email}</div>
                         {user.name && (
-                          <div className="text-xs text-muted-foreground truncate">{user.name}</div>
+                          <div className={`text-xs truncate ${isSelected ? "text-white/85" : "text-muted-foreground"}`}>{user.name}</div>
                         )}
                         {user.careerPlan && (
-                          <div className="text-xs text-muted-foreground truncate">
+                          <div className={`text-xs truncate ${isSelected ? "text-white/85" : "text-muted-foreground"}`}>
                             Carreira: {user.careerPlan.name}
                           </div>
                         )}
                       </div>
                     </button>
+                      );
+                    })()
                   ))}
                 </div>
               )}

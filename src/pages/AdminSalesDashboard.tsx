@@ -1,12 +1,12 @@
 import SalesDashboardFeature from "@/features/sales-dashboard/SalesDashboardFeature";
 
-const AdminDashboard = () => {
+const AdminSalesDashboard = () => {
   return (
     <div className="space-y-4">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Selecione um vendedor para visualizar perfil e historico de vendas.
+          Analise de vendas, comissao e progresso de carreira por competencia mensal.
         </p>
       </div>
 
@@ -15,4 +15,4 @@ const AdminDashboard = () => {
   );
 };
 
-export default AdminDashboard;
+export default AdminSalesDashboard;
