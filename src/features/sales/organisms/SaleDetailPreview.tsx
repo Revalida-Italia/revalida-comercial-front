@@ -13,6 +13,8 @@ const SaleDetailPreview = ({ sale }: SaleDetailPreviewProps) => {
   const filledCustomers: FilledSaleCustomer[] = sale.clients.map((client) => ({
     name: client.nameCiphertext || "Sem nome",
     document: client.documentCiphertext || undefined,
+    telefone: client.telefone || "-",
+    email: client.email || undefined,
   }));
 
   const saleItems = sale.items.map((item) => ({
@@ -25,7 +27,11 @@ const SaleDetailPreview = ({ sale }: SaleDetailPreviewProps) => {
     paymentType: payment.type,
     amount: toNumberOrZero(payment.amount),
     totalInstallments: payment.totalInstallments ?? undefined,
+    dueDate: payment.dueDate?.slice(0, 10) ?? undefined,
     feeRate: toNumberOrZero(payment.gatewayFeeRateSnapshot ?? payment.gatewayFee?.feeRate),
+    linkPagamento: payment.linkPagamento ?? undefined,
+    billingType: (payment.billingType as ConfiguredSalePayment["billingType"]) || "PIX",
+    ciclo: payment.ciclo ? (payment.ciclo as ConfiguredSalePayment["ciclo"]) : undefined,
   }));
 
   const paymentBreakdown = configuredPayments.map((payment, index) => {

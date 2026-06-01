@@ -60,6 +60,24 @@ const CustomersStep = ({
                 placeholder="CPF, RG, passaporte..."
               />
             </div>
+            <div className="space-y-1.5">
+              <Label>Telefone *</Label>
+              <Input
+                type="tel"
+                value={customer.telefone}
+                onChange={(event) => onUpdateCustomer(index, "telefone", event.target.value)}
+                placeholder="5534999999999"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>E-mail</Label>
+              <Input
+                type="email"
+                value={customer.email ?? ""}
+                onChange={(event) => onUpdateCustomer(index, "email", event.target.value)}
+                placeholder="cliente@email.com"
+              />
+            </div>
           </div>
         </div>
       ))}

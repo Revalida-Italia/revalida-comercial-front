@@ -6,7 +6,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Trash2 } from "lucide-react";
-import { MAX_INSTALLMENTS, PAYMENT_TYPE_LABELS } from "../constants";
+import {
+  BILLING_TYPE_OPTIONS,
+  MAX_INSTALLMENTS,
+  PAYMENT_TYPE_LABELS,
+  SUBSCRIPTION_CYCLE_OPTIONS,
+} from "../constants";
 import type { SalePaymentDraft } from "../types";
 
 type PaymentsStepProps = {
@@ -120,6 +125,46 @@ const PaymentsStep = ({
               </div>
             </div>
 
+            <div className="grid gap-3 md:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label>Meio de cobranca *</Label>
+                <Select
+                  value={payment.billingType}
+                  onValueChange={(value) => onUpdatePayment(index, "billingType", value)}
+                  disabled={!payment.paymentType}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="PIX, boleto..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {BILLING_TYPE_OPTIONS.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {isSubscription && (
+                <div className="space-y-1.5">
+                  <Label>Ciclo da assinatura *</Label>
+                  <Select value={payment.ciclo} onValueChange={(value) => onUpdatePayment(index, "ciclo", value)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione o ciclo" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {SUBSCRIPTION_CYCLE_OPTIONS.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+            </div>
+
             <div className="grid gap-3 md:grid-cols-3">
               <div className="space-y-1.5">
                 <Label>
@@ -177,6 +222,16 @@ const PaymentsStep = ({
                   {["INSTALLMENT", "SUBSCRIPTION"].includes(payment.paymentType) && (
                     <p>
                       {payment.paymentType === "SUBSCRIPTION" ? "Meses" : "Parcelas"}: <strong>{installments}</strong>
+                    </p>
+                  )}
+                  {payment.billingType && (
+                    <p>
+                      Meio de cobranca: <strong>{BILLING_TYPE_OPTIONS.find((item) => item.value === payment.billingType)?.label ?? payment.billingType}</strong>
+                    </p>
+                  )}
+                  {isSubscription && payment.ciclo && (
+                    <p>
+                      Ciclo: <strong>{SUBSCRIPTION_CYCLE_OPTIONS.find((item) => item.value === payment.ciclo)?.label ?? payment.ciclo}</strong>
                     </p>
                   )}
                 </div>

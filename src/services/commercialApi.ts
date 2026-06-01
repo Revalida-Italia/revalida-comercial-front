@@ -18,6 +18,8 @@ export interface SaleClient {
   saleId: string;
   nameCiphertext: string;
   documentCiphertext?: string | null;
+  telefone?: string | null;
+  email?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -69,6 +71,10 @@ export interface SalePayment {
   totalInstallments?: number | null;
   gatewayFeeRateSnapshot?: string | number | null;
   notes?: string | null;
+  linkPagamento?: string | null;
+  cobrancaExternalId?: string | null;
+  billingType?: BillingType | string | null;
+  ciclo?: SubscriptionCycle | string | null;
   createdAt: string;
   updatedAt: string;
   commission?: SalePaymentCommission;
@@ -128,12 +134,16 @@ export interface SalesListResponse {
 export interface CreateSaleCustomer {
   name: string;
   document?: string;
+  telefone: string;
+  email?: string;
 }
 
 /** API-facing client type as required by the backend schema. */
 export interface CreateSaleClient {
   nameCiphertext: string;
   documentCiphertext: string;
+  telefone: string;
+  email?: string;
 }
 
 export interface CreateSaleItem {
@@ -142,12 +152,24 @@ export interface CreateSaleItem {
   notes?: string;
 }
 
+export type BillingType = "PIX" | "BOLETO" | "CREDIT_CARD";
+
+export type SubscriptionCycle =
+  | "WEEKLY"
+  | "BIWEEKLY"
+  | "MONTHLY"
+  | "QUARTERLY"
+  | "SEMIANNUALLY"
+  | "YEARLY";
+
 export interface CreateSalePayment {
   gateway: string;
   type: string;
   amount: number;
   totalInstallments?: number;
   dueDate?: string;
+  billingType: BillingType;
+  ciclo?: SubscriptionCycle;
   paymentDate?: string;
   status?: string;
   installmentNumber?: number;

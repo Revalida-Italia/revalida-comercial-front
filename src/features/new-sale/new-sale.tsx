@@ -7,7 +7,13 @@ import { listProducts } from "@/services/productsApi";
 import type { CreateSaleCustomer, GatewayFees } from "@/services/commercialApi";
 import { buildCommissionBreakdown, normalizeCommissionRate } from "@/services/commissionApi";
 import { getProfile } from "@/lib/session";
-import { EMPTY_CUSTOMER, EMPTY_PAYMENT, MAX_INSTALLMENTS, STEP_LABELS } from "./constants";
+import {
+  DEFAULT_SUBSCRIPTION_CYCLE,
+  EMPTY_CUSTOMER,
+  EMPTY_PAYMENT,
+  MAX_INSTALLMENTS,
+  STEP_LABELS,
+} from "./constants";
 import type { SaleItemDraft, SalePaymentDraft } from "./types";
 import ConfirmStep from "./organisms/ConfirmStep";
 import CustomersStep from "./organisms/CustomersStep";
@@ -85,7 +91,14 @@ const NewSaleFeature = () => {
   }, [profile]);
 
   const filledCustomers = useMemo(
-    () => customers.filter((c) => c.name.trim()).map((c) => ({ name: c.name.trim(), document: c.document?.trim() || undefined })),
+    () => customers
+      .filter((c) => c.name.trim() && c.telefone.trim())
+      .map((c) => ({
+        name: c.name.trim(),
+        document: c.document?.trim() || undefined,
+        telefone: c.telefone.trim(),
+        email: c.email?.trim() || undefined,
+      })),
     [customers],
   );
 
@@ -112,7 +125,7 @@ const NewSaleFeature = () => {
 
   const configuredPayments = useMemo(
     () => payments
-      .filter((payment) => Number(payment.amount) > 0 && payment.gateway && payment.paymentType && payment.dueDate)
+      .filter((payment) => Number(payment.amount) > 0 && payment.gateway && payment.paymentType && payment.dueDate && payment.billingType)
       .map((payment) => ({
         gateway: payment.gateway,
         paymentType: payment.paymentType,
@@ -121,6 +134,10 @@ const NewSaleFeature = () => {
           ? Number(payment.totalInstallments || "1")
           : undefined,
         dueDate: payment.dueDate,
+        billingType: payment.billingType,
+        ciclo: payment.paymentType === "SUBSCRIPTION"
+          ? payment.ciclo || DEFAULT_SUBSCRIPTION_CYCLE
+          : undefined,
         feeRate: getFeeRate(payment.gateway, payment.paymentType),
       })),
     [payments, gatewayFeesQuery.data],
@@ -141,7 +158,7 @@ const NewSaleFeature = () => {
   const hasValidPayments = payments.length > 0
     && payments.every((payment) => {
       const amountOk = Number(payment.amount) > 0;
-      const baseOk = Boolean(payment.gateway && payment.paymentType && payment.dueDate && amountOk);
+      const baseOk = Boolean(payment.gateway && payment.paymentType && payment.dueDate && payment.billingType && amountOk);
       if (!baseOk) return false;
       if (["INSTALLMENT", "SUBSCRIPTION"].includes(payment.paymentType)) {
         const installments = Number(payment.totalInstallments);
@@ -188,6 +205,7 @@ const NewSaleFeature = () => {
           ...payment,
           paymentType: value,
           totalInstallments: payment.totalInstallments || "1",
+          ciclo: value === "SUBSCRIPTION" ? payment.ciclo || DEFAULT_SUBSCRIPTION_CYCLE : DEFAULT_SUBSCRIPTION_CYCLE,
         };
       }
       if (field === "totalInstallments") {
@@ -229,6 +247,8 @@ const NewSaleFeature = () => {
         clients: filledCustomers.map((c) => ({
           nameCiphertext: c.name,
           documentCiphertext: c.document ?? "",
+          telefone: c.telefone,
+          ...(c.email ? { email: c.email } : {}),
         })),
         items: selectedSaleItems,
         payments: configuredPayments.map((payment) => ({
@@ -236,6 +256,8 @@ const NewSaleFeature = () => {
           type: payment.paymentType,
           amount: payment.amount,
           dueDate: payment.dueDate,
+          billingType: payment.billingType,
+          ...(payment.ciclo ? { ciclo: payment.ciclo } : {}),
           ...(payment.totalInstallments ? { totalInstallments: payment.totalInstallments } : {}),
         })),
       });

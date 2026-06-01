@@ -20,6 +20,7 @@ import AppLayout from "./components/AppLayout";
 import NotFound from "./pages/NotFound";
 import { RequireAdmin, RequireAuth } from "./components/RouteGuards";
 import NewSale from "./pages/NewSale";
+import Templates from "./pages/Templates";
 
 const queryClient = new QueryClient();
 
@@ -38,6 +39,7 @@ const App = () => (
               <Route path="/nova-venda" element={<NewSale />} />
               <Route path="/vendas" element={<SalesList />} />
               <Route path="/vendas/:id" element={<SaleDetails />} />
+              <Route path="/templates" element={<Templates />} />
               <Route element={<RequireAdmin />}>
                 <Route path="/admin" element={<AdminDashboard />} />
                 <Route path="/admin/carreira" element={<AdminCareerPlan />} />

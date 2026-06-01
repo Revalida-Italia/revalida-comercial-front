@@ -17,6 +17,12 @@ export const getSaleCommissionValue = (sale: SaleRecord): number => {
   return sale.payments.reduce((acc, payment) => acc + toNumberOrZero(payment.commission?.amount), 0);
 };
 
+export const getPrimaryClientName = (sale: SaleRecord): string =>
+  sale.clients[0]?.nameCiphertext?.trim() || "Cliente";
+
+export const getPrimaryClientPhone = (sale: SaleRecord): string =>
+  sale.clients[0]?.telefone?.trim() || "";
+
 export const getSaleCustomerNames = (sale: SaleRecord): string => {
   const names = sale.clients
     .map((client) => client.nameCiphertext?.trim())

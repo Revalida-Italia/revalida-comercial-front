@@ -2,7 +2,7 @@ import { Badge } from "@/components/ui/badge";
 import { clearSession, getProfile, hasRole, setProfile } from "@/lib/session";
 import { resolveProfile } from "@/services/authApi";
 import { useQuery } from "@tanstack/react-query";
-import { Building2, Check, ChevronDown, FileText, LayoutDashboard, LogOut, PlusCircle, Shield, Star, User } from "lucide-react";
+import { Building2, Check, ChevronDown, FileText, LayoutDashboard, LogOut, MessageSquare, PlusCircle, Shield, Star, User } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
@@ -10,6 +10,7 @@ const navItems = [
   { label: "Dashboard", icon: LayoutDashboard, path: "/dashboard" },
   { label: "Nova Venda", icon: PlusCircle, path: "/nova-venda" },
   { label: "Vendas", icon: FileText, path: "/vendas" },
+  { label: "Templates", icon: MessageSquare, path: "/templates" },
   {
     label: "Admin",
     icon: Shield,

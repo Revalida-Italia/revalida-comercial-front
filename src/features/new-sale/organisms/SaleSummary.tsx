@@ -1,9 +1,12 @@
 import type { CommissionBreakdownResult } from "@/services/commissionApi";
+import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import {
   Award,
   Banknote,
+  Copy,
   CreditCard,
+  ExternalLink,
   Landmark,
   MinusCircle,
   Package,
@@ -11,7 +14,8 @@ import {
   TrendingUp,
   User,
 } from "lucide-react";
-import { PAYMENT_TYPE_LABELS } from "../constants";
+import { toast } from "sonner";
+import { BILLING_TYPE_LABELS, PAYMENT_TYPE_LABELS, SUBSCRIPTION_CYCLE_LABELS } from "../constants";
 import type { ConfiguredSalePayment, FilledSaleCustomer, SalePaymentDraft, SaleSummaryItem } from "../types";
 
 type SaleSummaryProps = {
@@ -79,6 +83,8 @@ const SaleSummary = ({
             <li key={index}>
               <p className="font-medium leading-tight">{customer.name}</p>
               {customer.document && <p className="text-xs text-muted-foreground">{customer.document}</p>}
+              <p className="text-xs text-muted-foreground">{customer.telefone}</p>
+              {customer.email && <p className="text-xs text-muted-foreground">{customer.email}</p>}
             </li>
           ))}
         </ul>
@@ -127,6 +133,12 @@ const SaleSummary = ({
                   return feeRate > 0 ? ` - taxa ${feeRate}%` : "";
                 })()}
               </p>
+              <p className="text-xs text-muted-foreground">
+                Cobranca: {BILLING_TYPE_LABELS[payment.billingType] ?? payment.billingType}
+                {payment.paymentType === "SUBSCRIPTION" && payment.ciclo && (
+                  <> · Ciclo: {SUBSCRIPTION_CYCLE_LABELS[payment.ciclo] ?? payment.ciclo}</>
+                )}
+              </p>
               <p className="font-medium">
                 {paymentGrossValue({
                   gateway: payment.gateway,
@@ -136,7 +148,34 @@ const SaleSummary = ({
                   dueDate: payment.dueDate ?? "",
                 }).toLocaleString("pt-BR", { style: "currency", currency })}
               </p>
-              {payment.dueDate && <p className="text-xs text-muted-foreground">Pagamento: {payment.dueDate}</p>}
+              {payment.dueDate && <p className="text-xs text-muted-foreground">Vencimento: {payment.dueDate}</p>}
+              {payment.linkPagamento && (
+                <div className="mt-2 space-y-1.5 rounded-md border border-dashed border-primary/30 bg-primary/5 p-2">
+                  <p className="text-xs font-medium text-muted-foreground">Link de pagamento</p>
+                  <p className="break-all text-xs text-foreground">{payment.linkPagamento}</p>
+                  <div className="flex flex-wrap gap-2">
+                    <Button variant="outline" size="sm" className="h-7 gap-1 text-xs" asChild>
+                      <a href={payment.linkPagamento} target="_blank" rel="noopener noreferrer">
+                        <ExternalLink className="h-3 w-3" />
+                        Abrir
+                      </a>
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-7 gap-1 text-xs"
+                      onClick={() => {
+                        void navigator.clipboard.writeText(payment.linkPagamento!);
+                        toast.success("Link copiado.");
+                      }}
+                    >
+                      <Copy className="h-3 w-3" />
+                      Copiar
+                    </Button>
+                  </div>
+                </div>
+              )}
             </li>
           ))}
         </ul>
