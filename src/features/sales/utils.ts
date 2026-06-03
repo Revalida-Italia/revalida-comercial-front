@@ -29,7 +29,7 @@ export const getSaleCustomerNames = (sale: SaleRecord): string => {
     .filter((name): name is string => Boolean(name));
 
   if (names.length === 0) {
-    return "Cliente nao informado";
+    return "Cliente não informado";
   }
 
   if (names.length === 1) {
@@ -40,16 +40,16 @@ export const getSaleCustomerNames = (sale: SaleRecord): string => {
 };
 
 export const getSaleProductName = (sale: SaleRecord): string =>
-  sale.items[0]?.product?.name ?? "Produto nao informado";
+  sale.items[0]?.product?.name ?? "Produto não informado";
 
 export const getSaleSellerInfo = (sale: SaleRecord): string => {
   if (!sale.seller) {
-    return "Vendedor nao informado";
+    return "Vendedor não informado";
   }
   
   if (sale.seller.name) {
     return `${sale.seller.name} (${sale.seller.email || "sem email"})`;
   }
   
-  return sale.seller.email || "Vendedor nao informado";
+  return sale.seller.email || "Vendedor não informado";
 };

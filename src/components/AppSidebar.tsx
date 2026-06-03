@@ -89,8 +89,8 @@ const AppSidebar = () => {
       <div className="mx-3 mb-4 shrink-0 rounded-2xl border border-sidebar-border/80 bg-sidebar-accent/50 p-4 text-sidebar-foreground shadow-inner shadow-black/10 backdrop-blur-sm">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="truncate text-sm font-semibold">{profile?.name || "Usuario"}</p>
-            <p className="truncate text-xs text-sidebar-foreground/70">{profile?.email || "email nao informado"}</p>
+            <p className="truncate text-sm font-semibold">{profile?.name || "Usuário"}</p>
+            <p className="truncate text-xs text-sidebar-foreground/70">{profile?.email || "email não informado"}</p>
           </div>
           <div className="rounded-full bg-sidebar-primary/15 p-2 text-sidebar-primary">
             <User className="h-4 w-4" />

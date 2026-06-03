@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { createSale, listGatewayFees } from "@/services/commercialApi";
 import { listProducts } from "@/services/productsApi";
-import type { CreateSaleCustomer, GatewayFees } from "@/services/commercialApi";
+import type { BillingType, CreateSaleCustomer, GatewayFees } from "@/services/commercialApi";
 import { buildCommissionBreakdown, normalizeCommissionRate } from "@/services/commissionApi";
 import { getProfile } from "@/lib/session";
 import {
@@ -21,6 +21,12 @@ import PaymentsStep from "./organisms/PaymentsStep";
 import ProductStep from "./organisms/ProductStep";
 import SaleSummary from "@/features/new-sale/organisms/SaleSummary";
 import StepIndicator from "./organisms/StepIndicator";
+
+type PaymentValueLike = {
+  amount: string | number;
+  paymentType: string;
+  totalInstallments?: string | number;
+};
 
 const NewSaleFeature = () => {
   const queryClient = useQueryClient();
@@ -63,7 +69,7 @@ const NewSaleFeature = () => {
 
   const saleSummaryItems = useMemo(
     () => selectedSaleItems.map((item) => ({
-      productName: productsQuery.data?.find((product) => product.id === item.productId)?.name ?? "Produto nao identificado",
+      productName: productsQuery.data?.find((product) => product.id === item.productId)?.name ?? "Produto não identificado",
       releaseDate: item.releaseDate,
     })),
     [selectedSaleItems, productsQuery.data],
@@ -114,7 +120,7 @@ const NewSaleFeature = () => {
     return feeRate ?? 0;
   }
 
-  function paymentGrossValue(payment: SalePaymentDraft): number {
+  function paymentGrossValue(payment: PaymentValueLike): number {
     const amount = Number(payment.amount);
     if (!amount) return 0;
     if (["INSTALLMENT", "SUBSCRIPTION"].includes(payment.paymentType)) {
@@ -123,9 +129,13 @@ const NewSaleFeature = () => {
     return amount;
   }
 
+  function hasConfiguredBillingType(payment: SalePaymentDraft): payment is SalePaymentDraft & { billingType: BillingType } {
+    return Boolean(payment.gateway && payment.paymentType && payment.dueDate && payment.billingType);
+  }
+
   const configuredPayments = useMemo(
     () => payments
-      .filter((payment) => Number(payment.amount) > 0 && payment.gateway && payment.paymentType && payment.dueDate && payment.billingType)
+      .filter((payment): payment is SalePaymentDraft & { billingType: BillingType } => Number(payment.amount) > 0 && hasConfiguredBillingType(payment))
       .map((payment) => ({
         gateway: payment.gateway,
         paymentType: payment.paymentType,
@@ -280,7 +290,7 @@ const NewSaleFeature = () => {
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold text-foreground">Nova venda</h1>
-        <p className="text-muted-foreground">Preencha as informacoes passo a passo.</p>
+        <p className="text-muted-foreground">Preencha as informações passo a passo.</p>
       </div>
 
       <StepIndicator labels={STEP_LABELS} step={step} />
@@ -353,7 +363,7 @@ const NewSaleFeature = () => {
         <div className="hidden lg:block">
           <Card className="sticky top-6">
             <CardHeader className="pb-3">
-              <CardTitle className="text-base">Previa da venda</CardTitle>
+              <CardTitle className="text-base">Prévia da venda</CardTitle>
             </CardHeader>
             <CardContent>
               <SaleSummary

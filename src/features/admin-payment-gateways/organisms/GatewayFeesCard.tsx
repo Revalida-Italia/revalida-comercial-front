@@ -116,7 +116,7 @@ const GatewayFeesCard = ({
                           />
                         ) : (
                           <span className={option.isActive !== false ? "text-green-600" : "text-red-600"}>
-                            {option.isActive !== false ? "Sim" : "Nao"}
+                            {option.isActive !== false ? "Sim" : "Não"}
                           </span>
                         )}
                       </TableCell>

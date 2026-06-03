@@ -34,14 +34,14 @@ const ProductStep = ({
 }: ProductStepProps) => (
   <Card>
     <CardHeader>
-      <CardTitle>Modulos</CardTitle>
+      <CardTitle>Módulos</CardTitle>
     </CardHeader>
     <CardContent className="space-y-4">
       {items.map((item, index) => {
         return (
           <div key={index} className="space-y-3 rounded-lg border p-4">
             <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-muted-foreground">Modulo {index + 1}</span>
+              <span className="text-sm font-medium text-muted-foreground">Módulo {index + 1}</span>
               {items.length > 1 && (
                 <Button
                   variant="ghost"
@@ -78,7 +78,7 @@ const ProductStep = ({
               </div>
 
               <div className="space-y-1.5">
-                <Label>Data de liberacao *</Label>
+                <Label>Data de liberação *</Label>
                 <DatePicker value={item.releaseDate} onChange={(value) => onUpdateItem(index, "releaseDate", value)} />
               </div>
             </div>
@@ -88,17 +88,17 @@ const ProductStep = ({
 
       {hasDuplicateProducts && (
         <p className="text-xs text-destructive">
-          Cada modulo deve ser selecionado apenas uma vez.
+          Cada módulo deve ser selecionado apenas uma vez.
         </p>
       )}
 
       <Button variant="outline" size="sm" className="w-full gap-2" onClick={onAddItem}>
         <Plus className="h-4 w-4" />
-        Adicionar modulo
+        Adicionar módulo
       </Button>
 
       <p className="text-xs text-muted-foreground">
-        Defina os modulos da venda e a data de liberacao de cada um.
+        Defina os módulos da venda e a data de liberação de cada um.
       </p>
 
       <div className="flex justify-between">
@@ -106,7 +106,7 @@ const ProductStep = ({
           Voltar
         </Button>
         <Button onClick={onNext} disabled={!canGoNext}>
-          Proximo
+          Próximo
         </Button>
       </div>
     </CardContent>

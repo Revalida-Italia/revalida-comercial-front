@@ -22,7 +22,7 @@ const roleOptions: Array<{ label: string; value: UserRole; hint: string }> = [
   {
     label: "Administrador",
     value: "ADMIN",
-    hint: "Acesso completo de administracao.",
+    hint: "Acesso completo de administração.",
   },
 ];
 
@@ -135,10 +135,10 @@ const AdminCreateUserFeature = () => {
           </div>
           <CardTitle className="flex items-center gap-2 text-2xl">
             <UserPlus className="h-6 w-6 text-primary" />
-            Criar Usuario
+            Criar Usuário
           </CardTitle>
           <CardDescription className="max-w-2xl text-sm text-muted-foreground">
-            Cadastro rapido de usuarios com perfil, plano de carreira e senha temporaria opcional.
+            Cadastro rápido de usuários com perfil, plano de carreira e senha temporária opcional.
           </CardDescription>
         </CardHeader>
       </Card>
@@ -146,9 +146,9 @@ const AdminCreateUserFeature = () => {
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
         <Card className="border-border/80 shadow-sm">
           <CardHeader>
-            <CardTitle className="text-lg">Dados do novo usuario</CardTitle>
+            <CardTitle className="text-lg">Dados do novo usuário</CardTitle>
             <CardDescription>
-              Envie apenas campos validos. Em caso de erro, os dados do formulario sao mantidos.
+              Envie apenas campos válidos. Em caso de erro, os dados do formulário são mantidos.
             </CardDescription>
           </CardHeader>
 

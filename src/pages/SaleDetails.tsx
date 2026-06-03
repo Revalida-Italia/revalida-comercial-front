@@ -37,7 +37,7 @@ const SaleDetails = () => {
         <Button asChild variant="outline" size="sm">
           <Link to="/vendas"><ArrowLeft className="mr-1 h-4 w-4" />Voltar</Link>
         </Button>
-        <p className="text-sm text-muted-foreground">Venda nao encontrada.</p>
+        <p className="text-sm text-muted-foreground">Venda não encontrada.</p>
       </div>
     );
   }

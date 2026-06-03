@@ -18,6 +18,12 @@ import { toast } from "sonner";
 import { BILLING_TYPE_LABELS, PAYMENT_TYPE_LABELS, SUBSCRIPTION_CYCLE_LABELS } from "../constants";
 import type { ConfiguredSalePayment, FilledSaleCustomer, SalePaymentDraft, SaleSummaryItem } from "../types";
 
+type PaymentValueLike = {
+  amount: string | number;
+  paymentType: string;
+  totalInstallments?: string | number;
+};
+
 type SaleSummaryProps = {
   filledCustomers: FilledSaleCustomer[];
   saleItems: SaleSummaryItem[];
@@ -28,7 +34,7 @@ type SaleSummaryProps = {
   careerPlanName?: string;
   showCommissionRateWarning?: boolean;
   getFeeRate: (gateway: string, paymentType: string) => number;
-  paymentGrossValue: (payment: SalePaymentDraft) => number;
+  paymentGrossValue: (payment: PaymentValueLike) => number;
   subscriptionMonthLabelMode?: "long" | "compact";
 };
 
@@ -103,12 +109,12 @@ const SaleSummary = ({
           {saleItems.map((item, index) => (
             <li key={`${item.productName}-${item.releaseDate}-${index}`}>
               <p className="font-medium leading-tight">{item.productName}</p>
-              {item.releaseDate && <p className="text-xs text-muted-foreground">Liberacao: {item.releaseDate}</p>}
+              {item.releaseDate && <p className="text-xs text-muted-foreground">Liberação: {item.releaseDate}</p>}
             </li>
           ))}
         </ul>
       ) : (
-        <p className="italic text-muted-foreground">Nao selecionado</p>
+        <p className="italic text-muted-foreground">Não selecionado</p>
       )}
     </div>
 
@@ -134,19 +140,13 @@ const SaleSummary = ({
                 })()}
               </p>
               <p className="text-xs text-muted-foreground">
-                Cobranca: {BILLING_TYPE_LABELS[payment.billingType] ?? payment.billingType}
+                Cobrança: {BILLING_TYPE_LABELS[payment.billingType] ?? payment.billingType}
                 {payment.paymentType === "SUBSCRIPTION" && payment.ciclo && (
                   <> · Ciclo: {SUBSCRIPTION_CYCLE_LABELS[payment.ciclo] ?? payment.ciclo}</>
                 )}
               </p>
               <p className="font-medium">
-                {paymentGrossValue({
-                  gateway: payment.gateway,
-                  paymentType: payment.paymentType,
-                  amount: String(payment.amount),
-                  totalInstallments: String(payment.totalInstallments ?? 1),
-                  dueDate: payment.dueDate ?? "",
-                }).toLocaleString("pt-BR", { style: "currency", currency })}
+                {paymentGrossValue(payment).toLocaleString("pt-BR", { style: "currency", currency })}
               </p>
               {payment.dueDate && <p className="text-xs text-muted-foreground">Vencimento: {payment.dueDate}</p>}
               {payment.linkPagamento && (
@@ -187,7 +187,7 @@ const SaleSummary = ({
     <div className="space-y-1.5">
       <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
         <TrendingUp className="h-3.5 w-3.5" />
-        Comissao estimada
+        Comissão estimada
       </div>
       {configuredPayments.length > 0 ? (
         <div className="space-y-2 rounded-md border border-primary/20 bg-primary/5 p-3">
@@ -198,11 +198,11 @@ const SaleSummary = ({
           <div className="space-y-0.5">
             <p className="flex items-center gap-1 text-xs text-muted-foreground">
               <Award className="h-3 w-3" />
-              {careerPlanName ?? "Nao carregado"} · {commissionBreakdown.commissionRate}%
+              {careerPlanName ?? "Não carregado"} · {commissionBreakdown.commissionRate}%
             </p>
             {showCommissionRateWarning && commissionBreakdown.commissionRate === 0 && (
               <p className="text-xs text-amber-700">
-                Taxa nao encontrada; recarregue o login.
+                Taxa não encontrada; recarregue o login.
               </p>
             )}
             <p className="flex items-center gap-1 text-xs text-muted-foreground">
@@ -215,7 +215,7 @@ const SaleSummary = ({
             </p>
             <p className="flex items-center gap-1 text-xs text-muted-foreground">
               <TrendingDown className="h-3 w-3" />
-              Liquido: {commissionBreakdown.totalNet.toLocaleString("pt-BR", { style: "currency", currency })}
+              Líquido: {commissionBreakdown.totalNet.toLocaleString("pt-BR", { style: "currency", currency })}
             </p>
           </div>
 
@@ -227,7 +227,7 @@ const SaleSummary = ({
                 </p>
                 <p className="flex items-center gap-1 text-xs text-muted-foreground"><Banknote className="h-3 w-3" /> Bruto: {payment.grossAmount.toLocaleString("pt-BR", { style: "currency", currency })}</p>
                 <p className="flex items-center gap-1 text-xs text-muted-foreground"><MinusCircle className="h-3 w-3" /> Taxa ({payment.feeRate}%): {payment.feeAmount.toLocaleString("pt-BR", { style: "currency", currency })}</p>
-                <p className="flex items-center gap-1 text-xs text-muted-foreground"><TrendingDown className="h-3 w-3" /> Liquido: {payment.netAmount.toLocaleString("pt-BR", { style: "currency", currency })}</p>
+                <p className="flex items-center gap-1 text-xs text-muted-foreground"><TrendingDown className="h-3 w-3" /> Líquido: {payment.netAmount.toLocaleString("pt-BR", { style: "currency", currency })}</p>
                 <p className="flex items-center gap-1 text-xs font-medium text-primary"><TrendingUp className="h-3 w-3" /> Comissao: {payment.commissionAmount.toLocaleString("pt-BR", { style: "currency", currency })}</p>
 
                 {payment.paymentType === "SUBSCRIPTION" && payment.monthlyCommissions && (

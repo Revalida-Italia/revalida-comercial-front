@@ -8,13 +8,13 @@ export const PAYMENT_TYPE_LABELS: Record<string, string> = {
   ENTRY: "Entrada",
   INSTALLMENT: "Parcelamento",
   SUBSCRIPTION: "Assinatura",
-  FULL_PAYMENT: "A vista",
+  FULL_PAYMENT: "À vista",
 };
 
 export const BILLING_TYPE_OPTIONS = [
   { value: "PIX", label: "PIX" },
   { value: "BOLETO", label: "Boleto" },
-  { value: "CREDIT_CARD", label: "Cartao de credito" },
+  { value: "CREDIT_CARD", label: "Cartão de Crédito" },
 ] as const;
 
 export const SUBSCRIPTION_CYCLE_OPTIONS = [

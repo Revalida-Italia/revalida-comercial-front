@@ -4,9 +4,9 @@ const AdminUsers = () => {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Usuarios</h1>
+        <h1 className="text-2xl font-bold tracking-tight">Usuários</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Painel central para criacao de usuarios e gerenciamento de carreira.
+          Painel central para criação de usuários e gerenciamento de carreira.
         </p>
       </div>
 

@@ -127,7 +127,7 @@ const PaymentsStep = ({
 
             <div className="grid gap-3 md:grid-cols-2">
               <div className="space-y-1.5">
-                <Label>Meio de cobranca *</Label>
+                <Label>Meio de cobrança *</Label>
                 <Select
                   value={payment.billingType}
                   onValueChange={(value) => onUpdatePayment(index, "billingType", value)}
@@ -168,7 +168,7 @@ const PaymentsStep = ({
             <div className="grid gap-3 md:grid-cols-3">
               <div className="space-y-1.5">
                 <Label>
-                  Valor{["INSTALLMENT", "SUBSCRIPTION"].includes(payment.paymentType) ? " por parcela/mes" : ""} *
+                  Valor{["INSTALLMENT", "SUBSCRIPTION"].includes(payment.paymentType) ? " por parcela/mês" : ""} *
                 </Label>
                 <Input
                   type="number"
@@ -197,7 +197,7 @@ const PaymentsStep = ({
               )}
 
               <div className="space-y-1.5">
-                <Label>{isSubscription ? "Inicio da cobrança *" : "Data de pagamento *"}</Label>
+                <Label>{isSubscription ? "Início da cobrança *" : "Data de pagamento *"}</Label>
                 <DatePicker value={payment.dueDate} onChange={(value) => onUpdatePayment(index, "dueDate", value)} />
                 {isSubscription && (
                   <p className="-mt-0.5 rounded-sm bg-amber-50/45 px-2 py-1 text-[11px] leading-tight text-amber-900/60">
@@ -217,7 +217,7 @@ const PaymentsStep = ({
                     Valor deste pagamento: <strong>{paymentValue.toLocaleString("pt-BR", { style: "currency", currency })}</strong>
                   </p>
                   <p>
-                    Data de pagamento: <strong>{payment.dueDate || "Nao definida"}</strong>
+                    Data de pagamento: <strong>{payment.dueDate || "Não definida"}</strong>
                   </p>
                   {["INSTALLMENT", "SUBSCRIPTION"].includes(payment.paymentType) && (
                     <p>
@@ -226,7 +226,7 @@ const PaymentsStep = ({
                   )}
                   {payment.billingType && (
                     <p>
-                      Meio de cobranca: <strong>{BILLING_TYPE_OPTIONS.find((item) => item.value === payment.billingType)?.label ?? payment.billingType}</strong>
+                      Meio de cobrança: <strong>{BILLING_TYPE_OPTIONS.find((item) => item.value === payment.billingType)?.label ?? payment.billingType}</strong>
                     </p>
                   )}
                   {isSubscription && payment.ciclo && (
@@ -253,7 +253,7 @@ const PaymentsStep = ({
           Voltar
         </Button>
         <Button onClick={onNext} disabled={!canGoNext}>
-          Proximo
+          Próximo
         </Button>
       </div>
     </CardContent>

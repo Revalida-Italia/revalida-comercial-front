@@ -11,11 +11,11 @@ const AdminCreateUser = () => {
       <div>
         <Button variant="outline" size="sm" className="mb-3 gap-1.5" onClick={() => navigate("/admin/users")}>
           <ArrowLeft className="h-4 w-4" />
-          Voltar para Usuarios
+          Voltar para Usuários
         </Button>
-        <h1 className="text-2xl font-bold tracking-tight">Criar Usuario</h1>
+        <h1 className="text-2xl font-bold tracking-tight">Criar Usuário</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Cadastro de novos usuarios por administradores.
+          Cadastro de novos usuários por administradores.
         </p>
       </div>
 

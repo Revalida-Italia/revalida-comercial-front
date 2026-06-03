@@ -31,7 +31,7 @@ const NotFound = () => {
           <h1 className="text-5xl font-bold tracking-tight text-foreground md:text-6xl">404</h1>
           <div className="inline-flex items-start gap-2 rounded-xl border border-amber-300/40 bg-amber-50/70 px-3 py-2 text-amber-900">
             <AlertTriangle className="mt-0.5 h-4 w-4" />
-            <span className="text-sm">A pagina que voce tentou acessar nao existe.</span>
+            <span className="text-sm">A página que você tentou acessar não existe.</span>
           </div>
           <p className="max-w-xl text-muted-foreground">
             Rota atual: <span className="font-medium text-foreground">{location.pathname}</span>
@@ -44,7 +44,7 @@ const NotFound = () => {
             {hasSession ? "Ir para Dashboard" : "Ir para Login"}
           </Button>
           <Button variant="outline" onClick={() => navigate(-1)}>
-            Voltar pagina anterior
+            Voltar para a página anterior
           </Button>
         </div>
       </div>

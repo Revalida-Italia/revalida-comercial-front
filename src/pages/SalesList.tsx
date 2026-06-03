@@ -40,7 +40,7 @@ const SalesList = () => {
     <div className="space-y-5">
       <div className="rounded-xl border border-border/70 p-4">
         <h1 className="text-3xl font-bold text-foreground">Vendas</h1>
-        <p className="text-muted-foreground">Historico comercial com resumo financeiro e acesso ao detalhe completo.</p>
+        <p className="text-muted-foreground">Histórico comercial com resumo financeiro e acesso ao detalhe completo.</p>
       </div>
 
       <SalesSummaryCards summary={summary} />

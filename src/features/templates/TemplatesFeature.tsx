@@ -29,7 +29,7 @@ import {
 const TEMPLATE_CATEGORIES = [
   { value: "UTILITY", label: "Utilidade" },
   { value: "MARKETING", label: "Marketing" },
-  { value: "AUTHENTICATION", label: "Autenticacao" },
+  { value: "AUTHENTICATION", label: "Autenticação" },
 ] as const;
 
 type TemplateFormState = {
@@ -118,7 +118,7 @@ const TemplatesFeature = () => {
     if (variableIndices.length > 0) {
       const missing = variableIndices.filter((index) => !form.variableExamples[index]?.trim());
       if (missing.length > 0) {
-        toast.error(`Preencha o exemplo da variavel ${missing.map((i) => `{{${i}}}`).join(", ")}.`);
+        toast.error(`Preencha o exemplo da variável ${missing.map((i) => `{{${i}}}`).join(", ")}.`);
         return;
       }
     }
@@ -207,8 +207,8 @@ const TemplatesFeature = () => {
           <DialogHeader>
             <DialogTitle>Criar template (Meta)</DialogTitle>
             <DialogDescription>
-              Escreva o texto com variaveis numeradas. Cada {"{{n}}"} tera um campo de exemplo proprio para
-              aprovacao na Meta.
+              Escreva o texto com variáveis numeradas. Cada {"{{n}}"} terá um campo de exemplo próprio para
+              aprovação na Meta.
             </DialogDescription>
           </DialogHeader>
 
@@ -221,7 +221,7 @@ const TemplatesFeature = () => {
                 onChange={(event) => setForm((current) => ({ ...current, nome: event.target.value }))}
                 placeholder="link_pagamento"
               />
-              <p className="text-xs text-muted-foreground">Identificador unico usado na API (sem espacos).</p>
+              <p className="text-xs text-muted-foreground">Identificador único usado na API (sem espaços).</p>
             </div>
 
             <div className="grid gap-3 sm:grid-cols-2">
@@ -261,7 +261,7 @@ const TemplatesFeature = () => {
                 id="template-corpo"
                 value={form.corpo}
                 onChange={(event) => updateCorpo(event.target.value)}
-                placeholder="Ola {{1}}! Para pagar, clique no botao abaixo."
+                placeholder="Olá {{1}}! Para pagar, clique no botão abaixo."
                 rows={4}
                 className="font-mono text-sm"
               />
@@ -275,9 +275,9 @@ const TemplatesFeature = () => {
                 <div className="flex items-start gap-2">
                   <Braces className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
                   <div>
-                    <p className="text-sm font-medium">Exemplos das variaveis</p>
+                    <p className="text-sm font-medium">Exemplos das variáveis</p>
                     <p className="text-xs text-muted-foreground">
-                      A Meta exige um valor de exemplo para cada placeholder. Preencha na mesma ordem dos indices.
+                      A Meta exige um valor de exemplo para cada placeholder. Preencha na mesma ordem dos índices.
                     </p>
                   </div>
                 </div>
@@ -292,13 +292,13 @@ const TemplatesFeature = () => {
                       </div>
                       <div className="space-y-1">
                         <Label htmlFor={`example-${index}`} className="sr-only">
-                          Exemplo para variavel {index}
+                          Exemplo para variável {index}
                         </Label>
                         <Input
                           id={`example-${index}`}
                           value={form.variableExamples[index] ?? ""}
                           onChange={(event) => updateVariableExample(index, event.target.value)}
-                          placeholder={index === 1 ? "Joao Silva" : `Exemplo para variavel ${index}`}
+                          placeholder={index === 1 ? "João Silva" : `Exemplo para variável ${index}`}
                         />
                       </div>
                     </div>
@@ -308,7 +308,7 @@ const TemplatesFeature = () => {
             ) : (
               form.corpo.trim() && (
                 <p className="rounded-md border border-dashed px-3 py-2 text-xs text-muted-foreground">
-                  Nenhuma variavel detectada. Adicione {"{{1}}"} no corpo para solicitar exemplos dinamicos.
+                  Nenhuma variável detectada. Adicione {"{{1}}"} no corpo para solicitar exemplos dinâmicos.
                 </p>
               )
             )}
@@ -319,12 +319,12 @@ const TemplatesFeature = () => {
                 <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 space-y-2">
                   <div className="flex items-center gap-2 text-sm font-medium text-primary">
                     <Sparkles className="h-4 w-4" />
-                    Previa da mensagem
+                    Prévia da mensagem
                   </div>
                   <p className="text-sm leading-relaxed whitespace-pre-wrap">{previewText}</p>
                   {variableIndices.length > 0 && variableIndices.some((i) => !form.variableExamples[i]?.trim()) && (
                     <p className="text-xs text-amber-700">
-                      Variaveis sem exemplo continuam como {"{{n}}"} na previa.
+                      Variáveis sem exemplo continuam como {"{{n}}"} na prévia.
                     </p>
                   )}
                 </div>

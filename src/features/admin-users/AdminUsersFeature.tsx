@@ -18,7 +18,7 @@ function roleLabel(role?: string): string {
     return "Vendedor";
   }
 
-  return role ?? "Nao definido";
+  return role ?? "Não definido";
 }
 
 function formatDate(date?: string): string {
@@ -75,18 +75,18 @@ const AdminUsersFeature = () => {
             <div>
               <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-primary/90">
                 <UsersRound className="h-3.5 w-3.5" />
-                Hub de Usuarios
+                Hub de Usuários
               </div>
-              <CardTitle className="text-2xl">Gestao de usuarios</CardTitle>
+              <CardTitle className="text-2xl">Gestão de usuários</CardTitle>
               <CardDescription className="mt-1 max-w-2xl text-sm">
-                Centralize criacao de usuarios e gerenciamento de carreira em um unico painel.
+                Centralize criação de usuários e gerenciamento de carreira em um único painel.
               </CardDescription>
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
               <Button className="gap-2" onClick={() => navigate("/admin/users/new")}> 
                 <Plus className="h-4 w-4" />
-                Criar usuario
+                Criar usuário
               </Button>
               <Button variant="outline" className="gap-2" onClick={() => navigate("/admin/carreira")}>
                 <ShieldCheck className="h-4 w-4" />
@@ -116,8 +116,8 @@ const AdminUsersFeature = () => {
         <CardHeader className="gap-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <CardTitle className="text-lg">Usuarios cadastrados</CardTitle>
-              <CardDescription>Lista com dados principais para consulta rapida.</CardDescription>
+              <CardTitle className="text-lg">Usuários cadastrados</CardTitle>
+              <CardDescription>Lista com dados principais para consulta rápida.</CardDescription>
             </div>
             <div className="relative w-full max-w-sm">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -132,18 +132,18 @@ const AdminUsersFeature = () => {
         </CardHeader>
 
         <CardContent>
-          {usersQuery.isLoading && <p className="text-sm text-muted-foreground">Carregando usuarios...</p>}
+          {usersQuery.isLoading && <p className="text-sm text-muted-foreground">Carregando usuários...</p>}
 
           {usersQuery.isError && (
             <p className="text-sm text-destructive">
-              Erro ao listar usuarios: {(usersQuery.error as Error).message}
+              Erro ao listar usuários: {(usersQuery.error as Error).message}
             </p>
           )}
 
           {!usersQuery.isLoading && !usersQuery.isError && users.length === 0 && (
             <div className="rounded-xl border border-dashed border-border p-6 text-center">
               <ListFilter className="mx-auto mb-2 h-5 w-5 text-muted-foreground" />
-              <p className="text-sm text-muted-foreground">Nenhum usuario encontrado para este filtro.</p>
+              <p className="text-sm text-muted-foreground">Nenhum usuário encontrado para este filtro.</p>
             </div>
           )}
 
@@ -156,7 +156,7 @@ const AdminUsersFeature = () => {
                 >
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="min-w-0 space-y-1">
-                      <p className="truncate text-sm font-semibold text-foreground">{user.name || "Usuario sem nome"}</p>
+                      <p className="truncate text-sm font-semibold text-foreground">{user.name || "Usuário sem nome"}</p>
                       <p className="truncate text-sm text-muted-foreground">{user.email}</p>
                     </div>
 

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useDebounce } from "use-debounce";
 import { Bar, CartesianGrid, ComposedChart, LabelList, ReferenceLine, XAxis, YAxis } from "recharts";
-import { AlertCircle, Check, Mail, PenLine, Shield, Star, Target, UserRound, X } from "lucide-react";
+import { AlertCircle, Check, Mail, PenLine, Shield, Star as LucideStar, Target, UserRound, X } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -29,11 +29,11 @@ const chartConfig = {
     color: "#0c3559",
   },
   minimumMonthlySales: {
-    label: "Meta minima",
+    label: "Meta mínima",
     color: "#4c87b5",
   },
   monthlyGoalSales: {
-    label: "Meta do mes",
+    label: "Meta do mês",
     color: "#1a6ea8",
   },
   starsInPeriod: {
@@ -52,6 +52,19 @@ type GoalLineBadgeProps = {
   bgColor: string;
   borderColor: string;
   textColor: string;
+};
+
+type SalesCountBadgeProps = {
+  x?: number;
+  y?: number;
+  width?: number;
+  value?: number | string;
+};
+
+type StarBadgeProps = {
+  x?: number;
+  y?: number;
+  value?: number | string;
 };
 
 type SellerBadgeData = {
@@ -111,20 +124,74 @@ const GoalLineBadge = ({ viewBox, value, bgColor, borderColor, textColor }: Goal
   );
 };
 
-function formatStarsLabel(value: number): string {
-  if (!value || value <= 0) {
-    return "";
+const SalesCountBadge = ({ x, y, width, value }: SalesCountBadgeProps) => {
+  if (x == null || y == null || width == null || value == null) {
+    return null;
   }
 
-  const starsToShow = Math.min(value, 5);
-  const starsText = "★".repeat(starsToShow);
+  const label = String(value);
+  const badgeRadius = Math.max(12, label.length > 2 ? 14 : 12);
+  const badgeCx = Math.max(badgeRadius, x - badgeRadius - 10);
+  const badgeCy = y + 12;
 
-  if (value > 5) {
-    return `${starsText}+${value - 5}`;
+  return (
+    <g>
+      <circle
+        cx={badgeCx}
+        cy={badgeCy}
+        r={badgeRadius}
+        fill="#e8f1f8"
+        stroke="#4c87b5"
+        strokeWidth={1}
+      />
+      <text
+        x={badgeCx}
+        y={badgeCy + 4}
+        textAnchor="middle"
+        fontSize={11}
+        fontWeight={700}
+        fill="#1d4d73"
+      >
+        {label}
+      </text>
+    </g>
+  );
+};
+
+const StarBadge = ({ x, y, value }: StarBadgeProps) => {
+  if (x == null || y == null || !value) {
+    return null;
   }
 
-  return starsText;
-}
+  const badgeSize = 26;
+  const badgeX = x;
+  const badgeY = Math.max(0, y - badgeSize - 6);
+
+  return (
+    <g>
+      <rect
+        x={badgeX}
+        y={badgeY}
+        width={badgeSize}
+        height={badgeSize}
+        rx={13}
+        fill="#fff7e1"
+        stroke="#d49300"
+        strokeWidth={1}
+      />
+      <LucideStar
+        x={badgeX + 4}
+        y={badgeY + 4}
+        width={18}
+        height={18}
+        className="text-[#d49300]"
+        fill="#f5b301"
+        stroke="#d49300"
+        strokeWidth={1.6}
+      />
+    </g>
+  );
+};
 
 const SalesDashboardFeature = ({ mode }: SalesDashboardFeatureProps) => {
   const isAdminMode = mode === "admin";
@@ -317,7 +384,7 @@ const SalesDashboardFeature = ({ mode }: SalesDashboardFeatureProps) => {
                 setSellerId("all");
               }}
             >
-              Limpar selecao
+              Limpar seleção
             </Button>
           </div>
         </div>
@@ -338,13 +405,13 @@ const SalesDashboardFeature = ({ mode }: SalesDashboardFeatureProps) => {
             <CardHeader className="space-y-3">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                  <CardTitle className="text-[#0c3559]">Historico de vendas vs metas</CardTitle>
+                  <CardTitle className="text-[#0c3559]">Histórico de vendas vs metas</CardTitle>
                   <CardDescription>
-                    Selecione um vendedor na busca para carregar os dados do grafico.
+                    Selecione um vendedor na busca para carregar os dados do gráfico.
                   </CardDescription>
                 </div>
                 <div className="flex flex-wrap items-center gap-2 text-xs">
-                  <Badge className="border-[#b4cde0] bg-[#e9f2f9] text-[#0c3559] hover:bg-[#e9f2f9]">Periodo atual: ---</Badge>
+                  <Badge className="border-[#b4cde0] bg-[#e9f2f9] text-[#0c3559] hover:bg-[#e9f2f9]">Período atual: ---</Badge>
                   <Badge className="border-[#b4cde0] bg-[#e9f2f9] text-[#0c3559] hover:bg-[#e9f2f9]">Registros: ---</Badge>
                 </div>
               </div>
@@ -385,6 +452,8 @@ const SalesDashboardFeature = ({ mode }: SalesDashboardFeatureProps) => {
               });
             }}
           />
+          
+          <br />
 
           {dashboardQuery.isError && (
             <Alert variant="destructive">
@@ -421,14 +490,14 @@ const SalesDashboardFeature = ({ mode }: SalesDashboardFeatureProps) => {
               <CardHeader className="space-y-3">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
-                    <CardTitle className="text-[#0c3559]">Historico de vendas vs metas</CardTitle>
+                    <CardTitle className="text-[#0c3559]">Histórico de vendas vs metas</CardTitle>
                     <CardDescription>
-                      Barras para vendas no mes e linhas de metas. As estrelas mostram conquistas do periodo.
+                      Barras para vendas no mês e linhas de metas. As estrelas mostram conquistas do período.
                     </CardDescription>
                   </div>
                   <div className="flex flex-wrap items-center gap-2 text-xs">
                     <Badge className="border-[#b4cde0] bg-[#e9f2f9] text-[#0c3559] hover:bg-[#e9f2f9]">
-                      Periodo atual: {formatDashboardPeriod(latestPeriod ?? "-")}
+                      Período atual: {formatDashboardPeriod(latestPeriod ?? "-")}
                     </Badge>
                     <Badge className="border-[#b4cde0] bg-[#e9f2f9] text-[#0c3559] hover:bg-[#e9f2f9]">
                       Registros: {periods.length}
@@ -439,26 +508,26 @@ const SalesDashboardFeature = ({ mode }: SalesDashboardFeatureProps) => {
                 <div className="flex flex-wrap items-center gap-4 text-xs text-[#1d4d73]">
                   <span className="inline-flex items-center gap-1.5 font-medium">
                     <span className="inline-block h-2.5 w-2.5 rounded-full bg-[#0c3559]" />
-                    Vendas no mes
+                    Vendas no mês
                   </span>
                   <span className="inline-flex items-center gap-1.5 font-medium">
                     <span className="inline-block h-0.5 w-6 border-t-2 border-dashed border-[#4c87b5]" />
-                    Meta minima
+                    Meta mínima
                   </span>
                   <span className="inline-flex items-center gap-1.5 font-medium">
                     <span className="inline-block h-0.5 w-6 border-t-2 border-dashed border-[#1a6ea8]" />
-                    Meta do mes
+                    Meta do mês
                   </span>
                   <span className="inline-flex items-center gap-1.5 font-medium">
-                    <Star className="h-3.5 w-3.5 fill-[#f5b301] text-[#d49300]" />
-                    Estrelas conquistadas no mes
+                    <LucideStar className="h-3.5 w-3.5 fill-[#f5b301] text-[#d49300]" />
+                    Estrelas conquistadas no mês
                   </span>
                 </div>
               </CardHeader>
 
               <CardContent>
                 <ChartContainer config={chartConfig} className="h-[330px] w-full">
-                  <ComposedChart data={chartRows} margin={{ top: 34, right: 8, left: 0, bottom: 0 }}>
+                  <ComposedChart data={chartRows} margin={{ top: 48, right: 8, left: 0, bottom: 0 }}>
                     <CartesianGrid vertical={false} strokeDasharray="3 3" />
                     <XAxis
                       dataKey="periodLabel"
@@ -490,7 +559,7 @@ const SalesDashboardFeature = ({ mode }: SalesDashboardFeatureProps) => {
                         strokeDasharray="6 6"
                         label={(
                           <GoalLineBadge
-                            value={`Minima ${minimumGoalLineValue}`}
+                            value={`Mínima ${minimumGoalLineValue}`}
                             bgColor="#e8f1f8"
                             borderColor="#4c87b5"
                             textColor="#1d4d73"
@@ -521,19 +590,29 @@ const SalesDashboardFeature = ({ mode }: SalesDashboardFeatureProps) => {
                       name="Vendas"
                       fill="var(--color-totalSales)"
                       radius={[6, 6, 2, 2]}
-                      barSize={22}
-                      maxBarSize={24}
+                      barSize={28}
+                      maxBarSize={30}
                     >
                       <LabelList
+                        dataKey="totalSales"
+                        content={(props) => (
+                          <SalesCountBadge
+                            x={Number(props.x)}
+                            y={Number(props.y)}
+                            width={Number(props.width)}
+                            value={props.value}
+                          />
+                        )}
+                      />
+                      <LabelList
                         dataKey="starsInPeriod"
-                        position="top"
-                        offset={10}
-                        formatter={(value: number) => formatStarsLabel(Number(value))}
-                        fill="#f5b301"
-                        stroke="#bf7e00"
-                        strokeWidth={0.35}
-                        fontSize={14}
-                        fontWeight={700}
+                        content={(props) => (
+                          <StarBadge
+                            x={Number(props.x)}
+                            y={Number(props.y)}
+                            value={props.value}
+                          />
+                        )}
                       />
                     </Bar>
                   </ComposedChart>
@@ -692,7 +771,7 @@ const SellerProfileBadge = ({ data, isLoading, isSaving, showPlaceholder, onSave
               <Shield className="h-3.5 w-3.5" /> Perfil
             </p>
             <p className="text-sm font-semibold text-[#0c3559]">{data.roleLabel}</p>
-            <p className="text-xs text-[#3b607f]">Regra de acesso aplicada pelo grupo do usuario.</p>
+            <p className="text-xs text-[#3b607f]">Regra de acesso aplicada pelo grupo do usuário.</p>
           </div>
 
           <div className="space-y-2 rounded-xl border border-[#d4e4f1] bg-white/80 p-3">
@@ -700,12 +779,12 @@ const SellerProfileBadge = ({ data, isLoading, isSaving, showPlaceholder, onSave
               <Target className="h-3.5 w-3.5" /> Career plan
             </p>
             <p className="text-sm font-semibold text-[#0c3559]">{data.careerPlan}</p>
-            <p className="text-xs text-[#3b607f]">Minima {data.minimumGoal} | Meta {data.monthlyGoal}</p>
+            <p className="text-xs text-[#3b607f]">Mínima {data.minimumGoal} | Meta {data.monthlyGoal}</p>
           </div>
 
           <div className="space-y-2 rounded-xl border border-[#d4e4f1] bg-white/80 p-3">
             <p className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[#4d7190]">
-              <Star className="h-3.5 w-3.5" /> Progresso
+              <LucideStar className="h-3.5 w-3.5" /> Progresso
             </p>
             <p className="text-sm font-semibold text-[#0c3559]">Estrelas: {data.stars ?? "-"}</p>
             <p className="text-xs text-[#3b607f]">Prox. estrela: {data.salesToNextStar ?? "-"} vendas</p>

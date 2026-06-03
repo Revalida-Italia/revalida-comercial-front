@@ -1,7 +1,7 @@
 import type { CommissionBreakdownResult } from "@/services/commissionApi";
 import type { SaleRecord } from "@/services/commercialApi";
 import { toNumberOrZero } from "@/shared/utils/number";
-import type { ConfiguredSalePayment, FilledSaleCustomer, SalePaymentDraft } from "@/features/new-sale/types";
+import type { ConfiguredSalePayment, FilledSaleCustomer } from "@/features/new-sale/types";
 import { getSaleCommissionValue } from "../utils";
 import SaleSummary from "@/features/new-sale/organisms/SaleSummary";
 
@@ -18,7 +18,7 @@ const SaleDetailPreview = ({ sale }: SaleDetailPreviewProps) => {
   }));
 
   const saleItems = sale.items.map((item) => ({
-    productName: item.product?.name || "Produto nao identificado",
+    productName: item.product?.name || "Produto não identificado",
     releaseDate: item.releaseDate?.slice(0, 10) ?? "",
   }));
 
@@ -72,7 +72,8 @@ const SaleDetailPreview = ({ sale }: SaleDetailPreviewProps) => {
     return payment?.feeRate ?? 0;
   };
 
-  const paymentGrossValue = (payment: SalePaymentDraft) => toNumberOrZero(payment.amount);
+  const paymentGrossValue = (payment: { amount: string | number; paymentType: string; totalInstallments?: string | number }) =>
+    toNumberOrZero(payment.amount);
 
   return (
     <SaleSummary

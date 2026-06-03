@@ -6,7 +6,7 @@ const AdminSalesDashboard = () => {
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Analise de vendas, comissao e progresso de carreira por competencia mensal.
+          Análise de vendas, comissão e progresso de carreira por competência mensal.
         </p>
       </div>
 

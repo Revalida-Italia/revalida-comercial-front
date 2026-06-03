@@ -89,7 +89,7 @@ const CustomersStep = ({
 
       <div className="flex justify-end pt-2">
         <Button onClick={onNext} disabled={!canGoNext}>
-          Proximo
+          Próximo
         </Button>
       </div>
     </CardContent>
