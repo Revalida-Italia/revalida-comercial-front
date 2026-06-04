@@ -134,7 +134,7 @@ const PaymentsStep = ({
                   disabled={!payment.paymentType}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="PIX, boleto..." />
+                    <SelectValue placeholder="Selecione PIX, boleto, etc..." className="text-muted-foreground/70" />
                   </SelectTrigger>
                   <SelectContent>
                     {BILLING_TYPE_OPTIONS.map((option) => (

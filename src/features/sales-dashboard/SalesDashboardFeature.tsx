@@ -64,6 +64,7 @@ type SalesCountBadgeProps = {
 type StarBadgeProps = {
   x?: number;
   y?: number;
+  width?: number;
   value?: number | string;
 };
 
@@ -158,37 +159,48 @@ const SalesCountBadge = ({ x, y, width, value }: SalesCountBadgeProps) => {
   );
 };
 
-const StarBadge = ({ x, y, value }: StarBadgeProps) => {
-  if (x == null || y == null || !value) {
+const StarBadge = ({ x, y, width, value }: StarBadgeProps) => {
+  if (x == null || y == null || width == null || !value) {
     return null;
   }
 
-  const badgeSize = 26;
-  const badgeX = x;
-  const badgeY = Math.max(0, y - badgeSize - 6);
+  const starCount = Math.min(Number(value), 5); // Limitar a 5 estrelas para não ficar muito largo
+  const starSize = 18;
+  const starSpacing = 2;
+  const padding = 4;
+  const badgeWidth = padding * 2 + starCount * starSize + (starCount - 1) * starSpacing;
+  const badgeHeight = 26;
+  
+  // Centralizar o badge em relação à barra
+  const barCenterX = x + width / 2;
+  const badgeX = barCenterX - badgeWidth / 2;
+  const badgeY = Math.max(0, y - badgeHeight - 6);
 
   return (
     <g>
       <rect
         x={badgeX}
         y={badgeY}
-        width={badgeSize}
-        height={badgeSize}
+        width={badgeWidth}
+        height={badgeHeight}
         rx={13}
         fill="#fff7e1"
         stroke="#d49300"
         strokeWidth={1}
       />
-      <LucideStar
-        x={badgeX + 4}
-        y={badgeY + 4}
-        width={18}
-        height={18}
-        className="text-[#d49300]"
-        fill="#f5b301"
-        stroke="#d49300"
-        strokeWidth={1.6}
-      />
+      {Array.from({ length: starCount }).map((_, index) => (
+        <LucideStar
+          key={index}
+          x={badgeX + padding + index * (starSize + starSpacing)}
+          y={badgeY + 4}
+          width={starSize}
+          height={starSize}
+          className="text-[#d49300]"
+          fill="#f5b301"
+          stroke="#d49300"
+          strokeWidth={1.6}
+        />
+      ))}
     </g>
   );
 };
@@ -610,6 +622,7 @@ const SalesDashboardFeature = ({ mode }: SalesDashboardFeatureProps) => {
                           <StarBadge
                             x={Number(props.x)}
                             y={Number(props.y)}
+                            width={Number(props.width)}
                             value={props.value}
                           />
                         )}
