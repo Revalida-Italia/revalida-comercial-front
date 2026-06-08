@@ -199,7 +199,7 @@ const Login = () => {
 
           <div className="h-px bg-border" />
 
-          <p className="text-center text-xs text-muted-foreground">Sistema Comerciald Portal Revalida © 2026</p>
+          <p className="text-center text-xs text-muted-foreground">Sistema Comercial do Portal Revalida © 2026</p>
         </motion.div>
       </div>
     </div>
