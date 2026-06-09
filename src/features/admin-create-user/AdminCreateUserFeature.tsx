@@ -97,7 +97,9 @@ const AdminCreateUserFeature = () => {
         email: normalizedEmail,
         role,
         ...(normalizedName ? { name: normalizedName } : {}),
-        ...(role === "SELLER" && normalizedCareerPlanId ? { careerPlanId: normalizedCareerPlanId } : {}),
+        ...((role === "SELLER" || role === "ADMIN") && normalizedCareerPlanId
+          ? { careerPlanId: normalizedCareerPlanId }
+          : {}),
         ...(normalizedTemporaryPassword ? { temporaryPassword: normalizedTemporaryPassword } : {}),
       };
 
@@ -204,10 +206,12 @@ const AdminCreateUserFeature = () => {
                   <Select
                     value={careerPlanId}
                     onValueChange={setCareerPlanId}
-                    disabled={isSubmitting || isLoadingCareerPlans || role !== "SELLER"}
+                    disabled={isSubmitting || isLoadingCareerPlans || (role !== "SELLER" && role !== "ADMIN")}
                   >
                     <SelectTrigger id="admin-create-user-career-plan">
-                      <SelectValue placeholder={role === "SELLER" ? "Selecionar plano" : "Disponivel para vendedor"} />
+                      <SelectValue
+                        placeholder={role === "SELLER" || role === "ADMIN" ? "Selecionar plano" : "Selecione o perfil primeiro"}
+                      />
                     </SelectTrigger>
                     <SelectContent>
                       {careerPlans.map((plan) => (
