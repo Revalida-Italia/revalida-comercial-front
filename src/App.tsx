@@ -14,6 +14,7 @@ import AdminProductsCreate from "@/pages/AdminProductsCreate";
 import AdminCreateUser from "@/pages/AdminCreateUser";
 import AdminUsers from "@/pages/AdminUsers";
 import AdminSalesDashboard from "@/pages/AdminSalesDashboard";
+import AdminCostsCalendar from "@/pages/AdminCostsCalendar";
 import FirstAccess from "@/pages/FirstAccess";
 import SaleDetails from "./pages/SaleDetails";
 import AppLayout from "./components/AppLayout";
@@ -49,6 +50,7 @@ const App = () => (
                 <Route path="/admin/users" element={<AdminUsers />} />
                 <Route path="/admin/users/new" element={<AdminCreateUser />} />
                 <Route path="/admin/sales-dashboard" element={<AdminSalesDashboard />} />
+                <Route path="/admin/costs-calendar" element={<AdminCostsCalendar />} />
               </Route>
             </Route>
           </Route>

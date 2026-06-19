@@ -20,6 +20,7 @@ const navItems = [
       { label: "Usuarios", path: "/admin/users" },
       { label: "Editar Taxas", path: "/admin/payment-gateways" },
       { label: "Produtos", path: "/admin/products" },
+      { label: "Calendario de Custos", path: "/admin/costs-calendar" },
     ],
   },
 ];
