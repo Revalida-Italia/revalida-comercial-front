@@ -17,6 +17,7 @@ import {
 import { toast } from "sonner";
 import { BILLING_TYPE_LABELS, PAYMENT_TYPE_LABELS, SUBSCRIPTION_CYCLE_LABELS } from "../constants";
 import type { ConfiguredSalePayment, FilledSaleCustomer, SalePaymentDraft, SaleSummaryItem } from "../types";
+import EditableSection from "@/features/sales/organisms/EditableSection";
 
 type PaymentValueLike = {
   amount: string | number;
@@ -36,6 +37,7 @@ type SaleSummaryProps = {
   getFeeRate: (gateway: string, paymentType: string) => number;
   paymentGrossValue: (payment: PaymentValueLike) => number;
   subscriptionMonthLabelMode?: "long" | "compact";
+  saleId?: string;
 };
 
 function getSubscriptionMonthLabel(
@@ -74,117 +76,136 @@ const SaleSummary = ({
   getFeeRate,
   paymentGrossValue,
   subscriptionMonthLabelMode = "long",
-}: SaleSummaryProps) => (
-  <div className="space-y-4 text-sm">
-    <div className="space-y-1.5">
-      <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-        <User className="h-3.5 w-3.5" />
-        Clientes
-      </div>
-      {filledCustomers.length === 0 ? (
-        <p className="italic text-muted-foreground">Nenhum cliente adicionado</p>
-      ) : (
-        <ul className="space-y-1">
-          {filledCustomers.map((customer, index) => (
-            <li key={index}>
-              <p className="font-medium leading-tight">{customer.name}</p>
-              {customer.document && <p className="text-xs text-muted-foreground">{customer.document}</p>}
-              <p className="text-xs text-muted-foreground">{customer.telefone}</p>
-              {customer.email && <p className="text-xs text-muted-foreground">{customer.email}</p>}
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
+  saleId,
+}: SaleSummaryProps) => {
+  const editStep = (step: number) => (saleId ? `/vendas/${saleId}/editar?step=${step}` : "");
 
-    <Separator />
+  const wrapSection = (step: number, label: string, content: React.ReactNode) => {
+    if (!saleId) return content;
+    return (
+      <EditableSection editTo={editStep(step)} label={label}>
+        {content}
+      </EditableSection>
+    );
+  };
 
-    <div className="space-y-1.5">
-      <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-        <Package className="h-3.5 w-3.5" />
-        Produtos
-      </div>
-      {saleItems.length > 0 ? (
-        <ul className="space-y-1.5">
-          {saleItems.map((item, index) => (
-            <li key={`${item.productName}-${item.releaseDate}-${index}`}>
-              <p className="font-medium leading-tight">{item.productName}</p>
-              {item.releaseDate && <p className="text-xs text-muted-foreground">Liberação: {item.releaseDate}</p>}
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p className="italic text-muted-foreground">Não selecionado</p>
-      )}
-    </div>
+  return (
+    <div className="space-y-4 text-sm">
+      {wrapSection(1, "Editar clientes", (
+        <div className="space-y-1.5">
+          <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            <User className="h-3.5 w-3.5" />
+            Clientes
+          </div>
+          {filledCustomers.length === 0 ? (
+            <p className="italic text-muted-foreground">Nenhum cliente adicionado</p>
+          ) : (
+            <ul className="space-y-1">
+              {filledCustomers.map((customer, index) => (
+                <li key={index}>
+                  <p className="font-medium leading-tight">{customer.name}</p>
+                  {customer.document && <p className="text-xs text-muted-foreground">{customer.document}</p>}
+                  <p className="text-xs text-muted-foreground">{customer.telefone}</p>
+                  {customer.email && <p className="text-xs text-muted-foreground">{customer.email}</p>}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      ))}
 
-    <Separator />
+      <Separator />
 
-    <div className="space-y-1.5">
-      <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-        <CreditCard className="h-3.5 w-3.5" />
-        Pagamentos
-      </div>
-      {configuredPayments.length === 0 ? (
-        <p className="italic text-muted-foreground">Nenhum pagamento configurado</p>
-      ) : (
-        <ul className="space-y-2">
-          {configuredPayments.map((payment, index) => (
-            <li key={index} className="rounded-md border p-2">
-              <p className="font-medium">{payment.gateway}</p>
-              <p className="text-muted-foreground">
-                {PAYMENT_TYPE_LABELS[payment.paymentType] ?? payment.paymentType}
-                {(() => {
-                  const feeRate = getFeeRate(payment.gateway, payment.paymentType);
-                  return feeRate > 0 ? ` - taxa ${feeRate}%` : "";
-                })()}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Cobrança: {BILLING_TYPE_LABELS[payment.billingType] ?? payment.billingType}
-                {payment.paymentType === "SUBSCRIPTION" && payment.ciclo && (
-                  <> · Ciclo: {SUBSCRIPTION_CYCLE_LABELS[payment.ciclo] ?? payment.ciclo}</>
-                )}
-              </p>
-              <p className="font-medium">
-                {paymentGrossValue(payment).toLocaleString("pt-BR", { style: "currency", currency })}
-              </p>
-              {payment.dueDate && <p className="text-xs text-muted-foreground">Vencimento: {payment.dueDate}</p>}
-              {payment.linkPagamento && (
-                <div className="mt-2 space-y-1.5 rounded-md border border-dashed border-primary/30 bg-primary/5 p-2">
-                  <p className="text-xs font-medium text-muted-foreground">Link de pagamento</p>
-                  <p className="break-all text-xs text-foreground">{payment.linkPagamento}</p>
-                  <div className="flex flex-wrap gap-2">
-                    <Button variant="outline" size="sm" className="h-7 gap-1 text-xs" asChild>
-                      <a href={payment.linkPagamento} target="_blank" rel="noopener noreferrer">
-                        <ExternalLink className="h-3 w-3" />
-                        Abrir
-                      </a>
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="h-7 gap-1 text-xs"
-                      onClick={() => {
-                        void navigator.clipboard.writeText(payment.linkPagamento!);
-                        toast.success("Link copiado.");
-                      }}
-                    >
-                      <Copy className="h-3 w-3" />
-                      Copiar
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
+      {wrapSection(2, "Editar produtos", (
+        <div className="space-y-1.5">
+          <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            <Package className="h-3.5 w-3.5" />
+            Produtos
+          </div>
+          {saleItems.length > 0 ? (
+            <ul className="space-y-1.5">
+              {saleItems.map((item, index) => (
+                <li key={`${item.productName}-${item.releaseDate}-${index}`}>
+                  <p className="font-medium leading-tight">{item.productName}</p>
+                  {item.releaseDate && <p className="text-xs text-muted-foreground">Liberação: {item.releaseDate}</p>}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="italic text-muted-foreground">Não selecionado</p>
+          )}
+        </div>
+      ))}
 
-    <Separator />
+      <Separator />
 
-    <div className="space-y-1.5">
+      {wrapSection(3, "Editar pagamentos", (
+        <div className="space-y-1.5">
+          <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            <CreditCard className="h-3.5 w-3.5" />
+            Pagamentos
+          </div>
+          {configuredPayments.length === 0 ? (
+            <p className="italic text-muted-foreground">Nenhum pagamento configurado</p>
+          ) : (
+            <ul className="space-y-2">
+              {configuredPayments.map((payment, index) => (
+                <li key={index} className="rounded-md border p-2">
+                  <p className="font-medium">{payment.gateway}</p>
+                  <p className="text-muted-foreground">
+                    {PAYMENT_TYPE_LABELS[payment.paymentType] ?? payment.paymentType}
+                    {(() => {
+                      const feeRate = getFeeRate(payment.gateway, payment.paymentType);
+                      return feeRate > 0 ? ` - taxa ${feeRate}%` : "";
+                    })()}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Cobrança: {BILLING_TYPE_LABELS[payment.billingType] ?? payment.billingType}
+                    {payment.paymentType === "SUBSCRIPTION" && payment.ciclo && (
+                      <> · Ciclo: {SUBSCRIPTION_CYCLE_LABELS[payment.ciclo] ?? payment.ciclo}</>
+                    )}
+                  </p>
+                  <p className="font-medium">
+                    {paymentGrossValue(payment).toLocaleString("pt-BR", { style: "currency", currency })}
+                  </p>
+                  {payment.dueDate && <p className="text-xs text-muted-foreground">Vencimento: {payment.dueDate}</p>}
+                  {payment.linkPagamento && (
+                    <div className="mt-2 space-y-1.5 rounded-md border border-dashed border-primary/30 bg-primary/5 p-2">
+                      <p className="text-xs font-medium text-muted-foreground">Link de pagamento</p>
+                      <p className="break-all text-xs text-foreground">{payment.linkPagamento}</p>
+                      <div className="flex flex-wrap gap-2">
+                        <Button variant="outline" size="sm" className="h-7 gap-1 text-xs" asChild>
+                          <a href={payment.linkPagamento} target="_blank" rel="noopener noreferrer">
+                            <ExternalLink className="h-3 w-3" />
+                            Abrir
+                          </a>
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-7 gap-1 text-xs"
+                          onClick={() => {
+                            void navigator.clipboard.writeText(payment.linkPagamento!);
+                            toast.success("Link copiado.");
+                          }}
+                        >
+                          <Copy className="h-3 w-3" />
+                          Copiar
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      ))}
+
+      <Separator />
+
+      <div className="space-y-1.5">
       <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
         <TrendingUp className="h-3.5 w-3.5" />
         Comissão estimada
@@ -256,8 +277,9 @@ const SaleSummary = ({
       ) : (
         <p className="italic text-muted-foreground">Preencha os pagamentos para calcular</p>
       )}
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 export default SaleSummary;

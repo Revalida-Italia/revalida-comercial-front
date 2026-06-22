@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useDebounce } from "use-debounce";
 import { toast } from "sonner";
@@ -40,14 +40,21 @@ type PaymentValueLike = {
   totalInstallments?: string | number;
 };
 
+function parseStep(value: string | null): number {
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 1 || parsed > 4) return 1;
+  return parsed;
+}
+
 const EditSaleFeature = () => {
   const { id } = useParams<{ id: string }>();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const profile = getProfile();
   const isAdmin = hasRole("ADMIN");
 
-  const [step, setStep] = useState(1);
+  const [step, setStep] = useState(() => parseStep(searchParams.get("step")));
   const [initialized, setInitialized] = useState(false);
   const [customers, setCustomers] = useState<CreateSaleCustomer[]>([{ ...EMPTY_CUSTOMER }]);
   const [saleItemsDraft, setSaleItemsDraft] = useState<SaleItemDraft[]>([{ productId: "", releaseDate: "", notes: "" }]);
@@ -93,6 +100,10 @@ const EditSaleFeature = () => {
     () => (sellersQuery.data ?? []).filter((user) => user.role === "SELLER" || !user.role),
     [sellersQuery.data],
   );
+
+  useEffect(() => {
+    setStep(parseStep(searchParams.get("step")));
+  }, [searchParams]);
 
   useEffect(() => {
     if (!saleQuery.data || initialized) return;

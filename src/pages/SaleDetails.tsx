@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, MessageCircle, Pencil, UserCircle } from "lucide-react";
+import { ArrowLeft, MessageCircle, UserCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import SaleDetailPreview from "@/features/sales/organisms/SaleDetailPreview";
+import EditableSection from "@/features/sales/organisms/EditableSection";
 import SendPaymentLinkDialog from "@/features/sales/organisms/SendPaymentLinkDialog";
 import { getSaleCommissionValue, getSaleContractValue, getSaleSellerInfo } from "@/features/sales/utils";
 import { getSaleById } from "@/services/commercialApi";
@@ -51,12 +52,6 @@ const SaleDetails = () => {
           <p className="text-muted-foreground">ID: {sale.id}</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button asChild size="sm" className="gap-1.5">
-            <Link to={`/vendas/${sale.id}/editar`}>
-              <Pencil className="h-4 w-4" />
-              Editar venda
-            </Link>
-          </Button>
           <Button
             type="button"
             size="sm"
@@ -75,7 +70,8 @@ const SaleDetails = () => {
       </div>
 
       <div className="grid gap-4 md:grid-cols-4">
-        <Card>
+        <EditableSection editTo={`/vendas/${sale.id}/editar?step=4`} label="Editar vendedor e status" className="h-full">
+        <Card className="h-full">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm text-muted-foreground">Vendedor</CardTitle>
           </CardHeader>
@@ -91,6 +87,7 @@ const SaleDetails = () => {
             </div>
           </CardContent>
         </Card>
+        </EditableSection>
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm text-muted-foreground">Criada em</CardTitle>
@@ -120,6 +117,7 @@ const SaleDetails = () => {
       <Card>
         <CardHeader>
           <CardTitle>Preview completo</CardTitle>
+          <p className="text-xs text-muted-foreground">Passe o mouse sobre cada seção para editar.</p>
         </CardHeader>
         <CardContent>
           <SaleDetailPreview sale={sale} />
