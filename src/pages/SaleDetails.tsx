@@ -1,32 +1,33 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, MessageCircle, UserCircle } from "lucide-react";
+import { ArrowLeft, MessageCircle, Pencil, UserCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import SaleDetailPreview from "@/features/sales/organisms/SaleDetailPreview";
 import SendPaymentLinkDialog from "@/features/sales/organisms/SendPaymentLinkDialog";
 import { getSaleCommissionValue, getSaleContractValue, getSaleSellerInfo } from "@/features/sales/utils";
-import { listSales } from "@/services/commercialApi";
+import { getSaleById } from "@/services/commercialApi";
 import { formatCurrency, formatDateTime } from "@/shared/utils/format";
 
 const SaleDetails = () => {
   const { id } = useParams<{ id: string }>();
   const [whatsappOpen, setWhatsappOpen] = useState(false);
 
-  const salesQuery = useQuery({
-    queryKey: ["sales"],
-    queryFn: () => listSales(),
+  const saleQuery = useQuery({
+    queryKey: ["sale", id],
+    queryFn: () => getSaleById(id!),
+    enabled: Boolean(id),
   });
 
-  const sale = useMemo(() => salesQuery.data?.sales.find((item) => item.id === id), [id, salesQuery.data?.sales]);
+  const sale = saleQuery.data;
 
-  if (salesQuery.isLoading) {
+  if (saleQuery.isLoading) {
     return <p className="text-sm text-muted-foreground">Carregando venda...</p>;
   }
 
-  if (salesQuery.isError) {
-    return <p className="text-sm text-destructive">Erro ao carregar venda: {(salesQuery.error as Error).message}</p>;
+  if (saleQuery.isError) {
+    return <p className="text-sm text-destructive">Erro ao carregar venda: {(saleQuery.error as Error).message}</p>;
   }
 
   const hasPaymentLink = sale?.payments.some((payment) => payment.linkPagamento) ?? false;
@@ -50,9 +51,16 @@ const SaleDetails = () => {
           <p className="text-muted-foreground">ID: {sale.id}</p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <Button asChild size="sm" className="gap-1.5">
+            <Link to={`/vendas/${sale.id}/editar`}>
+              <Pencil className="h-4 w-4" />
+              Editar venda
+            </Link>
+          </Button>
           <Button
             type="button"
             size="sm"
+            variant="outline"
             className="gap-1.5"
             disabled={!hasPaymentLink}
             onClick={() => setWhatsappOpen(true)}
