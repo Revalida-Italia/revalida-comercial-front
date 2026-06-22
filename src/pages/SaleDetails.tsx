@@ -31,7 +31,7 @@ const SaleDetails = () => {
     return <p className="text-sm text-destructive">Erro ao carregar venda: {(saleQuery.error as Error).message}</p>;
   }
 
-  const hasPaymentLink = sale?.payments.some((payment) => payment.linkPagamento) ?? false;
+  const hasPaymentLink = sale?.payments?.some((payment) => payment.linkPagamento) ?? false;
 
   if (!sale) {
     return (

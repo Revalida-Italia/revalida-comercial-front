@@ -25,7 +25,7 @@ const SaleListCard = ({ sale }: SaleListCardProps) => {
   const contractValue = getSaleContractValue(sale);
   const commissionValue = getSaleCommissionValue(sale);
   const sellerInfo = getSaleSellerInfo(sale);
-  const hasPaymentLink = sale.payments.some((payment) => payment.linkPagamento);
+  const hasPaymentLink = sale.payments?.some((payment) => payment.linkPagamento) ?? false;
 
   return (
     <>
@@ -53,11 +53,11 @@ const SaleListCard = ({ sale }: SaleListCardProps) => {
 
             <div>
               <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Clientes</p>
-              <p className="text-xs font-medium">{sale.clients.length}</p>
+              <p className="text-xs font-medium">{sale.clients?.length ?? 0}</p>
             </div>
             <div>
               <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Pagamentos</p>
-              <p className="text-xs font-medium">{sale.payments.length}</p>
+              <p className="text-xs font-medium">{sale.payments?.length ?? 0}</p>
             </div>
             <div>
               <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Contrato</p>

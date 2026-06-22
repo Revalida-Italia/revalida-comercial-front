@@ -306,6 +306,37 @@ interface SalesDashboardEnvelope {
   };
 }
 
+function normalizeSaleRecord(sale: SaleRecord): SaleRecord {
+  const payments = Array.isArray(sale.payments) ? sale.payments : [];
+  const commissionsFromPayments = payments
+    .map((payment) => payment.commission)
+    .filter((commission): commission is SalePaymentCommission => Boolean(commission));
+
+  return {
+    ...sale,
+    clients: Array.isArray(sale.clients) ? sale.clients : [],
+    items: Array.isArray(sale.items) ? sale.items : [],
+    payments,
+    commissions: Array.isArray(sale.commissions) && sale.commissions.length > 0
+      ? sale.commissions
+      : commissionsFromPayments,
+  };
+}
+
+function normalizeSalesListResponse(response: SalesListResponse): SalesListResponse {
+  return {
+    ...response,
+    sales: (response.sales ?? []).map(normalizeSaleRecord),
+  };
+}
+
+interface SaleByIdEnvelope {
+  success?: boolean;
+  data?: {
+    sale?: SaleRecord;
+  } & Partial<SaleRecord>;
+}
+
 export async function listSales(options?: ListSalesOptions): Promise<SalesListResponse> {
   const params = new URLSearchParams();
   if (options?.searchTerm) params.set("searchTerm", options.searchTerm);
@@ -317,11 +348,11 @@ export async function listSales(options?: ListSalesOptions): Promise<SalesListRe
   const payload = await apiRequest<ApiEnvelope<SalesListResponse> | SalesListResponse>(CORE_API_URL, url);
 
   if ("sales" in payload && Array.isArray(payload.sales)) {
-    return payload;
+    return normalizeSalesListResponse(payload);
   }
 
   if ("data" in payload && payload.data) {
-    return payload.data;
+    return normalizeSalesListResponse(payload.data);
   }
 
   throw new Error("Resposta de /sales fora do contrato esperado.");
@@ -334,20 +365,28 @@ export async function createSale(input: CreateSaleInput): Promise<void> {
   });
 }
 
-function unwrapSale(payload: ApiEnvelope<SaleRecord> | SaleRecord): SaleRecord {
+function unwrapSale(payload: SaleByIdEnvelope | ApiEnvelope<SaleRecord> | SaleRecord): SaleRecord {
   if ("id" in payload && typeof payload.id === "string") {
-    return payload;
+    return normalizeSaleRecord(payload);
   }
 
   if ("data" in payload && payload.data) {
-    return payload.data;
+    const data = payload.data;
+
+    if ("sale" in data && data.sale && typeof data.sale.id === "string") {
+      return normalizeSaleRecord(data.sale);
+    }
+
+    if ("id" in data && typeof data.id === "string") {
+      return normalizeSaleRecord(data as SaleRecord);
+    }
   }
 
   throw new Error("Resposta de /sales/:id fora do contrato esperado.");
 }
 
 export async function getSaleById(id: string): Promise<SaleRecord> {
-  const payload = await apiRequest<ApiEnvelope<SaleRecord> | SaleRecord>(
+  const payload = await apiRequest<SaleByIdEnvelope | ApiEnvelope<SaleRecord> | SaleRecord>(
     CORE_API_URL,
     `/sales/${encodeURIComponent(id)}`,
   );

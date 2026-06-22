@@ -18,23 +18,23 @@ function toDateInput(value?: string | null): string {
 
 export function mapSaleToForm(sale: SaleRecord): SaleFormState {
   return {
-    customers: sale.clients.length > 0
-      ? sale.clients.map((client) => ({
+    customers: (sale.clients ?? []).length > 0
+      ? (sale.clients ?? []).map((client) => ({
         name: client.nameCiphertext || "",
         document: client.documentCiphertext || "",
         telefone: client.telefone || "",
         email: client.email || "",
       }))
       : [{ name: "", document: "", telefone: "", email: "" }],
-    items: sale.items.length > 0
-      ? sale.items.map((item) => ({
+    items: (sale.items ?? []).length > 0
+      ? (sale.items ?? []).map((item) => ({
         productId: item.productId,
         releaseDate: toDateInput(item.releaseDate),
         notes: item.notes || "",
       }))
       : [{ productId: "", releaseDate: "", notes: "" }],
-    payments: sale.payments.length > 0
-      ? sale.payments.map((payment) => ({
+    payments: (sale.payments ?? []).length > 0
+      ? (sale.payments ?? []).map((payment) => ({
         gateway: payment.gateway,
         paymentType: payment.type,
         amount: String(payment.amount),
