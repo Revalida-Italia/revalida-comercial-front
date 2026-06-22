@@ -9,6 +9,7 @@ import { Plus, Trash2 } from "lucide-react";
 import {
   BILLING_TYPE_OPTIONS,
   MAX_INSTALLMENTS,
+  PAYMENT_STATUS_OPTIONS,
   PAYMENT_TYPE_LABELS,
   SUBSCRIPTION_CYCLE_OPTIONS,
 } from "../constants";
@@ -20,6 +21,7 @@ type PaymentsStepProps = {
   gatewayFees: GatewayFees[];
   gatewayFeesLoading: boolean;
   canGoNext: boolean;
+  isEditMode?: boolean;
   onCurrencyChange: (value: string) => void;
   onUpdatePayment: (index: number, field: keyof SalePaymentDraft, value: string) => void;
   onAddPayment: () => void;
@@ -36,6 +38,7 @@ const PaymentsStep = ({
   gatewayFees,
   gatewayFeesLoading,
   canGoNext,
+  isEditMode = false,
   onCurrencyChange,
   onUpdatePayment,
   onAddPayment,
@@ -206,6 +209,43 @@ const PaymentsStep = ({
                 )}
               </div>
             </div>
+
+            {isEditMode && (
+              <div className="grid gap-3 md:grid-cols-3">
+                <div className="space-y-1.5">
+                  <Label>Data de pagamento efetivo</Label>
+                  <DatePicker
+                    value={payment.paymentDate}
+                    onChange={(value) => onUpdatePayment(index, "paymentDate", value)}
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label>Status do pagamento</Label>
+                  <Select value={payment.status} onValueChange={(value) => onUpdatePayment(index, "status", value)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {PAYMENT_STATUS_OPTIONS.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label>Notas</Label>
+                  <Input
+                    value={payment.notes}
+                    onChange={(event) => onUpdatePayment(index, "notes", event.target.value)}
+                    placeholder="Notas opcionais"
+                  />
+                </div>
+              </div>
+            )}
 
             <div className="rounded-md bg-muted/40 p-3 text-xs text-muted-foreground">
               {amount > 0 ? (

@@ -185,6 +185,46 @@ export interface CreateSaleInput {
   payments: CreateSalePayment[];
 }
 
+export type SaleStatus = "PENDING" | "CONCLUDED" | "ARCHIVED";
+
+export type PaymentStatus = "PENDING" | "PAID" | string;
+
+export interface UpdateSaleClient {
+  nameCiphertext: string;
+  documentCiphertext?: string;
+  telefone?: string;
+  email?: string;
+}
+
+export interface UpdateSaleItem {
+  productId: string;
+  releaseDate: string;
+  notes?: string;
+}
+
+export interface UpdateSalePayment {
+  type: string;
+  gateway: string;
+  amount: number;
+  dueDate?: string;
+  paymentDate?: string;
+  status?: PaymentStatus;
+  installmentNumber?: number;
+  totalInstallments?: number;
+  notes?: string;
+  billingType?: BillingType;
+  ciclo?: SubscriptionCycle;
+}
+
+export interface UpdateSaleInput {
+  status?: SaleStatus;
+  soldAt?: string;
+  sellerId?: string;
+  clients?: UpdateSaleClient[];
+  items?: UpdateSaleItem[];
+  payments?: UpdateSalePayment[];
+}
+
 interface ListWrapper<T> {
   data?: T[];
 }
@@ -290,6 +330,33 @@ export async function listSales(options?: ListSalesOptions): Promise<SalesListRe
 export async function createSale(input: CreateSaleInput): Promise<void> {
   await apiRequest<void>(CORE_API_URL, "/sales", {
     method: "POST",
+    body: input,
+  });
+}
+
+function unwrapSale(payload: ApiEnvelope<SaleRecord> | SaleRecord): SaleRecord {
+  if ("id" in payload && typeof payload.id === "string") {
+    return payload;
+  }
+
+  if ("data" in payload && payload.data) {
+    return payload.data;
+  }
+
+  throw new Error("Resposta de /sales/:id fora do contrato esperado.");
+}
+
+export async function getSaleById(id: string): Promise<SaleRecord> {
+  const payload = await apiRequest<ApiEnvelope<SaleRecord> | SaleRecord>(
+    CORE_API_URL,
+    `/sales/${encodeURIComponent(id)}`,
+  );
+  return unwrapSale(payload);
+}
+
+export async function updateSale(id: string, input: UpdateSaleInput): Promise<void> {
+  await apiRequest<void>(CORE_API_URL, `/sales/${encodeURIComponent(id)}`, {
+    method: "PATCH",
     body: input,
   });
 }

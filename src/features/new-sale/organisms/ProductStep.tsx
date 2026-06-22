@@ -5,6 +5,7 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Trash2 } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import type { SaleItemDraft } from "../types";
 
 type ProductStepProps = {
@@ -13,6 +14,7 @@ type ProductStepProps = {
   items: SaleItemDraft[];
   hasDuplicateProducts: boolean;
   canGoNext: boolean;
+  showNotes?: boolean;
   onUpdateItem: (index: number, field: keyof SaleItemDraft, value: string) => void;
   onAddItem: () => void;
   onRemoveItem: (index: number) => void;
@@ -26,6 +28,7 @@ const ProductStep = ({
   items,
   hasDuplicateProducts,
   canGoNext,
+  showNotes = false,
   onUpdateItem,
   onAddItem,
   onRemoveItem,
@@ -82,6 +85,17 @@ const ProductStep = ({
                 <DatePicker value={item.releaseDate} onChange={(value) => onUpdateItem(index, "releaseDate", value)} />
               </div>
             </div>
+
+            {showNotes && (
+              <div className="space-y-1.5">
+                <Label>Notas do contrato</Label>
+                <Input
+                  value={item.notes}
+                  onChange={(event) => onUpdateItem(index, "notes", event.target.value)}
+                  placeholder="Notas opcionais"
+                />
+              </div>
+            )}
           </div>
         );
       })}
