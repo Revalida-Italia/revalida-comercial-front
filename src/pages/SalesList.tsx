@@ -34,6 +34,7 @@ const SalesList = () => {
     totalAmount: 0,
     comission: 0,
     comissionFuture: 0,
+    totalFixedCostsThisMonth: 0,
   };
 
   return (

@@ -123,6 +123,7 @@ export interface SalesSummary {
   comissionFuture?: number;
   commission?: number;
   commissionFuture?: number;
+  totalFixedCostsThisMonth?: number;
 }
 
 export interface SalesListResponse {
