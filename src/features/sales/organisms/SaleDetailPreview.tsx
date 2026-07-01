@@ -87,6 +87,7 @@ const SaleDetailPreview = ({ sale }: SaleDetailPreviewProps) => {
       showCommissionRateWarning
       getFeeRate={getFeeRate}
       paymentGrossValue={paymentGrossValue}
+      saleId={sale.id}
     />
   );
 };

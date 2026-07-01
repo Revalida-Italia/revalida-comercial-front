@@ -5,7 +5,7 @@ import { formatCurrency, formatDate } from "@/shared/utils/format";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { CalendarDays, CircleDollarSign, MessageCircle, Users, UserCircle } from "lucide-react";
+import { CalendarDays, CircleDollarSign, MessageCircle, Pencil, Users, UserCircle } from "lucide-react";
 import {
   getSaleCommissionValue,
   getSaleContractValue,
@@ -25,7 +25,7 @@ const SaleListCard = ({ sale }: SaleListCardProps) => {
   const contractValue = getSaleContractValue(sale);
   const commissionValue = getSaleCommissionValue(sale);
   const sellerInfo = getSaleSellerInfo(sale);
-  const hasPaymentLink = sale.payments.some((payment) => payment.linkPagamento);
+  const hasPaymentLink = sale.payments?.some((payment) => payment.linkPagamento) ?? false;
 
   return (
     <>
@@ -53,11 +53,11 @@ const SaleListCard = ({ sale }: SaleListCardProps) => {
 
             <div>
               <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Clientes</p>
-              <p className="text-xs font-medium">{sale.clients.length}</p>
+              <p className="text-xs font-medium">{sale.clients?.length ?? 0}</p>
             </div>
             <div>
               <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Pagamentos</p>
-              <p className="text-xs font-medium">{sale.payments.length}</p>
+              <p className="text-xs font-medium">{sale.payments?.length ?? 0}</p>
             </div>
             <div>
               <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Contrato</p>
@@ -85,6 +85,12 @@ const SaleListCard = ({ sale }: SaleListCardProps) => {
                 >
                   <MessageCircle className="h-3.5 w-3.5" />
                   WhatsApp
+                </Button>
+                <Button asChild variant="ghost" size="sm" className="h-7 px-2 text-[11px] text-primary">
+                  <Link to={`/vendas/${sale.id}/editar`}>
+                    <Pencil className="mr-1 h-3.5 w-3.5" />
+                    Editar
+                  </Link>
                 </Button>
                 <Button asChild variant="ghost" size="sm" className="h-7 px-2 text-[11px] text-primary">
                   <Link to={`/vendas/${sale.id}`}>Detalhes</Link>

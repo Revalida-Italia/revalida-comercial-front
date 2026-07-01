@@ -6,25 +6,25 @@ export const getSaleContractValue = (sale: SaleRecord): number => {
   if (contract > 0) {
     return contract;
   }
-  return sale.payments.reduce((acc, payment) => acc + toNumberOrZero(payment.amount), 0);
+  return (sale.payments ?? []).reduce((acc, payment) => acc + toNumberOrZero(payment.amount), 0);
 };
 
 export const getSaleCommissionValue = (sale: SaleRecord): number => {
-  const fromCommissions = sale.commissions.reduce((acc, commission) => acc + toNumberOrZero(commission.amount), 0);
+  const fromCommissions = (sale.commissions ?? []).reduce((acc, commission) => acc + toNumberOrZero(commission.amount), 0);
   if (fromCommissions > 0) {
     return fromCommissions;
   }
-  return sale.payments.reduce((acc, payment) => acc + toNumberOrZero(payment.commission?.amount), 0);
+  return (sale.payments ?? []).reduce((acc, payment) => acc + toNumberOrZero(payment.commission?.amount), 0);
 };
 
 export const getPrimaryClientName = (sale: SaleRecord): string =>
-  sale.clients[0]?.nameCiphertext?.trim() || "Cliente";
+  sale.clients?.[0]?.nameCiphertext?.trim() || "Cliente";
 
 export const getPrimaryClientPhone = (sale: SaleRecord): string =>
-  sale.clients[0]?.telefone?.trim() || "";
+  sale.clients?.[0]?.telefone?.trim() || "";
 
 export const getSaleCustomerNames = (sale: SaleRecord): string => {
-  const names = sale.clients
+  const names = (sale.clients ?? [])
     .map((client) => client.nameCiphertext?.trim())
     .filter((name): name is string => Boolean(name));
 
@@ -40,7 +40,7 @@ export const getSaleCustomerNames = (sale: SaleRecord): string => {
 };
 
 export const getSaleProductName = (sale: SaleRecord): string =>
-  sale.items[0]?.product?.name ?? "Produto não informado";
+  sale.items?.[0]?.product?.name ?? "Produto não informado";
 
 export const getSaleSellerInfo = (sale: SaleRecord): string => {
   if (!sale.seller) {

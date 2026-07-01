@@ -45,4 +45,18 @@ export const EMPTY_PAYMENT: SalePaymentDraft = {
   dueDate: "",
   billingType: "",
   ciclo: DEFAULT_SUBSCRIPTION_CYCLE,
+  paymentDate: "",
+  status: "PENDING",
+  notes: "",
 };
+
+export const SALE_STATUS_OPTIONS = [
+  { value: "PENDING", label: "Pendente" },
+  { value: "CONCLUDED", label: "Concluída" },
+  { value: "ARCHIVED", label: "Arquivada" },
+] as const;
+
+export const PAYMENT_STATUS_OPTIONS = [
+  { value: "PENDING", label: "Pendente" },
+  { value: "PAID", label: "Pago" },
+] as const;

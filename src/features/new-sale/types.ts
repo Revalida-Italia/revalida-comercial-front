@@ -8,11 +8,15 @@ export type SalePaymentDraft = {
   dueDate: string;
   billingType: BillingType | "";
   ciclo: SubscriptionCycle;
+  paymentDate: string;
+  status: string;
+  notes: string;
 };
 
 export type SaleItemDraft = {
   productId: string;
   releaseDate: string;
+  notes: string;
 };
 
 export type SaleSummaryItem = {

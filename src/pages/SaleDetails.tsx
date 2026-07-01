@@ -1,35 +1,37 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, MessageCircle, UserCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import SaleDetailPreview from "@/features/sales/organisms/SaleDetailPreview";
+import EditableSection from "@/features/sales/organisms/EditableSection";
 import SendPaymentLinkDialog from "@/features/sales/organisms/SendPaymentLinkDialog";
 import { getSaleCommissionValue, getSaleContractValue, getSaleSellerInfo } from "@/features/sales/utils";
-import { listSales } from "@/services/commercialApi";
+import { getSaleById } from "@/services/commercialApi";
 import { formatCurrency, formatDateTime } from "@/shared/utils/format";
 
 const SaleDetails = () => {
   const { id } = useParams<{ id: string }>();
   const [whatsappOpen, setWhatsappOpen] = useState(false);
 
-  const salesQuery = useQuery({
-    queryKey: ["sales"],
-    queryFn: () => listSales(),
+  const saleQuery = useQuery({
+    queryKey: ["sale", id],
+    queryFn: () => getSaleById(id!),
+    enabled: Boolean(id),
   });
 
-  const sale = useMemo(() => salesQuery.data?.sales.find((item) => item.id === id), [id, salesQuery.data?.sales]);
+  const sale = saleQuery.data;
 
-  if (salesQuery.isLoading) {
+  if (saleQuery.isLoading) {
     return <p className="text-sm text-muted-foreground">Carregando venda...</p>;
   }
 
-  if (salesQuery.isError) {
-    return <p className="text-sm text-destructive">Erro ao carregar venda: {(salesQuery.error as Error).message}</p>;
+  if (saleQuery.isError) {
+    return <p className="text-sm text-destructive">Erro ao carregar venda: {(saleQuery.error as Error).message}</p>;
   }
 
-  const hasPaymentLink = sale?.payments.some((payment) => payment.linkPagamento) ?? false;
+  const hasPaymentLink = sale?.payments?.some((payment) => payment.linkPagamento) ?? false;
 
   if (!sale) {
     return (
@@ -53,6 +55,7 @@ const SaleDetails = () => {
           <Button
             type="button"
             size="sm"
+            variant="outline"
             className="gap-1.5"
             disabled={!hasPaymentLink}
             onClick={() => setWhatsappOpen(true)}
@@ -67,7 +70,8 @@ const SaleDetails = () => {
       </div>
 
       <div className="grid gap-4 md:grid-cols-4">
-        <Card>
+        <EditableSection editTo={`/vendas/${sale.id}/editar?step=4`} label="Editar vendedor e status" className="h-full">
+        <Card className="h-full">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm text-muted-foreground">Vendedor</CardTitle>
           </CardHeader>
@@ -83,6 +87,7 @@ const SaleDetails = () => {
             </div>
           </CardContent>
         </Card>
+        </EditableSection>
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm text-muted-foreground">Criada em</CardTitle>
@@ -112,6 +117,7 @@ const SaleDetails = () => {
       <Card>
         <CardHeader>
           <CardTitle>Preview completo</CardTitle>
+          <p className="text-xs text-muted-foreground">Passe o mouse sobre cada seção para editar.</p>
         </CardHeader>
         <CardContent>
           <SaleDetailPreview sale={sale} />

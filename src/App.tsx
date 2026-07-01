@@ -17,6 +17,7 @@ import AdminSalesDashboard from "@/pages/AdminSalesDashboard";
 import AdminCostsCalendar from "@/pages/AdminCostsCalendar";
 import FirstAccess from "@/pages/FirstAccess";
 import SaleDetails from "./pages/SaleDetails";
+import EditSale from "./pages/EditSale";
 import AppLayout from "./components/AppLayout";
 import NotFound from "./pages/NotFound";
 import { RequireAdmin, RequireAuth } from "./components/RouteGuards";
@@ -39,6 +40,7 @@ const App = () => (
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/nova-venda" element={<NewSale />} />
               <Route path="/vendas" element={<SalesList />} />
+              <Route path="/vendas/:id/editar" element={<EditSale />} />
               <Route path="/vendas/:id" element={<SaleDetails />} />
               <Route path="/templates" element={<Templates />} />
               <Route element={<RequireAdmin />}>
