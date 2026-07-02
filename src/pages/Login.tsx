@@ -13,6 +13,7 @@ import loginBg from "@/assets/login-bg.jpg";
 
 const SESSION_EXPIRED_REASON = "session-expired";
 const SESSION_EXPIRED_MESSAGE = "Sessao encerrada. Faca login novamente.";
+const ACCOUNT_DELETED_MESSAGE = "Conta excluída com sucesso.";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -32,6 +33,12 @@ const Login = () => {
 
     const message = notice ?? SESSION_EXPIRED_MESSAGE;
     setAuthMessage(message);
+
+    if (notice === ACCOUNT_DELETED_MESSAGE) {
+      toast.success(message);
+      return;
+    }
+
     toast.error(message);
   }, []);
 

@@ -2,9 +2,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import DeleteProfileDialog, { isOwnProfileSub } from "@/features/profile/DeleteProfileDialog";
 import { listUsers, searchUsers, type UserSearchResult } from "@/services/usersApi";
-import { useQuery } from "@tanstack/react-query";
-import { ArrowUpRight, ListFilter, Plus, Search, ShieldCheck, Star, UsersRound } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { ArrowUpRight, ListFilter, Plus, Search, ShieldCheck, Star, Trash2, UsersRound } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useDebounce } from "use-debounce";
 import { useNavigate } from "react-router-dom";
@@ -40,8 +41,10 @@ function formatDate(date?: string): string {
 
 const AdminUsersFeature = () => {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearchTerm] = useDebounce(searchTerm, 350);
+  const [userToDelete, setUserToDelete] = useState<UserSearchResult | null>(null);
 
   const usersQuery = useQuery({
     queryKey: ["adminUsers", debouncedSearchTerm],
@@ -175,21 +178,32 @@ const AdminUsersFeature = () => {
 
                   <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-xs text-muted-foreground">
                     <p>Criado em: {formatDate(user.createdAt)}</p>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 gap-1.5 rounded-md px-2 text-primary transition-colors hover:bg-primary/10 hover:text-primary focus-visible:ring-1 focus-visible:ring-primary/40"
-                      onClick={() =>
-                        navigate("/admin/carreira", {
-                          state: {
-                            prefilledUser: user,
-                          },
-                        })
-                      }
-                    >
-                      Gerenciar carreira
-                      <ArrowUpRight className="h-3.5 w-3.5" />
-                    </Button>
+                    <div className="flex flex-wrap items-center gap-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 gap-1.5 rounded-md px-2 text-primary transition-colors hover:bg-primary/10 hover:text-primary focus-visible:ring-1 focus-visible:ring-primary/40"
+                        onClick={() =>
+                          navigate("/admin/carreira", {
+                            state: {
+                              prefilledUser: user,
+                            },
+                          })
+                        }
+                      >
+                        Gerenciar carreira
+                        <ArrowUpRight className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 gap-1.5 rounded-md px-2 text-destructive transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:ring-1 focus-visible:ring-destructive/40"
+                        onClick={() => setUserToDelete(user)}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                        Excluir conta
+                      </Button>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -197,6 +211,25 @@ const AdminUsersFeature = () => {
           )}
         </CardContent>
       </Card>
+
+      {userToDelete && (
+        <DeleteProfileDialog
+          open={Boolean(userToDelete)}
+          onOpenChange={(open) => {
+            if (!open) {
+              setUserToDelete(null);
+            }
+          }}
+          targetSub={userToDelete.externalId || userToDelete.id}
+          targetName={userToDelete.name || userToDelete.email}
+          isOwnProfile={isOwnProfileSub(userToDelete.externalId || userToDelete.id)}
+          onDeleted={() => {
+            setUserToDelete(null);
+            queryClient.invalidateQueries({ queryKey: ["adminUsers"] });
+            queryClient.invalidateQueries({ queryKey: ["dashboard-users"] });
+          }}
+        />
+      )}
     </div>
   );
 };

@@ -464,8 +464,6 @@ const SalesDashboardFeature = ({ mode }: SalesDashboardFeatureProps) => {
               });
             }}
           />
-          
-          <br />
 
           {dashboardQuery.isError && (
             <Alert variant="destructive">

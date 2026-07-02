@@ -64,3 +64,11 @@ export async function createUserByAdmin(input: CreateUserInput): Promise<void> {
     body: input,
   });
 }
+
+export async function deleteProfile(sub: string): Promise<void> {
+  await apiRequest<{ success: boolean; data: { deleted: boolean } }>(
+    CORE_API_URL,
+    `/users/${encodeURIComponent(sub)}/profile`,
+    { method: "DELETE" },
+  );
+}
