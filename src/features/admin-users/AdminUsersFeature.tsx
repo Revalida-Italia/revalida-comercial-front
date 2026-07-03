@@ -1,4 +1,5 @@
 import { Badge } from "@/components/ui/badge";
+import { Notranslate } from "@/components/Notranslate";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -168,7 +169,7 @@ const AdminUsersFeature = () => {
                       {user.careerPlan?.name ? (
                         <Badge variant="secondary" className="gap-1">
                           <Star className="h-3 w-3" />
-                          {user.careerPlan.name}
+                          <Notranslate>{user.careerPlan.name}</Notranslate>
                         </Badge>
                       ) : (
                         <Badge variant="secondary">Sem plano</Badge>

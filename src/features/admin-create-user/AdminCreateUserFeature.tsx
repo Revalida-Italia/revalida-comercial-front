@@ -1,4 +1,5 @@
 import { Badge } from "@/components/ui/badge";
+import { Notranslate } from "@/components/Notranslate";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -216,7 +217,7 @@ const AdminCreateUserFeature = () => {
                     <SelectContent>
                       {careerPlans.map((plan) => (
                         <SelectItem key={plan.id} value={plan.id}>
-                          {plan.name}
+                          <Notranslate>{plan.name}</Notranslate>
                         </SelectItem>
                       ))}
                     </SelectContent>

@@ -1,4 +1,5 @@
 import { Input } from "@/components/ui/input";
+import { Notranslate } from "@/components/Notranslate";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Search, Loader2, UserCircle } from "lucide-react";
 import type { UserSearchCardProps } from "../types";
@@ -72,7 +73,7 @@ const UserSearchCard = ({
                         )}
                         {user.careerPlan && (
                           <div className={`text-xs truncate ${isSelected ? "text-white/85" : "text-muted-foreground"}`}>
-                            Carreira: {user.careerPlan.name}
+                            Carreira: <Notranslate>{user.careerPlan.name}</Notranslate>
                           </div>
                         )}
                       </div>

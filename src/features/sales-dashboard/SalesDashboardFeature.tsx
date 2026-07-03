@@ -4,6 +4,7 @@ import { useDebounce } from "use-debounce";
 import { Bar, CartesianGrid, ComposedChart, LabelList, ReferenceLine, XAxis, YAxis } from "recharts";
 import { AlertCircle, Check, Mail, PenLine, Shield, Star as LucideStar, Target, UserRound, X } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Notranslate } from "@/components/Notranslate";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -789,7 +790,9 @@ const SellerProfileBadge = ({ data, isLoading, isSaving, showPlaceholder, onSave
             <p className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[#4d7190]">
               <Target className="h-3.5 w-3.5" /> Career plan
             </p>
-            <p className="text-sm font-semibold text-[#0c3559]">{data.careerPlan}</p>
+            <p className="text-sm font-semibold text-[#0c3559]">
+              <Notranslate>{data.careerPlan}</Notranslate>
+            </p>
             <p className="text-xs text-[#3b607f]">Mínima {data.minimumGoal} | Meta {data.monthlyGoal}</p>
           </div>
 

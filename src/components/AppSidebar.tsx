@@ -1,3 +1,4 @@
+import { Notranslate } from "@/components/Notranslate";
 import { Badge } from "@/components/ui/badge";
 import { clearSession, getProfile, hasRole, setProfile } from "@/lib/session";
 import { resolveProfile } from "@/services/authApi";
@@ -103,7 +104,7 @@ const AppSidebar = () => {
             {roleLabel}
           </Badge>
           <Badge variant="outline" className="border-sidebar-border text-[10px] text-sidebar-foreground/85">
-            {careerPlanName}
+            <Notranslate>{careerPlanName}</Notranslate>
           </Badge>
         </div>
       </div>
