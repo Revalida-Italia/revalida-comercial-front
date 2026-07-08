@@ -1,9 +1,12 @@
 import type { CommissionBreakdownResult } from "@/services/commissionApi";
+import { buildCommissionBreakdown } from "@/services/commissionApi";
 import type { SaleRecord } from "@/services/commercialApi";
 import { toNumberOrZero } from "@/shared/utils/number";
+import { getPaymentGrossValue, isMonthlySubscriptionPayment } from "@/shared/utils/payment";
 import type { ConfiguredSalePayment, FilledSaleCustomer } from "@/features/new-sale/types";
 import { getSaleCommissionValue } from "../utils";
 import SaleSummary from "@/features/new-sale/organisms/SaleSummary";
+import { useMemo } from "react";
 
 type SaleDetailPreviewProps = {
   sale: SaleRecord;
@@ -27,6 +30,7 @@ const SaleDetailPreview = ({ sale }: SaleDetailPreviewProps) => {
     paymentType: payment.type,
     amount: toNumberOrZero(payment.amount),
     totalInstallments: payment.totalInstallments ?? undefined,
+    installmentNumber: payment.installmentNumber ?? undefined,
     dueDate: payment.dueDate?.slice(0, 10) ?? undefined,
     feeRate: toNumberOrZero(payment.gatewayFeeRateSnapshot ?? payment.gatewayFee?.feeRate),
     linkPagamento: payment.linkPagamento ?? undefined,
@@ -34,46 +38,48 @@ const SaleDetailPreview = ({ sale }: SaleDetailPreviewProps) => {
     ciclo: payment.ciclo ? (payment.ciclo as ConfiguredSalePayment["ciclo"]) : undefined,
   }));
 
-  const paymentBreakdown = configuredPayments.map((payment, index) => {
-    const grossAmount = payment.amount;
-    const feeAmount = grossAmount * (payment.feeRate / 100);
-    const netAmount = grossAmount - feeAmount;
-    const commissionAmount = toNumberOrZero(sale.payments[index]?.commission?.amount);
-
-    return {
-      gateway: payment.gateway,
-      paymentType: payment.paymentType,
-      feeRate: payment.feeRate,
-      installments: payment.totalInstallments ?? 1,
-      grossAmount,
-      feeAmount,
-      netAmount,
-      commissionAmount,
-    };
-  });
-
   const commissionRate = toNumberOrZero(sale.seller?.careerPlan?.individualCommissionRate);
-  const totalGross = paymentBreakdown.reduce((acc, payment) => acc + payment.grossAmount, 0);
-  const totalFees = paymentBreakdown.reduce((acc, payment) => acc + payment.feeAmount, 0);
-  const totalNet = paymentBreakdown.reduce((acc, payment) => acc + payment.netAmount, 0);
   const totalCommission = getSaleCommissionValue(sale);
 
-  const commissionBreakdown: CommissionBreakdownResult = {
-    commissionRate,
-    totalGross,
-    totalFees,
-    totalNet,
-    totalCommission,
-    payments: paymentBreakdown,
-  };
+  const commissionBreakdown: CommissionBreakdownResult = useMemo(() => {
+    const breakdown = buildCommissionBreakdown(
+      configuredPayments.map((payment) => {
+        if (isMonthlySubscriptionPayment(payment, configuredPayments)) {
+          return {
+            gateway: payment.gateway,
+            paymentType: "ONE_TIME",
+            amount: payment.amount,
+            feeRate: payment.feeRate,
+          };
+        }
+
+        return {
+          gateway: payment.gateway,
+          paymentType: payment.paymentType,
+          amount: payment.amount,
+          feeRate: payment.feeRate,
+          totalInstallments: payment.totalInstallments,
+        };
+      }),
+      commissionRate,
+    );
+
+    return {
+      ...breakdown,
+      totalCommission,
+      payments: breakdown.payments.map((payment, index) => ({
+        ...payment,
+        commissionAmount: toNumberOrZero(sale.payments[index]?.commission?.amount),
+      })),
+    };
+  }, [configuredPayments, commissionRate, sale.payments, totalCommission]);
 
   const getFeeRate = (gateway: string, paymentType: string) => {
     const payment = configuredPayments.find((item) => item.gateway === gateway && item.paymentType === paymentType);
     return payment?.feeRate ?? 0;
   };
 
-  const paymentGrossValue = (payment: { amount: string | number; paymentType: string; totalInstallments?: string | number }) =>
-    toNumberOrZero(payment.amount);
+  const paymentGrossValue = (payment: ConfiguredSalePayment) => getPaymentGrossValue(payment, configuredPayments);
 
   return (
     <SaleSummary

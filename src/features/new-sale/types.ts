@@ -29,6 +29,7 @@ export type ConfiguredSalePayment = {
   paymentType: string;
   amount: number;
   totalInstallments?: number;
+  installmentNumber?: number;
   dueDate?: string;
   feeRate: number;
   billingType: BillingType;

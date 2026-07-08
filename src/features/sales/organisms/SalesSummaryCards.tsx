@@ -65,7 +65,7 @@ const SalesSummaryCards = ({ summary }: SalesSummaryCardsProps) => {
         iconWrapClass="bg-primary/15 text-primary"
       />
 
-      <MetricCard label="Valor total" value={formatCurrency(totalAmount, "BRL")} icon={Wallet} />
+      <MetricCard label="Valor total do mês" value={formatCurrency(totalAmount, "BRL")} icon={Wallet} />
 
       <MetricCard
         label="Comissao desse mês"

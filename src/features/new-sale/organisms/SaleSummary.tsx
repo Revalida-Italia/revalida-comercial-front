@@ -19,6 +19,7 @@ import { toast } from "sonner";
 import { BILLING_TYPE_LABELS, PAYMENT_TYPE_LABELS, SUBSCRIPTION_CYCLE_LABELS } from "../constants";
 import type { ConfiguredSalePayment, FilledSaleCustomer, SalePaymentDraft, SaleSummaryItem } from "../types";
 import EditableSection from "@/features/sales/organisms/EditableSection";
+import { formatInstallmentLabel, getPaymentGrossValue } from "@/shared/utils/payment";
 
 type PaymentValueLike = {
   amount: string | number;
@@ -150,7 +151,13 @@ const SaleSummary = ({
             <p className="italic text-muted-foreground">Nenhum pagamento configurado</p>
           ) : (
             <ul className="space-y-2">
-              {configuredPayments.map((payment, index) => (
+              {configuredPayments.map((payment, index) => {
+                const installmentLabel = formatInstallmentLabel(payment, currency, {
+                  allPayments: configuredPayments,
+                  index,
+                });
+
+                return (
                 <li key={index} className="rounded-md border p-2">
                   <p className="font-medium">{payment.gateway}</p>
                   <p className="text-muted-foreground">
@@ -167,8 +174,11 @@ const SaleSummary = ({
                     )}
                   </p>
                   <p className="font-medium">
-                    {paymentGrossValue(payment).toLocaleString("pt-BR", { style: "currency", currency })}
+                    {getPaymentGrossValue(payment, configuredPayments).toLocaleString("pt-BR", { style: "currency", currency })}
                   </p>
+                  {installmentLabel && (
+                    <p className="text-xs text-muted-foreground">{installmentLabel}</p>
+                  )}
                   {payment.dueDate && <p className="text-xs text-muted-foreground">Vencimento: {payment.dueDate}</p>}
                   {payment.linkPagamento && (
                     <div className="mt-2 space-y-1.5 rounded-md border border-dashed border-primary/30 bg-primary/5 p-2">
@@ -198,7 +208,8 @@ const SaleSummary = ({
                     </div>
                   )}
                 </li>
-              ))}
+                );
+              })}
             </ul>
           )}
         </div>
@@ -242,11 +253,22 @@ const SaleSummary = ({
           </div>
 
           <div className="space-y-2 pt-1">
-            {commissionBreakdown.payments.map((payment, idx) => (
+            {commissionBreakdown.payments.map((payment, idx) => {
+              const installmentLabel = configuredPayments[idx]
+                ? formatInstallmentLabel(configuredPayments[idx], currency, {
+                    allPayments: configuredPayments,
+                    index: idx,
+                  })
+                : null;
+
+              return (
               <div key={`${payment.gateway}-${payment.paymentType}-${idx}`} className="rounded-md border bg-background p-2 space-y-0.5">
                 <p className="text-xs font-semibold text-foreground">
-                  {payment.gateway} · {PAYMENT_TYPE_LABELS[payment.paymentType] ?? payment.paymentType}
+                  {payment.gateway} · {PAYMENT_TYPE_LABELS[configuredPayments[idx]?.paymentType ?? payment.paymentType] ?? payment.paymentType}
                 </p>
+                {installmentLabel && (
+                  <p className="text-xs text-muted-foreground">{installmentLabel}</p>
+                )}
                 <p className="flex items-center gap-1 text-xs text-muted-foreground"><Banknote className="h-3 w-3" /> Bruto: {payment.grossAmount.toLocaleString("pt-BR", { style: "currency", currency })}</p>
                 <p className="flex items-center gap-1 text-xs text-muted-foreground"><MinusCircle className="h-3 w-3" /> Taxa ({payment.feeRate}%): {payment.feeAmount.toLocaleString("pt-BR", { style: "currency", currency })}</p>
                 <p className="flex items-center gap-1 text-xs text-muted-foreground"><TrendingDown className="h-3 w-3" /> Líquido: {payment.netAmount.toLocaleString("pt-BR", { style: "currency", currency })}</p>
@@ -272,7 +294,8 @@ const SaleSummary = ({
                   </div>
                 )}
               </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       ) : (

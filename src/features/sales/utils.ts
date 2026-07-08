@@ -1,12 +1,19 @@
 import type { SaleRecord } from "@/services/commercialApi";
 import { toNumberOrZero } from "@/shared/utils/number";
+import { getPaymentGrossValue, toPaymentGrossValueContext } from "@/shared/utils/payment";
 
 export const getSaleContractValue = (sale: SaleRecord): number => {
   const contract = toNumberOrZero(sale.contractValue);
   if (contract > 0) {
     return contract;
   }
-  return (sale.payments ?? []).reduce((acc, payment) => acc + toNumberOrZero(payment.amount), 0);
+
+  const paymentContext = toPaymentGrossValueContext(sale.payments ?? []);
+
+  return paymentContext.reduce(
+    (acc, payment) => acc + getPaymentGrossValue(payment, paymentContext),
+    0,
+  );
 };
 
 export const getSaleCommissionValue = (sale: SaleRecord): number => {
