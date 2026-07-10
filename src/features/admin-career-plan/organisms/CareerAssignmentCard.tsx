@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { Notranslate } from "@/components/Notranslate";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -89,7 +90,7 @@ const CareerAssignmentCard = ({
                 <SelectContent>
                   {careerPlans.map((plan: CareerPlanOption) => (
                     <SelectItem key={plan.id} value={plan.id}>
-                      {plan.name}
+                      <Notranslate>{plan.name}</Notranslate>
                     </SelectItem>
                   ))}
                 </SelectContent>

@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, Link2, MessageCircle, UserCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Notranslate } from "@/components/Notranslate";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import SaleDetailPreview from "@/features/sales/organisms/SaleDetailPreview";
 import EditableSection from "@/features/sales/organisms/EditableSection";
@@ -97,7 +98,9 @@ const SaleDetails = () => {
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium break-words">{getSaleSellerInfo(sale)}</p>
                 {sale.seller?.careerPlan?.name && (
-                  <p className="text-xs text-muted-foreground mt-1">{sale.seller.careerPlan.name}</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    <Notranslate>{sale.seller.careerPlan.name}</Notranslate>
+                  </p>
                 )}
               </div>
             </div>

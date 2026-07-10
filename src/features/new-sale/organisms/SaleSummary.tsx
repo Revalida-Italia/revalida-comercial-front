@@ -1,4 +1,5 @@
 import type { CommissionBreakdownResult } from "@/services/commissionApi";
+import { Notranslate } from "@/components/Notranslate";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -219,7 +220,7 @@ const SaleSummary = ({
           <div className="space-y-0.5">
             <p className="flex items-center gap-1 text-xs text-muted-foreground">
               <Award className="h-3 w-3" />
-              {careerPlanName ?? "Não carregado"} · {commissionBreakdown.commissionRate}%
+              <Notranslate>{careerPlanName ?? "Não carregado"}</Notranslate> · {commissionBreakdown.commissionRate}%
             </p>
             {showCommissionRateWarning && commissionBreakdown.commissionRate === 0 && (
               <p className="text-xs text-amber-700">
