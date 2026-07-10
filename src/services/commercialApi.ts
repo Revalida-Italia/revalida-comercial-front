@@ -401,6 +401,51 @@ export async function updateSale(id: string, input: UpdateSaleInput): Promise<vo
   });
 }
 
+export type PaymentLinkProvider = "HOTMART" | "ASAAS";
+
+function mapPaymentsForLinkGeneration(
+  payments: SalePayment[],
+  targetPaymentId: string,
+  provider: PaymentLinkProvider,
+): UpdateSalePayment[] {
+  return payments.map((payment) => ({
+    type: payment.type,
+    gateway: payment.id === targetPaymentId ? provider : payment.gateway,
+    amount: Number(payment.amount),
+    dueDate: payment.dueDate?.slice(0, 10),
+    paymentDate: payment.paymentDate?.slice(0, 10) || undefined,
+    status: payment.status,
+    ...(payment.notes ? { notes: payment.notes } : {}),
+    billingType: (payment.billingType as BillingType) || "PIX",
+    ...(payment.ciclo ? { ciclo: payment.ciclo as SubscriptionCycle } : {}),
+    ...(payment.totalInstallments ? { totalInstallments: payment.totalInstallments } : {}),
+    ...(payment.installmentNumber ? { installmentNumber: payment.installmentNumber } : {}),
+  }));
+}
+
+export async function createPaymentLinkForSale(
+  saleId: string,
+  paymentId: string,
+  provider: PaymentLinkProvider,
+): Promise<SaleRecord> {
+  const sale = await getSaleById(saleId);
+  const payment = sale.payments.find((item) => item.id === paymentId);
+
+  if (!payment) {
+    throw new Error("Pagamento não encontrado.");
+  }
+
+  if (payment.linkPagamento) {
+    throw new Error("Este pagamento já possui link.");
+  }
+
+  await updateSale(saleId, {
+    payments: mapPaymentsForLinkGeneration(sale.payments, paymentId, provider),
+  });
+
+  return getSaleById(saleId);
+}
+
 export async function fetchSalesDashboard(payload: SalesDashboardRequest): Promise<SalesDashboardResponse> {
   const response = await apiRequest<SalesDashboardEnvelope>(CORE_API_URL, "/sales/dashboard", {
     method: "POST",

@@ -5,7 +5,7 @@ import { formatCurrency, formatDate } from "@/shared/utils/format";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { CalendarDays, CircleDollarSign, MessageCircle, Pencil, Users, UserCircle } from "lucide-react";
+import { CalendarDays, CircleDollarSign, Link2, MessageCircle, Pencil, Users, UserCircle } from "lucide-react";
 import {
   getSaleCommissionValue,
   getSaleContractValue,
@@ -13,6 +13,8 @@ import {
   getSaleProductName,
   getSaleSellerInfo,
 } from "../utils";
+import { saleHasPaymentLink } from "@/features/sales/utils/paymentLink";
+import CreatePaymentLinkDialog from "./CreatePaymentLinkDialog";
 import SendPaymentLinkDialog from "./SendPaymentLinkDialog";
 
 type SaleListCardProps = {
@@ -21,11 +23,13 @@ type SaleListCardProps = {
 
 const SaleListCard = ({ sale }: SaleListCardProps) => {
   const [whatsappOpen, setWhatsappOpen] = useState(false);
+  const [createLinkOpen, setCreateLinkOpen] = useState(false);
   const customerNames = getSaleCustomerNames(sale);
   const contractValue = getSaleContractValue(sale);
   const commissionValue = getSaleCommissionValue(sale);
   const sellerInfo = getSaleSellerInfo(sale);
-  const hasPaymentLink = sale.payments?.some((payment) => payment.linkPagamento) ?? false;
+  const hasPaymentLink = saleHasPaymentLink(sale);
+  const hasPayments = (sale.payments?.length ?? 0) > 0;
 
   return (
     <>
@@ -74,6 +78,20 @@ const SaleListCard = ({ sale }: SaleListCardProps) => {
             <div className="flex flex-col items-end justify-end gap-2">
               <Badge variant="outline" className="h-6 px-2 text-[10px]">{sale.status}</Badge>
               <div className="flex flex-wrap items-center justify-end gap-1.5">
+                {!hasPaymentLink && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 gap-1 px-2 text-[11px]"
+                    disabled={!hasPayments}
+                    title={hasPayments ? "Criar link Hotmart ou Asaas" : "Venda sem pagamentos"}
+                    onClick={() => setCreateLinkOpen(true)}
+                  >
+                    <Link2 className="h-3.5 w-3.5" />
+                    Criar link
+                  </Button>
+                )}
                 <Button
                   type="button"
                   variant="outline"
@@ -101,6 +119,7 @@ const SaleListCard = ({ sale }: SaleListCardProps) => {
         </CardContent>
       </Card>
 
+      <CreatePaymentLinkDialog sale={sale} open={createLinkOpen} onOpenChange={setCreateLinkOpen} />
       <SendPaymentLinkDialog sale={sale} open={whatsappOpen} onOpenChange={setWhatsappOpen} />
     </>
   );
