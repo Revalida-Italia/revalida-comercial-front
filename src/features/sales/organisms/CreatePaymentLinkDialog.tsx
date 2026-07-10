@@ -14,11 +14,9 @@ import {
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { createPaymentLinkForSale, getSaleById, type SaleRecord } from "@/services/commercialApi";
-import { PAYMENT_TYPE_LABELS } from "@/features/new-sale/constants";
 import {
-  getDefaultPaymentWithoutLink,
-  getHotmartFixedLinkFromSale,
-  getHotmartProductNameFromSale,
+  getSuggestedHotmartLinkForSale,
+  HOTMART_FIXED_LINKS,
 } from "@/features/sales/utils/paymentLink";
 
 type CreatePaymentLinkDialogProps = {
@@ -37,14 +35,9 @@ const CreatePaymentLinkDialog = ({ sale, open, onOpenChange }: CreatePaymentLink
   });
 
   const saleData = saleQuery.data ?? sale;
-  const hotmartFixedLink = useMemo(() => getHotmartFixedLinkFromSale(saleData), [saleData]);
-  const hotmartProductName = useMemo(() => getHotmartProductNameFromSale(saleData), [saleData]);
-  const defaultPayment = useMemo(
-    () => getDefaultPaymentWithoutLink(saleData.payments ?? []),
-    [saleData.payments],
-  );
+  const suggestedLink = useMemo(() => getSuggestedHotmartLinkForSale(saleData), [saleData]);
 
-  const [paymentId, setPaymentId] = useState(defaultPayment?.id ?? "");
+  const [selectedLinkUrl, setSelectedLinkUrl] = useState(HOTMART_FIXED_LINKS[0]?.url ?? "");
   const [generatedLink, setGeneratedLink] = useState<string | null>(null);
 
   useEffect(() => {
@@ -53,28 +46,35 @@ const CreatePaymentLinkDialog = ({ sale, open, onOpenChange }: CreatePaymentLink
       return;
     }
 
-    const payment = getDefaultPaymentWithoutLink(saleData.payments ?? []);
-    setPaymentId(payment?.id ?? "");
-  }, [open, saleData.payments]);
+    setSelectedLinkUrl(suggestedLink?.url ?? HOTMART_FIXED_LINKS[0]?.url ?? "");
+  }, [open, suggestedLink?.url]);
+
+  const selectedLink = HOTMART_FIXED_LINKS.find((option) => option.url === selectedLinkUrl);
+  const targetPayment = (saleData.payments ?? []).find((payment) => !payment.linkPagamento)
+    ?? saleData.payments?.[0];
 
   const createLinkMutation = useMutation({
     mutationFn: async () => {
-      if (!paymentId) {
-        throw new Error("Selecione um pagamento.");
+      if (!selectedLinkUrl) {
+        throw new Error("Selecione um link Hotmart.");
       }
 
-      if (!hotmartFixedLink) {
-        throw new Error("Produto da venda não possui link fixo da Hotmart cadastrado.");
+      if (!targetPayment?.id) {
+        throw new Error("Venda sem pagamento para aplicar o link.");
       }
 
-      return createPaymentLinkForSale(sale.id, paymentId, hotmartFixedLink);
+      if (targetPayment.linkPagamento) {
+        throw new Error("Esta venda já possui link de pagamento.");
+      }
+
+      return createPaymentLinkForSale(sale.id, targetPayment.id, selectedLinkUrl);
     },
     onSuccess: async (updatedSale) => {
       await queryClient.invalidateQueries({ queryKey: ["sales"] });
       await queryClient.invalidateQueries({ queryKey: ["sale", sale.id] });
 
-      const updatedPayment = updatedSale.payments.find((payment) => payment.id === paymentId);
-      const link = updatedPayment?.linkPagamento ?? hotmartFixedLink;
+      const updatedPayment = updatedSale.payments.find((payment) => payment.id === targetPayment?.id);
+      const link = updatedPayment?.linkPagamento ?? selectedLinkUrl;
       setGeneratedLink(link);
       toast.success("Link Hotmart aplicado na venda.");
     },
@@ -83,8 +83,8 @@ const CreatePaymentLinkDialog = ({ sale, open, onOpenChange }: CreatePaymentLink
     },
   });
 
-  const selectedPayment = saleData.payments?.find((payment) => payment.id === paymentId);
-  const canApply = Boolean(hotmartFixedLink && paymentId && !selectedPayment?.linkPagamento);
+  const previewLink = generatedLink ?? selectedLinkUrl;
+  const canApply = Boolean(selectedLinkUrl && targetPayment && !targetPayment.linkPagamento);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -95,55 +95,42 @@ const CreatePaymentLinkDialog = ({ sale, open, onOpenChange }: CreatePaymentLink
             Link Hotmart
           </DialogTitle>
           <DialogDescription>
-            A Hotmart usa link fixo do produto. O pagamento será atualizado para gateway Hotmart com esse link.
+            Escolha o link fixo do produto Hotmart. O pagamento da venda será atualizado com esse link.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
-          <div className="space-y-1.5 rounded-md border bg-muted/30 p-3">
-            <p className="text-xs font-medium text-muted-foreground">Link fixo do produto</p>
-            {saleQuery.isLoading ? (
-              <p className="text-sm text-muted-foreground">Carregando produto...</p>
-            ) : hotmartFixedLink ? (
-              <>
-                {hotmartProductName && (
-                  <p className="text-sm font-medium">{hotmartProductName}</p>
-                )}
-                <p className="break-all text-sm text-foreground">{hotmartFixedLink}</p>
-              </>
-            ) : (
-              <p className="text-sm text-destructive">
-                Este produto não tem link fixo da Hotmart cadastrado.
-              </p>
-            )}
-          </div>
-
           <div className="space-y-1.5">
-            <Label>Pagamento *</Label>
-            <Select value={paymentId} onValueChange={setPaymentId}>
+            <Label>Produto Hotmart *</Label>
+            <Select value={selectedLinkUrl} onValueChange={setSelectedLinkUrl}>
               <SelectTrigger>
-                <SelectValue placeholder="Selecione o pagamento" />
+                <SelectValue placeholder="Selecione o produto" />
               </SelectTrigger>
               <SelectContent>
-                {(saleData.payments ?? []).map((payment) => (
-                  <SelectItem key={payment.id} value={payment.id}>
-                    {payment.gateway} · {PAYMENT_TYPE_LABELS[payment.type] ?? payment.type} · R$ {payment.amount}
-                    {payment.linkPagamento ? " (já tem link)" : ""}
+                {HOTMART_FIXED_LINKS.map((option) => (
+                  <SelectItem key={option.url} value={option.url}>
+                    {option.productName}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
+            {suggestedLink && suggestedLink.url === selectedLinkUrl && (
+              <p className="text-xs text-muted-foreground">
+                Sugestão baseada no produto da venda.
+              </p>
+            )}
           </div>
 
-          {(generatedLink || hotmartFixedLink) && (
+          {selectedLink && (
             <div className="space-y-2 rounded-md border border-primary/30 bg-primary/5 p-3">
               <p className="text-xs font-medium text-muted-foreground">
-                {generatedLink ? "Link aplicado" : "Prévia do link"}
+                {generatedLink ? "Link aplicado" : "Link selecionado"}
               </p>
-              <p className="break-all text-sm">{generatedLink ?? hotmartFixedLink}</p>
+              <p className="text-sm font-medium">{selectedLink.productName}</p>
+              <p className="break-all text-sm">{previewLink}</p>
               <div className="flex flex-wrap gap-2">
                 <Button variant="outline" size="sm" className="h-7 gap-1 text-xs" asChild>
-                  <a href={generatedLink ?? hotmartFixedLink!} target="_blank" rel="noopener noreferrer">
+                  <a href={previewLink} target="_blank" rel="noopener noreferrer">
                     <ExternalLink className="h-3 w-3" />
                     Abrir
                   </a>
@@ -154,7 +141,7 @@ const CreatePaymentLinkDialog = ({ sale, open, onOpenChange }: CreatePaymentLink
                   size="sm"
                   className="h-7 gap-1 text-xs"
                   onClick={() => {
-                    void navigator.clipboard.writeText(generatedLink ?? hotmartFixedLink!);
+                    void navigator.clipboard.writeText(previewLink);
                     toast.success("Link copiado.");
                   }}
                 >
