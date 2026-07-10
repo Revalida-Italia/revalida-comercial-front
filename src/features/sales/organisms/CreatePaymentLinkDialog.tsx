@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Copy, ExternalLink, Link2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -13,15 +13,12 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import {
-  createPaymentLinkForSale,
-  type PaymentLinkProvider,
-  type SaleRecord,
-} from "@/services/commercialApi";
+import { createPaymentLinkForSale, getSaleById, type SaleRecord } from "@/services/commercialApi";
 import { PAYMENT_TYPE_LABELS } from "@/features/new-sale/constants";
 import {
   getDefaultPaymentWithoutLink,
-  PAYMENT_LINK_PROVIDER_OPTIONS,
+  getHotmartFixedLinkFromSale,
+  getHotmartProductNameFromSale,
 } from "@/features/sales/utils/paymentLink";
 
 type CreatePaymentLinkDialogProps = {
@@ -32,10 +29,22 @@ type CreatePaymentLinkDialogProps = {
 
 const CreatePaymentLinkDialog = ({ sale, open, onOpenChange }: CreatePaymentLinkDialogProps) => {
   const queryClient = useQueryClient();
-  const defaultPayment = useMemo(() => getDefaultPaymentWithoutLink(sale.payments ?? []), [sale.payments]);
+
+  const saleQuery = useQuery({
+    queryKey: ["sale", sale.id],
+    queryFn: () => getSaleById(sale.id),
+    enabled: open,
+  });
+
+  const saleData = saleQuery.data ?? sale;
+  const hotmartFixedLink = useMemo(() => getHotmartFixedLinkFromSale(saleData), [saleData]);
+  const hotmartProductName = useMemo(() => getHotmartProductNameFromSale(saleData), [saleData]);
+  const defaultPayment = useMemo(
+    () => getDefaultPaymentWithoutLink(saleData.payments ?? []),
+    [saleData.payments],
+  );
 
   const [paymentId, setPaymentId] = useState(defaultPayment?.id ?? "");
-  const [provider, setProvider] = useState<PaymentLinkProvider>("ASAAS");
   const [generatedLink, setGeneratedLink] = useState<string | null>(null);
 
   useEffect(() => {
@@ -44,10 +53,9 @@ const CreatePaymentLinkDialog = ({ sale, open, onOpenChange }: CreatePaymentLink
       return;
     }
 
-    const payment = getDefaultPaymentWithoutLink(sale.payments ?? []);
+    const payment = getDefaultPaymentWithoutLink(saleData.payments ?? []);
     setPaymentId(payment?.id ?? "");
-    setProvider("ASAAS");
-  }, [open, sale.payments]);
+  }, [open, saleData.payments]);
 
   const createLinkMutation = useMutation({
     mutationFn: async () => {
@@ -55,28 +63,28 @@ const CreatePaymentLinkDialog = ({ sale, open, onOpenChange }: CreatePaymentLink
         throw new Error("Selecione um pagamento.");
       }
 
-      return createPaymentLinkForSale(sale.id, paymentId, provider);
+      if (!hotmartFixedLink) {
+        throw new Error("Produto da venda não possui link fixo da Hotmart cadastrado.");
+      }
+
+      return createPaymentLinkForSale(sale.id, paymentId, hotmartFixedLink);
     },
     onSuccess: async (updatedSale) => {
       await queryClient.invalidateQueries({ queryKey: ["sales"] });
       await queryClient.invalidateQueries({ queryKey: ["sale", sale.id] });
 
       const updatedPayment = updatedSale.payments.find((payment) => payment.id === paymentId);
-      const link = updatedPayment?.linkPagamento ?? null;
+      const link = updatedPayment?.linkPagamento ?? hotmartFixedLink;
       setGeneratedLink(link);
-
-      if (link) {
-        toast.success("Link de pagamento criado com sucesso.");
-      } else {
-        toast.warning("Pagamento atualizado, mas o link ainda não foi retornado pela API.");
-      }
+      toast.success("Link Hotmart aplicado na venda.");
     },
     onError: (error: unknown) => {
-      toast.error(error instanceof Error ? error.message : "Erro ao criar link de pagamento.");
+      toast.error(error instanceof Error ? error.message : "Erro ao aplicar link Hotmart.");
     },
   });
 
-  const selectedPayment = sale.payments?.find((payment) => payment.id === paymentId);
+  const selectedPayment = saleData.payments?.find((payment) => payment.id === paymentId);
+  const canApply = Boolean(hotmartFixedLink && paymentId && !selectedPayment?.linkPagamento);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -84,28 +92,30 @@ const CreatePaymentLinkDialog = ({ sale, open, onOpenChange }: CreatePaymentLink
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Link2 className="h-5 w-5" />
-            Criar link de pagamento
+            Link Hotmart
           </DialogTitle>
           <DialogDescription>
-            Escolha o provedor do link. O gateway do pagamento será atualizado para Hotmart ou Asaas.
+            A Hotmart usa link fixo do produto. O pagamento será atualizado para gateway Hotmart com esse link.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
-          <div className="space-y-1.5">
-            <Label>Provedor do link *</Label>
-            <Select value={provider} onValueChange={(value) => setProvider(value as PaymentLinkProvider)}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {PAYMENT_LINK_PROVIDER_OPTIONS.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="space-y-1.5 rounded-md border bg-muted/30 p-3">
+            <p className="text-xs font-medium text-muted-foreground">Link fixo do produto</p>
+            {saleQuery.isLoading ? (
+              <p className="text-sm text-muted-foreground">Carregando produto...</p>
+            ) : hotmartFixedLink ? (
+              <>
+                {hotmartProductName && (
+                  <p className="text-sm font-medium">{hotmartProductName}</p>
+                )}
+                <p className="break-all text-sm text-foreground">{hotmartFixedLink}</p>
+              </>
+            ) : (
+              <p className="text-sm text-destructive">
+                Este produto não tem link fixo da Hotmart cadastrado.
+              </p>
+            )}
           </div>
 
           <div className="space-y-1.5">
@@ -115,7 +125,7 @@ const CreatePaymentLinkDialog = ({ sale, open, onOpenChange }: CreatePaymentLink
                 <SelectValue placeholder="Selecione o pagamento" />
               </SelectTrigger>
               <SelectContent>
-                {(sale.payments ?? []).map((payment) => (
+                {(saleData.payments ?? []).map((payment) => (
                   <SelectItem key={payment.id} value={payment.id}>
                     {payment.gateway} · {PAYMENT_TYPE_LABELS[payment.type] ?? payment.type} · R$ {payment.amount}
                     {payment.linkPagamento ? " (já tem link)" : ""}
@@ -123,21 +133,17 @@ const CreatePaymentLinkDialog = ({ sale, open, onOpenChange }: CreatePaymentLink
                 ))}
               </SelectContent>
             </Select>
-            {selectedPayment && (
-              <p className="text-xs text-muted-foreground">
-                Gateway atual: <strong>{selectedPayment.gateway}</strong>
-                {selectedPayment.linkPagamento ? " · este pagamento já possui link" : ""}
-              </p>
-            )}
           </div>
 
-          {generatedLink && (
+          {(generatedLink || hotmartFixedLink) && (
             <div className="space-y-2 rounded-md border border-primary/30 bg-primary/5 p-3">
-              <p className="text-xs font-medium text-muted-foreground">Link gerado</p>
-              <p className="break-all text-sm">{generatedLink}</p>
+              <p className="text-xs font-medium text-muted-foreground">
+                {generatedLink ? "Link aplicado" : "Prévia do link"}
+              </p>
+              <p className="break-all text-sm">{generatedLink ?? hotmartFixedLink}</p>
               <div className="flex flex-wrap gap-2">
                 <Button variant="outline" size="sm" className="h-7 gap-1 text-xs" asChild>
-                  <a href={generatedLink} target="_blank" rel="noopener noreferrer">
+                  <a href={generatedLink ?? hotmartFixedLink!} target="_blank" rel="noopener noreferrer">
                     <ExternalLink className="h-3 w-3" />
                     Abrir
                   </a>
@@ -148,7 +154,7 @@ const CreatePaymentLinkDialog = ({ sale, open, onOpenChange }: CreatePaymentLink
                   size="sm"
                   className="h-7 gap-1 text-xs"
                   onClick={() => {
-                    void navigator.clipboard.writeText(generatedLink);
+                    void navigator.clipboard.writeText(generatedLink ?? hotmartFixedLink!);
                     toast.success("Link copiado.");
                   }}
                 >
@@ -167,9 +173,9 @@ const CreatePaymentLinkDialog = ({ sale, open, onOpenChange }: CreatePaymentLink
           {!generatedLink && (
             <Button
               onClick={() => createLinkMutation.mutate()}
-              disabled={createLinkMutation.isPending || !paymentId || Boolean(selectedPayment?.linkPagamento)}
+              disabled={createLinkMutation.isPending || !canApply}
             >
-              {createLinkMutation.isPending ? "Gerando..." : "Criar link"}
+              {createLinkMutation.isPending ? "Aplicando..." : "Aplicar link Hotmart"}
             </Button>
           )}
         </DialogFooter>

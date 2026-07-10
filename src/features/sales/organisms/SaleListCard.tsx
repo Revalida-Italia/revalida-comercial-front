@@ -85,11 +85,11 @@ const SaleListCard = ({ sale }: SaleListCardProps) => {
                     size="sm"
                     className="h-7 gap-1 px-2 text-[11px]"
                     disabled={!hasPayments}
-                    title={hasPayments ? "Criar link Hotmart ou Asaas" : "Venda sem pagamentos"}
+                    title={hasPayments ? "Aplicar link fixo Hotmart do produto" : "Venda sem pagamentos"}
                     onClick={() => setCreateLinkOpen(true)}
                   >
                     <Link2 className="h-3.5 w-3.5" />
-                    Criar link
+                    Link Hotmart
                   </Button>
                 )}
                 <Button

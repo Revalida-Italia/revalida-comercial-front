@@ -36,6 +36,7 @@ export interface SaleItem {
     id: string;
     name: string;
     description?: string | null;
+    hotmartCheckoutUrl?: string | null;
     isActive?: boolean;
     createdAt?: string;
     updatedAt?: string;
@@ -401,16 +402,15 @@ export async function updateSale(id: string, input: UpdateSaleInput): Promise<vo
   });
 }
 
-export type PaymentLinkProvider = "HOTMART" | "ASAAS";
+export type PaymentLinkProvider = "HOTMART";
 
-function mapPaymentsForLinkGeneration(
+function mapPaymentsForHotmartLink(
   payments: SalePayment[],
   targetPaymentId: string,
-  provider: PaymentLinkProvider,
 ): UpdateSalePayment[] {
   return payments.map((payment) => ({
     type: payment.type,
-    gateway: payment.id === targetPaymentId ? provider : payment.gateway,
+    gateway: payment.id === targetPaymentId ? "HOTMART" : payment.gateway,
     amount: Number(payment.amount),
     dueDate: payment.dueDate?.slice(0, 10),
     paymentDate: payment.paymentDate?.slice(0, 10) || undefined,
@@ -426,7 +426,7 @@ function mapPaymentsForLinkGeneration(
 export async function createPaymentLinkForSale(
   saleId: string,
   paymentId: string,
-  provider: PaymentLinkProvider,
+  hotmartFixedLink: string,
 ): Promise<SaleRecord> {
   const sale = await getSaleById(saleId);
   const payment = sale.payments.find((item) => item.id === paymentId);
@@ -439,11 +439,29 @@ export async function createPaymentLinkForSale(
     throw new Error("Este pagamento já possui link.");
   }
 
+  if (!hotmartFixedLink.trim()) {
+    throw new Error("Produto da venda não possui link fixo da Hotmart cadastrado.");
+  }
+
   await updateSale(saleId, {
-    payments: mapPaymentsForLinkGeneration(sale.payments, paymentId, provider),
+    payments: mapPaymentsForHotmartLink(sale.payments, paymentId),
   });
 
-  return getSaleById(saleId);
+  const updatedSale = await getSaleById(saleId);
+  const updatedPayment = updatedSale.payments.find((item) => item.id === paymentId);
+
+  if (!updatedPayment?.linkPagamento) {
+    return {
+      ...updatedSale,
+      payments: updatedSale.payments.map((item) => (
+        item.id === paymentId
+          ? { ...item, linkPagamento: hotmartFixedLink, gateway: "HOTMART" }
+          : item
+      )),
+    };
+  }
+
+  return updatedSale;
 }
 
 export async function fetchSalesDashboard(payload: SalesDashboardRequest): Promise<SalesDashboardResponse> {

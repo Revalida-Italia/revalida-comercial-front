@@ -1,39 +1,25 @@
-import type {
-  BillingType,
-  SalePayment,
-  SubscriptionCycle,
-  UpdateSalePayment,
-} from "@/services/commercialApi";
+import type { SalePayment, SaleRecord } from "@/services/commercialApi";
 
-export type PaymentLinkProvider = "HOTMART" | "ASAAS";
+export function getHotmartFixedLinkFromSale(sale: SaleRecord): string | null {
+  for (const item of sale.items ?? []) {
+    const url = item.product?.hotmartCheckoutUrl?.trim();
+    if (url) {
+      return url;
+    }
+  }
 
-export const PAYMENT_LINK_PROVIDER_OPTIONS = [
-  { value: "HOTMART" as const, label: "Hotmart" },
-  { value: "ASAAS" as const, label: "Asaas" },
-];
-
-function toDateInput(value?: string | null): string | undefined {
-  return value?.slice(0, 10) || undefined;
+  return null;
 }
 
-export function mapSalePaymentsToUpdatePayload(
-  payments: SalePayment[],
-  targetPaymentId: string,
-  provider: PaymentLinkProvider,
-): UpdateSalePayment[] {
-  return payments.map((payment) => ({
-    type: payment.type,
-    gateway: payment.id === targetPaymentId ? provider : payment.gateway,
-    amount: Number(payment.amount),
-    dueDate: toDateInput(payment.dueDate),
-    paymentDate: toDateInput(payment.paymentDate),
-    status: payment.status,
-    ...(payment.notes ? { notes: payment.notes } : {}),
-    billingType: (payment.billingType as BillingType) || "PIX",
-    ...(payment.ciclo ? { ciclo: payment.ciclo as SubscriptionCycle } : {}),
-    ...(payment.totalInstallments ? { totalInstallments: payment.totalInstallments } : {}),
-    ...(payment.installmentNumber ? { installmentNumber: payment.installmentNumber } : {}),
-  }));
+export function getHotmartProductNameFromSale(sale: SaleRecord): string | null {
+  for (const item of sale.items ?? []) {
+    const name = item.product?.name?.trim();
+    if (name) {
+      return name;
+    }
+  }
+
+  return null;
 }
 
 export function getDefaultPaymentWithoutLink(payments: SalePayment[]): SalePayment | undefined {
@@ -42,4 +28,8 @@ export function getDefaultPaymentWithoutLink(payments: SalePayment[]): SalePayme
 
 export function saleHasPaymentLink(sale: { payments?: SalePayment[] }): boolean {
   return sale.payments?.some((payment) => Boolean(payment.linkPagamento)) ?? false;
+}
+
+export function saleCanUseHotmartFixedLink(sale: SaleRecord): boolean {
+  return Boolean(getHotmartFixedLinkFromSale(sale));
 }
