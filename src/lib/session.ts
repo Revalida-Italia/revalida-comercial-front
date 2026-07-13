@@ -45,6 +45,7 @@ export interface UserProfile {
   roles: UserRole[];
   careerPlan?: CareerPlan;
   careerProgress?: CareerProgress;
+  inTheCareerPlanSince?: string | null;
 }
 
 const SESSION_KEY = "sales-flow.session.v1";

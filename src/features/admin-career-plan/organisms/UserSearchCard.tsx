@@ -3,6 +3,7 @@ import { Notranslate } from "@/components/Notranslate";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Search, Loader2, UserCircle } from "lucide-react";
 import type { UserSearchCardProps } from "../types";
+import { formatCareerPlanStartDateLabel } from "../careerPlanStartDate";
 
 const UserSearchCard = ({
   searchTerm,
@@ -74,6 +75,8 @@ const UserSearchCard = ({
                         {user.careerPlan && (
                           <div className={`text-xs truncate ${isSelected ? "text-white/85" : "text-muted-foreground"}`}>
                             Carreira: <Notranslate>{user.careerPlan.name}</Notranslate>
+                            {" · Início: "}
+                            {formatCareerPlanStartDateLabel(user.inTheCareerPlanSince)}
                           </div>
                         )}
                       </div>

@@ -22,8 +22,10 @@ export interface CareerAssignmentCardProps {
   selectedUser: UserSearchResult | null;
   careerPlanId: string;
   percentage: string;
+  careerPlanStartDate: string;
   onCareerPlanIdChange: (value: string) => void;
   onPercentageChange: (value: string) => void;
+  onCareerPlanStartDateChange: (value: string) => void;
   onSubmit: (e: React.FormEvent) => void;
   onReset: () => void;
   isSubmitting: boolean;

@@ -21,6 +21,7 @@ export interface UserSearchResult {
   createdAt?: string;
   updatedAt?: string;
   careerPlanId?: string | null;
+  inTheCareerPlanSince?: string | null;
   careerPlan?: {
     id: string;
     name: string;

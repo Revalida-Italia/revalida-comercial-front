@@ -10,6 +10,7 @@ import { ArrowUpRight, ListFilter, Plus, Search, ShieldCheck, Star, Trash2, User
 import { useMemo, useState } from "react";
 import { useDebounce } from "use-debounce";
 import { useNavigate } from "react-router-dom";
+import { formatCareerPlanStartDateLabel } from "@/features/admin-career-plan/careerPlanStartDate";
 
 function roleLabel(role?: string): string {
   if (role === "ADMIN") {
@@ -178,7 +179,17 @@ const AdminUsersFeature = () => {
                   </div>
 
                   <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-xs text-muted-foreground">
-                    <p>Criado em: {formatDate(user.createdAt)}</p>
+                    <div className="space-y-0.5">
+                      <p>Criado em: {formatDate(user.createdAt)}</p>
+                      {user.careerPlan?.name && (
+                        <p>
+                          Início no plano:{" "}
+                          <span className={user.inTheCareerPlanSince ? "text-foreground" : "text-amber-700"}>
+                            {formatCareerPlanStartDateLabel(user.inTheCareerPlanSince)}
+                          </span>
+                        </p>
+                      )}
+                    </div>
                     <div className="flex flex-wrap items-center gap-1">
                       <Button
                         variant="ghost"

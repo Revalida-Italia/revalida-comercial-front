@@ -107,7 +107,12 @@ const AdminCreateUserFeature = () => {
       await createUserByAdmin(payload);
     },
     onSuccess: () => {
-      toast.success("Usuario criado com sucesso.");
+      const hadCareerPlan = Boolean(careerPlanId.trim());
+      toast.success(
+        hadCareerPlan
+          ? "Usuário criado. A data de início no plano foi definida como hoje; ajuste em Gerenciar carreira se precisar de data retroativa."
+          : "Usuario criado com sucesso.",
+      );
       setName("");
       setEmail("");
       setRole("");
@@ -222,6 +227,11 @@ const AdminCreateUserFeature = () => {
                       ))}
                     </SelectContent>
                   </Select>
+                  {careerPlanId && (role === "SELLER" || role === "ADMIN") ? (
+                    <p className="text-xs text-muted-foreground">
+                      Na criação, a data de início no plano será hoje. Para data retroativa, use Gerenciar carreira após criar o usuário.
+                    </p>
+                  ) : null}
                 </div>
               </div>
 

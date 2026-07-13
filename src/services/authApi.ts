@@ -28,6 +28,7 @@ interface ResolveProfileResponse {
     role: UserRole;
     name: string;
     careerPlanId: string;
+    inTheCareerPlanSince?: string | null;
     careerPlan: {
       id: string;
       name: string;
@@ -154,6 +155,7 @@ interface UpsertProfilePayload {
   role: UserRole;
   name: string;
   careerPlanId: string;
+  inTheCareerPlanSince?: string | null;
   careerPlan: {
     id: string;
     name: string;
@@ -217,6 +219,7 @@ function toUserProfile(payload: UpsertProfilePayload, userId: string, fallback?:
     roles: [role],
     careerPlan: normalizedCareerPlan,
     careerProgress: payload.careerProgress,
+    inTheCareerPlanSince: payload.inTheCareerPlanSince ?? null,
   };
 }
 
