@@ -28,8 +28,8 @@ export const PAYMENT_GATEWAYS: PaymentGateway[] = ["NUBANK", "HOTMART", "PAYPAL"
 export const DASHBOARD_METRICS: DashboardMetricOption[] = [
   {
     key: "totalSales",
-    label: "Quantidade de vendas",
-    description: "Total de vendas no periodo",
+    label: "Quantidade de clientes",
+    description: "Total de clientes nas vendas do periodo",
   },
   {
     key: "totalSalesAmount",

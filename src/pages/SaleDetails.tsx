@@ -38,7 +38,7 @@ const SaleDetails = () => {
     return (
       <div className="space-y-4">
         <Button asChild variant="outline" size="sm">
-          <Link to="/vendas"><ArrowLeft className="mr-1 h-4 w-4" />Voltar</Link>
+          <Link to="/dashboard"><ArrowLeft className="mr-1 h-4 w-4" />Voltar</Link>
         </Button>
         <p className="text-sm text-muted-foreground">Venda não encontrada.</p>
       </div>
@@ -65,7 +65,7 @@ const SaleDetails = () => {
             Enviar link WhatsApp
           </Button>
           <Button asChild variant="outline" size="sm">
-            <Link to="/vendas"><ArrowLeft className="mr-1 h-4 w-4" />Voltar para lista</Link>
+            <Link to="/dashboard"><ArrowLeft className="mr-1 h-4 w-4" />Voltar para o dashboard</Link>
           </Button>
         </div>
       </div>

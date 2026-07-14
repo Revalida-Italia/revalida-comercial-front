@@ -4,6 +4,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import SaleListCard from "@/features/sales/organisms/SaleListCard";
 import SalesFiltersCard from "@/features/sales/organisms/SalesFiltersCard";
 import SalesSummaryCards from "@/features/sales/organisms/SalesSummaryCards";
+import { hasRole } from "@/lib/session";
 import { listSales } from "@/services/commercialApi";
 import { useQuery } from "@tanstack/react-query";
 import { AlertCircle } from "lucide-react";
@@ -11,6 +12,7 @@ import { useState } from "react";
 import { useDebounce } from "use-debounce";
 
 const SalesList = () => {
+  const isAdmin = hasRole("ADMIN");
   const [searchTerm, setSearchTerm] = useState("");
   const [gateway, setGateway] = useState("all");
   const [debouncedSearchTerm] = useDebounce(searchTerm, 300);
@@ -44,7 +46,7 @@ const SalesList = () => {
         <p className="text-muted-foreground">Histórico comercial com resumo financeiro e acesso ao detalhe completo.</p>
       </div>
 
-      <SalesSummaryCards summary={summary} />
+      <SalesSummaryCards summary={summary} isAdmin={isAdmin} />
 
       <SalesFiltersCard
         searchTerm={searchTerm}
