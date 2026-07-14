@@ -1,4 +1,4 @@
-export type UserRole = "ADMIN" | "SELLER" | string;
+export type UserRole = "ADMIN" | "SELLER" | "FIXED_COSTS_MANAGER" | string;
 
 export interface AuthSession {
   accessToken: string;
@@ -119,5 +119,9 @@ export function hasRole(role: UserRole): boolean {
     return false;
   }
 
-  return profile.role === role || profile.roles.includes(role);
+  const target = String(role).toUpperCase();
+  const primary = String(profile.role ?? "").toUpperCase();
+  const roles = (profile.roles ?? []).map((item) => String(item).toUpperCase());
+
+  return primary === target || roles.includes(target);
 }

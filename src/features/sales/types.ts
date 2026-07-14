@@ -4,4 +4,5 @@ export interface SalesFiltersCardProps {
   onSearchTermChange: (value: string) => void;
   onGatewayChange: (value: string) => void;
   onClearFilters: () => void;
+  compact?: boolean;
 }

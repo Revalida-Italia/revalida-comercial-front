@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { login, resolveProfile, type LoginChallengeResult } from "@/services/authApi";
 import { consumeAuthNotice, setProfile, setSession } from "@/lib/session";
+import { homePathForRole } from "@/services/usersApi";
 import loginBg from "@/assets/login-bg.jpg";
 
 const SESSION_EXPIRED_REASON = "session-expired";
@@ -76,7 +77,7 @@ const Login = () => {
       }
 
       toast.success("Login realizado com sucesso.");
-      navigate(result.profile.role === "ADMIN" ? "/admin" : "/dashboard", { replace: true });
+      navigate(homePathForRole(result.profile.role), { replace: true });
     },
     onError: (error) => {
       toast.error(error instanceof Error ? error.message : "Nao foi possivel autenticar.");

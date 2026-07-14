@@ -1,11 +1,10 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
-import SalesList from "./pages/SalesList";
 import AdminDashboard from "./pages/AdminDashboard";
 import AdminCareerPlan from "./pages/AdminCareerPlan";
 import AdminPaymentGateways from "./pages/AdminPaymentGateways";
@@ -20,7 +19,12 @@ import SaleDetails from "./pages/SaleDetails";
 import EditSale from "./pages/EditSale";
 import AppLayout from "./components/AppLayout";
 import NotFound from "./pages/NotFound";
-import { RequireAdmin, RequireAuth } from "./components/RouteGuards";
+import {
+  RequireAdmin,
+  RequireAuth,
+  RequireCommercialAccess,
+  RequireCostsCalendarAccess,
+} from "./components/RouteGuards";
 import NewSale from "./pages/NewSale";
 import Templates from "./pages/Templates";
 
@@ -37,12 +41,15 @@ const App = () => (
           <Route path="/primeiro-acesso" element={<FirstAccess />} />
           <Route element={<RequireAuth />}>
             <Route element={<AppLayout />}>
-              <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/nova-venda" element={<NewSale />} />
-              <Route path="/vendas" element={<SalesList />} />
-              <Route path="/vendas/:id/editar" element={<EditSale />} />
-              <Route path="/vendas/:id" element={<SaleDetails />} />
-              <Route path="/templates" element={<Templates />} />
+              <Route element={<RequireCommercialAccess />}>
+                <Route path="/dashboard" element={<Dashboard />} />
+                <Route path="/nova-venda" element={<NewSale />} />
+                <Route path="/vendas" element={<Navigate to="/dashboard" replace />} />
+                <Route path="/vendas/:id/editar" element={<EditSale />} />
+                <Route path="/vendas/:id" element={<SaleDetails />} />
+                <Route path="/templates" element={<Templates />} />
+              </Route>
+
               <Route element={<RequireAdmin />}>
                 <Route path="/admin" element={<AdminDashboard />} />
                 <Route path="/admin/carreira" element={<AdminCareerPlan />} />
@@ -52,6 +59,9 @@ const App = () => (
                 <Route path="/admin/users" element={<AdminUsers />} />
                 <Route path="/admin/users/new" element={<AdminCreateUser />} />
                 <Route path="/admin/sales-dashboard" element={<AdminSalesDashboard />} />
+              </Route>
+
+              <Route element={<RequireCostsCalendarAccess />}>
                 <Route path="/admin/costs-calendar" element={<AdminCostsCalendar />} />
               </Route>
             </Route>

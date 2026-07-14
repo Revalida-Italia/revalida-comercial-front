@@ -9,6 +9,7 @@ import { Calculator, CircleDollarSign, PieChart, ReceiptText, TrendingUp, Wallet
 
 type SalesSummaryCardsProps = {
   summary: SalesSummary;
+  isAdmin?: boolean;
 };
 
 type MetricCardProps = {
@@ -45,7 +46,7 @@ const MetricCard = ({ label, value, icon: Icon, valueClass, iconWrapClass, detai
   </Card>
 );
 
-const SalesSummaryCards = ({ summary }: SalesSummaryCardsProps) => {
+const SalesSummaryCards = ({ summary, isAdmin = false }: SalesSummaryCardsProps) => {
   const totalAmount = toNumberOrZero(summary.totalAmount);
   const commission = toNumberOrZero(summary.comission ?? summary.commission);
   const commissionFuture = toNumberOrZero(summary.comissionFuture ?? summary.commissionFuture);
@@ -57,7 +58,12 @@ const SalesSummaryCards = ({ summary }: SalesSummaryCardsProps) => {
   const isNetMarginPositive = netMargin >= 0;
 
   return (
-    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+    <div
+      className={cn(
+        "grid grid-cols-2 gap-2 sm:grid-cols-3",
+        isAdmin ? "lg:grid-cols-6" : "lg:grid-cols-4",
+      )}
+    >
       <MetricCard
         label="Vendas"
         value={String(summary.totalSales ?? 0)}
@@ -83,35 +89,39 @@ const SalesSummaryCards = ({ summary }: SalesSummaryCardsProps) => {
         iconWrapClass="bg-emerald-500/15 text-emerald-700"
       />
 
-      <MetricCard
-        label="Custos fixos do mês"
-        value={formatCurrency(fixedCosts, "BRL")}
-        icon={CircleDollarSign}
-        valueClass="text-amber-700"
-        iconWrapClass="bg-amber-500/15 text-amber-700"
-      />
+      {isAdmin && (
+        <>
+          <MetricCard
+            label="Custos fixos do mês"
+            value={formatCurrency(fixedCosts, "BRL")}
+            icon={CircleDollarSign}
+            valueClass="text-amber-700"
+            iconWrapClass="bg-amber-500/15 text-amber-700"
+          />
 
-      <MetricCard
-        label="Margem"
-        value={formatCurrency(netMargin, "BRL")}
-        icon={PieChart}
-        valueClass={isNetMarginPositive ? "text-emerald-700" : "text-destructive"}
-        iconWrapClass={
-          isNetMarginPositive ? "bg-emerald-500/15 text-emerald-700" : "bg-destructive/15 text-destructive"
-        }
-        details={
-          <div className="mt-1 space-y-0.5 text-[10px] leading-tight text-muted-foreground">
-            <p>
-              {formatPercent(netMarginPercent)}% líquida · {formatPercent(grossMarginPercent)}% bruta
-            </p>
-            <p
-              className="truncate"
-              title={`Comissão ${formatCurrency(commission, "BRL")} · Fixos ${formatCurrency(fixedCosts, "BRL")}`}
-            >
-            </p>
-          </div>
-        }
-      />
+          <MetricCard
+            label="Margem"
+            value={formatCurrency(netMargin, "BRL")}
+            icon={PieChart}
+            valueClass={isNetMarginPositive ? "text-emerald-700" : "text-destructive"}
+            iconWrapClass={
+              isNetMarginPositive ? "bg-emerald-500/15 text-emerald-700" : "bg-destructive/15 text-destructive"
+            }
+            details={
+              <div className="mt-1 space-y-0.5 text-[10px] leading-tight text-muted-foreground">
+                <p>
+                  {formatPercent(netMarginPercent)}% líquida · {formatPercent(grossMarginPercent)}% bruta
+                </p>
+                <p
+                  className="truncate"
+                  title={`Comissão ${formatCurrency(commission, "BRL")} · Fixos ${formatCurrency(fixedCosts, "BRL")}`}
+                >
+                </p>
+              </div>
+            }
+          />
+        </>
+      )}
     </div>
   );
 };

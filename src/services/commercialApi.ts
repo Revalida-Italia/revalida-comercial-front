@@ -278,6 +278,7 @@ export interface SalesDashboardRequest {
 
 export interface SalesDashboardPeriod {
   period: string;
+  /** Quantidade de clientes nas vendas do mês (não o número de vendas). */
   totalSales: number;
   totalSalesAmount: number;
   totalComission: number;

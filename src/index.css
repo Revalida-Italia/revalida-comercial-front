@@ -129,6 +129,12 @@ html {
   .gradient-primary {
     background: linear-gradient(135deg, hsl(195 80% 28%), hsl(200 50% 12%));
   }
+  .gradient-primary-admin {
+    background: linear-gradient(160deg, hsl(200 45% 16%), hsl(210 40% 10%) 45%, hsl(32 55% 16%));
+  }
+  .gradient-primary-costs-manager {
+    background: linear-gradient(165deg, hsl(168 48% 16%), hsl(162 42% 12%) 48%, hsl(175 36% 9%));
+  }
   .gradient-accent {
     background: linear-gradient(135deg, hsl(195 80% 35%), hsl(38 92% 55%));
   }

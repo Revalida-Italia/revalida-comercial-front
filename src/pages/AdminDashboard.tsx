@@ -6,7 +6,7 @@ const AdminDashboard = () => {
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Selecione um vendedor para visualizar perfil e historico de vendas.
+          Selecione um vendedor para visualizar perfil e histórico mensal de clientes.
         </p>
       </div>
 

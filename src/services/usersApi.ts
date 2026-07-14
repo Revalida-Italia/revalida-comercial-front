@@ -2,7 +2,14 @@ import { apiRequest } from "@/lib/http";
 
 const CORE_API_URL = import.meta.env.VITE_CORE_API_URL as string;
 
-export type UserRole = "ADMIN" | "SELLER";
+export type UserRole = "ADMIN" | "SELLER" | "FIXED_COSTS_MANAGER";
+
+export interface SystemRoleOption {
+  value: UserRole;
+  label: string;
+  hint: string;
+  allowsCareerPlan: boolean;
+}
 
 export interface CreateUserInput {
   email: string;
@@ -41,6 +48,15 @@ function unwrapArray<T>(payload: T[] | ListWrapper<T>): T[] {
   return payload.data ?? [];
 }
 
+export async function listSystemRoles(): Promise<SystemRoleOption[]> {
+  const payload = await apiRequest<SystemRoleOption[] | ListWrapper<SystemRoleOption>>(
+    CORE_API_URL,
+    "/users/roles",
+  );
+
+  return unwrapArray(payload);
+}
+
 export async function searchUsers(searchTerm: string): Promise<UserSearchResult[]> {
   if (!searchTerm.trim()) {
     return [];
@@ -72,4 +88,29 @@ export async function deleteProfile(sub: string): Promise<void> {
     `/users/${encodeURIComponent(sub)}/profile`,
     { method: "DELETE" },
   );
+}
+
+export function roleDisplayLabel(role?: string): string {
+  switch (role) {
+    case "ADMIN":
+      return "Administrador";
+    case "SELLER":
+      return "Vendedor";
+    case "FIXED_COSTS_MANAGER":
+      return "Gestor de custos";
+    default:
+      return role ?? "Não definido";
+  }
+}
+
+export function homePathForRole(role?: string): string {
+  if (role === "ADMIN") {
+    return "/admin";
+  }
+
+  if (role === "FIXED_COSTS_MANAGER") {
+    return "/admin/costs-calendar";
+  }
+
+  return "/dashboard";
 }

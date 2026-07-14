@@ -350,7 +350,7 @@ const EditSaleFeature = () => {
     return (
       <div className="space-y-4">
         <Button asChild variant="outline" size="sm">
-          <Link to="/vendas"><ArrowLeft className="mr-1 h-4 w-4" />Voltar</Link>
+          <Link to="/dashboard"><ArrowLeft className="mr-1 h-4 w-4" />Voltar</Link>
         </Button>
         <p className="text-sm text-destructive">
           Erro ao carregar venda: {(saleQuery.error as Error)?.message ?? "Venda não encontrada."}
