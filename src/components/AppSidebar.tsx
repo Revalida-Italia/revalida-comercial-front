@@ -5,38 +5,88 @@ import { Input } from "@/components/ui/input";
 import { formatCareerPlanStartDateLabel } from "@/features/admin-career-plan/careerPlanStartDate";
 import { clearSession, getProfile, hasRole, setProfile } from "@/lib/session";
 import { resolveProfile, updateProfileName } from "@/services/authApi";
+import { roleDisplayLabel } from "@/services/usersApi";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Building2, Check, ChevronDown, LayoutDashboard, LogOut, MessageSquare, PenLine, PlusCircle, Shield, Star, User, X } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import {
+  Building2,
+  CalendarDays,
+  Check,
+  ChevronDown,
+  LayoutDashboard,
+  LogOut,
+  Menu,
+  MessageSquare,
+  PenLine,
+  PlusCircle,
+  Shield,
+  Star,
+  User,
+  X,
+} from "lucide-react";
+import { useEffect, useMemo, useState, type ComponentType } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
-const navItems = [
-  { label: "Dashboard", icon: LayoutDashboard, path: "/dashboard" },
-  { label: "Nova Venda", icon: PlusCircle, path: "/nova-venda" },
-  { label: "Templates", icon: MessageSquare, path: "/templates" },
-  {
-    label: "Admin",
-    icon: Shield,
-    path: "/admin",
-    subItems: [
-      { label: "Dashboard", path: "/admin" },
-      { label: "Usuarios", path: "/admin/users" },
-      { label: "Editar Taxas", path: "/admin/payment-gateways" },
-      { label: "Produtos", path: "/admin/products" },
-      { label: "Calendario de Custos", path: "/admin/costs-calendar" },
-    ],
-  },
-];
+type NavSubItem = {
+  label: string;
+  path: string;
+};
+
+type NavItem = {
+  label: string;
+  icon: ComponentType<{ className?: string }>;
+  path: string;
+  subItems?: NavSubItem[];
+};
+
+function buildNavItems(input: {
+  isAdmin: boolean;
+  isFixedCostsManager: boolean;
+}): NavItem[] {
+  if (input.isFixedCostsManager) {
+    return [
+      {
+        label: "Menu",
+        icon: Menu,
+        path: "/admin/costs-calendar",
+        subItems: [
+          { label: "Calendário de Custos", path: "/admin/costs-calendar" },
+        ],
+      },
+    ];
+  }
+
+  const items: NavItem[] = [
+    { label: "Dashboard", icon: LayoutDashboard, path: "/dashboard" },
+    { label: "Nova Venda", icon: PlusCircle, path: "/nova-venda" },
+    { label: "Templates", icon: MessageSquare, path: "/templates" },
+  ];
+
+  if (input.isAdmin) {
+    items.push({
+      label: "Admin",
+      icon: Shield,
+      path: "/admin",
+      subItems: [
+        { label: "Dashboard", path: "/admin" },
+        { label: "Usuarios", path: "/admin/users" },
+        { label: "Editar Taxas", path: "/admin/payment-gateways" },
+        { label: "Produtos", path: "/admin/products" },
+        { label: "Calendario de Custos", path: "/admin/costs-calendar" },
+      ],
+    });
+  }
+
+  return items;
+}
 
 const AppSidebar = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const queryClient = useQueryClient();
   const cachedProfile = getProfile();
-  const isAdmin = hasRole("ADMIN");
-  const [expandedAdmin, setExpandedAdmin] = useState(false);
+  const [expandedGroup, setExpandedGroup] = useState(true);
   const [isEditingName, setIsEditingName] = useState(false);
   const [draftName, setDraftName] = useState("");
 
@@ -53,6 +103,11 @@ const AppSidebar = () => {
   });
 
   const profile = profileQuery.data ?? cachedProfile;
+  const normalizedRole = String(profile?.role ?? "").toUpperCase();
+  const isAdmin = normalizedRole === "ADMIN" || hasRole("ADMIN");
+  const isFixedCostsManager =
+    !isAdmin
+    && (normalizedRole === "FIXED_COSTS_MANAGER" || hasRole("FIXED_COSTS_MANAGER"));
 
   useEffect(() => {
     if (profileQuery.data) {
@@ -91,16 +146,20 @@ const AppSidebar = () => {
     },
   });
 
-  const visibleItems = navItems.filter((item) => (item.path === "/admin" ? isAdmin : true));
+  const visibleItems = useMemo(
+    () => buildNavItems({ isAdmin, isFixedCostsManager }),
+    [isAdmin, isFixedCostsManager],
+  );
 
   const logout = () => {
     clearSession();
     navigate("/");
   };
 
-  const roleLabel = profile?.role === "ADMIN" ? "Admin" : "Vendedor";
+  const roleLabel = roleDisplayLabel(profile?.role);
   const careerPlanName = profile?.careerPlan?.name || "Sem plano de carreira";
   const hasCareerPlan = Boolean(profile?.careerPlan?.name);
+  const showCareerProgress = !isFixedCostsManager;
   const currentStars = profile?.careerProgress?.stars ?? 0;
   const salesToNextStar = profile?.careerProgress?.salesToNextStart ?? profile?.careerProgress?.salesToNextStar;
   const starsToLevelUp = profile?.careerProgress?.starsToLevelUp ?? profile?.careerPlan?.starsToLevelUp ?? 0;
@@ -116,14 +175,14 @@ const AppSidebar = () => {
   }, [currentStars, starsToLevelUp]);
 
   const progressPercentage = starsToLevelUp > 0 ? Math.min((currentStars / starsToLevelUp) * 100, 100) : 0;
-
-  const isAdminPath = location.pathname.startsWith("/admin");
+  const isGroupedPathActive = location.pathname.startsWith("/admin");
 
   return (
     <aside
       className={cn(
         "sticky top-0 flex h-[100dvh] w-64 shrink-0 flex-col overflow-hidden gradient-primary",
-        isAdmin && "gradient-primary-admin ring-1 ",
+        isAdmin && "gradient-primary-admin ring-1",
+        isFixedCostsManager && "gradient-primary-costs-manager ring-1 ring-emerald-400/20",
       )}
     >
       <div className="flex shrink-0 items-center gap-3 p-6">
@@ -138,9 +197,9 @@ const AppSidebar = () => {
       <div
         className={cn(
           "mx-3 mb-4 shrink-0 rounded-2xl border p-4 text-sidebar-foreground shadow-inner shadow-black/10 backdrop-blur-sm",
-          isAdmin
-            ? "border-amber-300/35 bg-amber-400/10"
-            : "border-sidebar-border/80 bg-sidebar-accent/50",
+          isAdmin && "border-amber-300/35 bg-amber-400/10",
+          isFixedCostsManager && "border-emerald-300/35 bg-emerald-400/10",
+          !isAdmin && !isFixedCostsManager && "border-sidebar-border/80 bg-sidebar-accent/50",
         )}
       >
         <div className="flex items-start justify-between gap-3">
@@ -208,19 +267,21 @@ const AppSidebar = () => {
             variant="secondary"
             className={cn(
               "border-transparent text-[10px]",
-              isAdmin
-                ? "bg-amber-300 text-slate-950"
-                : "bg-sidebar-foreground text-slate-950",
+              isAdmin && "bg-amber-300 text-slate-950",
+              isFixedCostsManager && "bg-emerald-300 text-slate-950",
+              !isAdmin && !isFixedCostsManager && "bg-sidebar-foreground text-slate-950",
             )}
           >
             {roleLabel}
           </Badge>
-          <Badge variant="outline" className="border-sidebar-border text-[10px] text-sidebar-foreground/85">
-            <Notranslate>{careerPlanName}</Notranslate>
-          </Badge>
+          {!isFixedCostsManager && (
+            <Badge variant="outline" className="border-sidebar-border text-[10px] text-sidebar-foreground/85">
+              <Notranslate>{careerPlanName}</Notranslate>
+            </Badge>
+          )}
         </div>
 
-        {hasCareerPlan && (
+        {hasCareerPlan && !isFixedCostsManager && (
           <p className="mt-2 text-[11px] text-sidebar-foreground/70">
             {careerPlanName} Desde{" "}
             <span className="font-medium text-sidebar-foreground/90">
@@ -230,105 +291,101 @@ const AppSidebar = () => {
         )}
       </div>
 
-      <div className="mx-3 mb-3 shrink-0">
-        <div className="rounded-2xl border border-amber-300/20 bg-amber-300/10 p-3 text-sidebar-foreground shadow-sm shadow-black/10">
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2 text-amber-100/90">
-              <Star className="h-4 w-4 text-amber-300" />
-              <p className="text-[11px] font-semibold uppercase tracking-[0.22em]">Progresso da carreira</p>
-            </div>
-            <p className="text-[11px] text-sidebar-foreground/65">
-              {currentStars}/{starsToLevelUp || "?"} estrelas
-            </p>
-          </div>
-
-          <div className="mt-3 flex items-center gap-2">
-            {starSlots.map((filled, index) => (
-              <div
-                key={index}
-                className={`flex h-8 w-8 items-center justify-center rounded-full border ${
-                  filled
-                    ? "border-amber-300/70 bg-amber-300/20 text-amber-300"
-                    : "border-white/10 bg-white/5 text-sidebar-foreground/25"
-                }`}
-              >
-                <Star className={`h-4 w-4 ${filled ? "fill-current" : ""}`} />
+      {showCareerProgress && (
+        <div className="mx-3 mb-3 shrink-0">
+          <div className="rounded-2xl border border-amber-300/20 bg-amber-300/10 p-3 text-sidebar-foreground shadow-sm shadow-black/10">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 text-amber-100/90">
+                <Star className="h-4 w-4 text-amber-300" />
+                <p className="text-[11px] font-semibold uppercase tracking-[0.22em]">Progresso da carreira</p>
               </div>
-            ))}
-          </div>
+              <p className="text-[11px] text-sidebar-foreground/65">
+                {currentStars}/{starsToLevelUp || "?"} estrelas
+              </p>
+            </div>
 
-          <div className="mt-3 h-2 overflow-hidden rounded-full bg-black/15">
-            <div
-              className="h-full rounded-full bg-gradient-to-r from-amber-300 via-orange-300 to-cyan-300 transition-all"
-              style={{ width: `${progressPercentage}%` }}
-            />
-          </div>
+            <div className="mt-3 flex items-center gap-2">
+              {starSlots.map((filled, index) => (
+                <div
+                  key={index}
+                  className={`flex h-8 w-8 items-center justify-center rounded-full border ${
+                    filled
+                      ? "border-amber-300/70 bg-amber-300/20 text-amber-300"
+                      : "border-white/10 bg-white/5 text-sidebar-foreground/25"
+                  }`}
+                >
+                  <Star className={`h-4 w-4 ${filled ? "fill-current" : ""}`} />
+                </div>
+              ))}
+            </div>
 
-          <div className="mt-3 flex items-center justify-between gap-2 text-xs text-sidebar-foreground/75">
-            <span>
-              Prox. estrela em <span className="font-semibold text-sidebar-foreground">{salesToNextStar ?? "-"}</span>{" "}
-              venda{salesToNextStar === 1 ? "" : "s"}
-            </span>
-            <span>{progressPercentage.toFixed(0)}%</span>
-          </div>
+            <div className="mt-3 h-2 overflow-hidden rounded-full bg-black/15">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-amber-300 via-orange-300 to-cyan-300 transition-all"
+                style={{ width: `${progressPercentage}%` }}
+              />
+            </div>
 
-          <hr className="my-2 border-sidebar-border/80" />
-
-          <div className="mt-2 flex flex-col gap-2 text-[11px] text-sidebar-foreground/65">
-            {hasReachedMinimumMonthlyGoal ? (
-              <span className="flex items-center gap-1.5 text-emerald-300">
-                <Check className="h-3.5 w-3.5" />
-                Meta mínima do mês <span className="font-semibold text-emerald-200">{minimumMonthlySales}/{minimumMonthlyGoal}</span>
-              </span>
-            ) : (
+            <div className="mt-3 flex items-center justify-between gap-2 text-xs text-sidebar-foreground/75">
               <span>
-                Meta mínima do mês <span className="font-semibold text-sidebar-foreground/90">{minimumMonthlySales}/{minimumMonthlyGoal}</span>
+                Prox. estrela em <span className="font-semibold text-sidebar-foreground">{salesToNextStar ?? "-"}</span>{" "}
+                venda{salesToNextStar === 1 ? "" : "s"}
               </span>
-            )}
-            <span>
-              Meta do mês <span className="font-semibold text-sidebar-foreground/90">{generalMonthlySales}/{generalMonthlyGoal}</span>
-            </span>
+              <span>{progressPercentage.toFixed(0)}%</span>
+            </div>
+
+            <hr className="my-2 border-sidebar-border/80" />
+
+            <div className="mt-2 flex flex-col gap-2 text-[11px] text-sidebar-foreground/65">
+              {hasReachedMinimumMonthlyGoal ? (
+                <span className="flex items-center gap-1.5 text-emerald-300">
+                  <Check className="h-3.5 w-3.5" />
+                  Meta mínima do mês <span className="font-semibold text-emerald-200">{minimumMonthlySales}/{minimumMonthlyGoal}</span>
+                </span>
+              ) : (
+                <span>
+                  Meta mínima do mês <span className="font-semibold text-sidebar-foreground/90">{minimumMonthlySales}/{minimumMonthlyGoal}</span>
+                </span>
+              )}
+              <span>
+                Meta do mês <span className="font-semibold text-sidebar-foreground/90">{generalMonthlySales}/{generalMonthlyGoal}</span>
+              </span>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto px-3 pb-3">
         {visibleItems.map((item) => {
           const isActive = location.pathname === item.path;
-          const hasSubItems = item.subItems && item.subItems.length > 0;
-          const isExpanded = expandedAdmin && item.path === "/admin";
+          const hasSubItems = Boolean(item.subItems?.length);
+          const isExpanded = expandedGroup && hasSubItems;
 
           if (hasSubItems) {
             return (
-              <div key={item.path}>
+              <div key={`${item.label}-${item.path}`}>
                 <button
-                  onClick={() => {
-                    if (hasSubItems) {
-                      setExpandedAdmin(!expandedAdmin);
-                    } else {
-                      navigate(item.path);
-                    }
-                  }}
+                  type="button"
+                  onClick={() => setExpandedGroup(!expandedGroup)}
                   className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all ${
-                    isAdminPath
+                    isGroupedPathActive
                       ? "bg-sidebar-accent text-sidebar-foreground"
                       : "text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/50"
                   }`}
                 >
                   <item.icon className="h-5 w-5" />
                   {item.label}
-                  {hasSubItems && (
-                    <ChevronDown
-                      className={`h-4 w-4 ml-auto transition-transform ${isExpanded ? "rotate-180" : ""}`}
-                    />
-                  )}
+                  <ChevronDown
+                    className={`h-4 w-4 ml-auto transition-transform ${isExpanded ? "rotate-180" : ""}`}
+                  />
                 </button>
                 {isExpanded && (
-                  <div className="ml-6 space-y-1 mt-1">
+                  <div className="ml-6 mt-1 space-y-1">
                     {item.subItems?.map((subItem) => {
                       const isSubActive = location.pathname === subItem.path;
                       return (
                         <button
+                          type="button"
                           key={subItem.path}
                           onClick={() => navigate(subItem.path)}
                           className={`w-full flex items-center gap-3 px-4 py-2 rounded-lg text-sm font-medium transition-all text-left ${
@@ -337,6 +394,9 @@ const AppSidebar = () => {
                               : "text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/30"
                           }`}
                         >
+                          {isFixedCostsManager ? (
+                            <CalendarDays className="h-4 w-4 shrink-0" />
+                          ) : null}
                           {subItem.label}
                         </button>
                       );
@@ -349,6 +409,7 @@ const AppSidebar = () => {
 
           return (
             <button
+              type="button"
               key={item.path}
               onClick={() => navigate(item.path)}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all ${
@@ -366,6 +427,7 @@ const AppSidebar = () => {
 
       <div className="shrink-0 border-t border-sidebar-border p-3">
         <button
+          type="button"
           onClick={logout}
           className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/50 transition-all"
         >

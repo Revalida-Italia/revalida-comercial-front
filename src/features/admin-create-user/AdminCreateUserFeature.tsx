@@ -5,27 +5,20 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
 import { listCareerPlans } from "@/services/careerPlansApi";
-import { createUserByAdmin, type CreateUserInput, type UserRole } from "@/services/usersApi";
+import {
+  createUserByAdmin,
+  listSystemRoles,
+  type CreateUserInput,
+  type UserRole,
+} from "@/services/usersApi";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { CheckCircle2, ShieldPlus, Sparkles, UserPlus } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 const PASSWORD_PATTERN = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z\d]).{8,}$/;
-
-const roleOptions: Array<{ label: string; value: UserRole; hint: string }> = [
-  {
-    label: "Vendedor",
-    value: "SELLER",
-    hint: "Acesso comercial e fluxo de vendas.",
-  },
-  {
-    label: "Administrador",
-    value: "ADMIN",
-    hint: "Acesso completo de administração.",
-  },
-];
 
 function isValidEmail(email: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
@@ -47,8 +40,20 @@ function mapCreateUserError(error: unknown): string {
     return "Plano de carreira nao encontrado.";
   }
 
+  if (message.includes("CAREER_PLAN_NOT_ALLOWED_FOR_ROLE")) {
+    return "Este perfil nao aceita plano de carreira.";
+  }
+
+  if (message.includes("COGNITO_CREATE_FAILED") || message.includes("COGNITO_GROUP_NOT_FOUND")) {
+    return "Nao foi possivel criar o usuario no autenticador. Tente novamente.";
+  }
+
   if (message.includes("COGNITO_USER_POOL_NOT_CONFIGURED")) {
     return "Servidor de autenticacao nao configurado.";
+  }
+
+  if (message.includes("INTERNAL_ERROR")) {
+    return "Nao foi possivel concluir a operacao. Tente novamente.";
   }
 
   if (message.includes("400")) {
@@ -65,6 +70,15 @@ const AdminCreateUserFeature = () => {
   const [careerPlanId, setCareerPlanId] = useState("");
   const [temporaryPassword, setTemporaryPassword] = useState("");
 
+  const {
+    data: roleOptions = [],
+    isLoading: isLoadingRoles,
+    isError: isRolesError,
+  } = useQuery({
+    queryKey: ["systemRoles"],
+    queryFn: listSystemRoles,
+  });
+
   const { data: careerPlans = [], isLoading: isLoadingCareerPlans } = useQuery({
     queryKey: ["careerPlans"],
     queryFn: listCareerPlans,
@@ -72,8 +86,16 @@ const AdminCreateUserFeature = () => {
 
   const selectedRoleOption = useMemo(
     () => roleOptions.find((option) => option.value === role),
-    [role],
+    [role, roleOptions],
   );
+
+  const allowsCareerPlan = selectedRoleOption?.allowsCareerPlan === true;
+
+  useEffect(() => {
+    if (!allowsCareerPlan) {
+      setCareerPlanId("");
+    }
+  }, [allowsCareerPlan]);
 
   const createUserMutation = useMutation({
     mutationFn: async () => {
@@ -86,22 +108,26 @@ const AdminCreateUserFeature = () => {
         throw new Error("Informe um email valido.");
       }
 
+      if (!normalizedName) {
+        throw new Error("Informe o nome do usuario.");
+      }
+
       if (!role) {
         throw new Error("Selecione o perfil do usuario.");
       }
 
-      if (normalizedTemporaryPassword && !PASSWORD_PATTERN.test(normalizedTemporaryPassword)) {
+      if (!normalizedTemporaryPassword || !PASSWORD_PATTERN.test(normalizedTemporaryPassword)) {
         throw new Error("Senha temporaria invalida. Use 8+ caracteres com maiuscula, minuscula, numero e simbolo.");
       }
 
       const payload: CreateUserInput = {
         email: normalizedEmail,
         role,
-        ...(normalizedName ? { name: normalizedName } : {}),
-        ...((role === "SELLER" || role === "ADMIN") && normalizedCareerPlanId
+        name: normalizedName,
+        temporaryPassword: normalizedTemporaryPassword,
+        ...(allowsCareerPlan && normalizedCareerPlanId
           ? { careerPlanId: normalizedCareerPlanId }
           : {}),
-        ...(normalizedTemporaryPassword ? { temporaryPassword: normalizedTemporaryPassword } : {}),
       };
 
       await createUserByAdmin(payload);
@@ -146,7 +172,7 @@ const AdminCreateUserFeature = () => {
             Criar Usuário
           </CardTitle>
           <CardDescription className="max-w-2xl text-sm text-muted-foreground">
-            Cadastro rápido de usuários com perfil, plano de carreira e senha temporária opcional.
+            Cadastro rápido de usuários com perfil, plano de carreira e senha temporária.
           </CardDescription>
         </CardHeader>
       </Card>
@@ -164,7 +190,7 @@ const AdminCreateUserFeature = () => {
             <form className="space-y-5" onSubmit={handleSubmit}>
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="admin-create-user-name">Nome (opcional)</Label>
+                  <Label htmlFor="admin-create-user-name">Nome</Label>
                   <Input
                     id="admin-create-user-name"
                     value={name}
@@ -190,18 +216,29 @@ const AdminCreateUserFeature = () => {
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="admin-create-user-role">Perfil</Label>
-                  <Select value={role} onValueChange={(value: UserRole) => setRole(value)} disabled={isSubmitting}>
-                    <SelectTrigger id="admin-create-user-role">
-                      <SelectValue placeholder="Selecione o perfil" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {roleOptions.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  {isLoadingRoles ? (
+                    <Skeleton className="h-10 w-full" />
+                  ) : (
+                    <Select
+                      value={role}
+                      onValueChange={(value: UserRole) => setRole(value)}
+                      disabled={isSubmitting || isRolesError || roleOptions.length === 0}
+                    >
+                      <SelectTrigger id="admin-create-user-role">
+                        <SelectValue placeholder="Selecione o perfil" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {roleOptions.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                  {isRolesError ? (
+                    <p className="text-xs text-destructive">Nao foi possivel carregar os perfis.</p>
+                  ) : null}
                   {selectedRoleOption ? (
                     <p className="text-xs text-muted-foreground">{selectedRoleOption.hint}</p>
                   ) : null}
@@ -212,11 +249,11 @@ const AdminCreateUserFeature = () => {
                   <Select
                     value={careerPlanId}
                     onValueChange={setCareerPlanId}
-                    disabled={isSubmitting || isLoadingCareerPlans || (role !== "SELLER" && role !== "ADMIN")}
+                    disabled={isSubmitting || isLoadingCareerPlans || !allowsCareerPlan}
                   >
                     <SelectTrigger id="admin-create-user-career-plan">
                       <SelectValue
-                        placeholder={role === "SELLER" || role === "ADMIN" ? "Selecionar plano" : "Selecione o perfil primeiro"}
+                        placeholder={allowsCareerPlan ? "Selecionar plano" : "Indisponivel para este perfil"}
                       />
                     </SelectTrigger>
                     <SelectContent>
@@ -227,7 +264,7 @@ const AdminCreateUserFeature = () => {
                       ))}
                     </SelectContent>
                   </Select>
-                  {careerPlanId && (role === "SELLER" || role === "ADMIN") ? (
+                  {careerPlanId && allowsCareerPlan ? (
                     <p className="text-xs text-muted-foreground">
                       Na criação, a data de início no plano será hoje. Para data retroativa, use Gerenciar carreira após criar o usuário.
                     </p>
@@ -236,7 +273,7 @@ const AdminCreateUserFeature = () => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="admin-create-user-temporary-password">Senha temporaria (opcional)</Label>
+                <Label htmlFor="admin-create-user-temporary-password">Senha temporaria</Label>
                 <Input
                   id="admin-create-user-temporary-password"
                   type="password"
@@ -289,7 +326,11 @@ const AdminCreateUserFeature = () => {
                 </div>
                 <div className="flex items-start gap-2">
                   <CheckCircle2 className="mt-0.5 h-4 w-4 text-emerald-500" />
-                  Selecione um plano de carreira para vendedores.
+                  Plano de carreira apenas para perfis comerciais (`allowsCareerPlan`).
+                </div>
+                <div className="flex items-start gap-2">
+                  <CheckCircle2 className="mt-0.5 h-4 w-4 text-emerald-500" />
+                  Gestor de custos acessa somente o calendário de custos fixos.
                 </div>
                 <div className="flex items-start gap-2">
                   <CheckCircle2 className="mt-0.5 h-4 w-4 text-emerald-500" />

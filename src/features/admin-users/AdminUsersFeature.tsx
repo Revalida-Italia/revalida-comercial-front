@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import DeleteProfileDialog, { isOwnProfileSub } from "@/features/profile/DeleteProfileDialog";
-import { listUsers, searchUsers, type UserSearchResult } from "@/services/usersApi";
+import { listUsers, searchUsers, roleDisplayLabel, type UserSearchResult } from "@/services/usersApi";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowUpRight, ListFilter, Plus, Search, ShieldCheck, Star, Trash2, UsersRound } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -13,15 +13,7 @@ import { useNavigate } from "react-router-dom";
 import { formatCareerPlanStartDateLabel } from "@/features/admin-career-plan/careerPlanStartDate";
 
 function roleLabel(role?: string): string {
-  if (role === "ADMIN") {
-    return "Administrador";
-  }
-
-  if (role === "SELLER") {
-    return "Vendedor";
-  }
-
-  return role ?? "Não definido";
+  return roleDisplayLabel(role);
 }
 
 function formatDate(date?: string): string {
@@ -65,8 +57,9 @@ const AdminUsersFeature = () => {
     const total = users.length;
     const admins = users.filter((user) => user.role === "ADMIN").length;
     const sellers = users.filter((user) => user.role === "SELLER").length;
+    const costManagers = users.filter((user) => user.role === "FIXED_COSTS_MANAGER").length;
 
-    return { total, admins, sellers };
+    return { total, admins, sellers, costManagers };
   }, [users]);
 
   return (
@@ -100,7 +93,7 @@ const AdminUsersFeature = () => {
             </div>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-3">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <div className="rounded-xl border border-border/80 bg-card/80 p-3">
               <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Total</p>
               <p className="mt-1 text-2xl font-semibold">{summary.total}</p>
@@ -112,6 +105,10 @@ const AdminUsersFeature = () => {
             <div className="rounded-xl border border-border/80 bg-card/80 p-3">
               <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Vendedores</p>
               <p className="mt-1 text-2xl font-semibold">{summary.sellers}</p>
+            </div>
+            <div className="rounded-xl border border-border/80 bg-card/80 p-3">
+              <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Gestores custos</p>
+              <p className="mt-1 text-2xl font-semibold">{summary.costManagers}</p>
             </div>
           </div>
         </CardHeader>

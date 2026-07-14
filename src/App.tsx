@@ -19,7 +19,12 @@ import SaleDetails from "./pages/SaleDetails";
 import EditSale from "./pages/EditSale";
 import AppLayout from "./components/AppLayout";
 import NotFound from "./pages/NotFound";
-import { RequireAdmin, RequireAuth } from "./components/RouteGuards";
+import {
+  RequireAdmin,
+  RequireAuth,
+  RequireCommercialAccess,
+  RequireCostsCalendarAccess,
+} from "./components/RouteGuards";
 import NewSale from "./pages/NewSale";
 import Templates from "./pages/Templates";
 
@@ -36,12 +41,15 @@ const App = () => (
           <Route path="/primeiro-acesso" element={<FirstAccess />} />
           <Route element={<RequireAuth />}>
             <Route element={<AppLayout />}>
-              <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/nova-venda" element={<NewSale />} />
-              <Route path="/vendas" element={<Navigate to="/dashboard" replace />} />
-              <Route path="/vendas/:id/editar" element={<EditSale />} />
-              <Route path="/vendas/:id" element={<SaleDetails />} />
-              <Route path="/templates" element={<Templates />} />
+              <Route element={<RequireCommercialAccess />}>
+                <Route path="/dashboard" element={<Dashboard />} />
+                <Route path="/nova-venda" element={<NewSale />} />
+                <Route path="/vendas" element={<Navigate to="/dashboard" replace />} />
+                <Route path="/vendas/:id/editar" element={<EditSale />} />
+                <Route path="/vendas/:id" element={<SaleDetails />} />
+                <Route path="/templates" element={<Templates />} />
+              </Route>
+
               <Route element={<RequireAdmin />}>
                 <Route path="/admin" element={<AdminDashboard />} />
                 <Route path="/admin/carreira" element={<AdminCareerPlan />} />
@@ -51,6 +59,9 @@ const App = () => (
                 <Route path="/admin/users" element={<AdminUsers />} />
                 <Route path="/admin/users/new" element={<AdminCreateUser />} />
                 <Route path="/admin/sales-dashboard" element={<AdminSalesDashboard />} />
+              </Route>
+
+              <Route element={<RequireCostsCalendarAccess />}>
                 <Route path="/admin/costs-calendar" element={<AdminCostsCalendar />} />
               </Route>
             </Route>

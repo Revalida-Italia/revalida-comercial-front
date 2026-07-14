@@ -1,5 +1,6 @@
 import { Navigate, Outlet, useLocation } from "react-router-dom";
-import { getSession, hasRole } from "@/lib/session";
+import { getSession, hasRole, getProfile } from "@/lib/session";
+import { homePathForRole } from "@/services/usersApi";
 
 export const RequireAuth = () => {
   const location = useLocation();
@@ -14,7 +15,25 @@ export const RequireAuth = () => {
 
 export const RequireAdmin = () => {
   if (!hasRole("ADMIN")) {
-    return <Navigate to="/dashboard" replace />;
+    const profile = getProfile();
+    return <Navigate to={homePathForRole(profile?.role)} replace />;
+  }
+
+  return <Outlet />;
+};
+
+export const RequireCostsCalendarAccess = () => {
+  if (hasRole("ADMIN") || hasRole("FIXED_COSTS_MANAGER")) {
+    return <Outlet />;
+  }
+
+  const profile = getProfile();
+  return <Navigate to={homePathForRole(profile?.role)} replace />;
+};
+
+export const RequireCommercialAccess = () => {
+  if (hasRole("FIXED_COSTS_MANAGER") && !hasRole("ADMIN")) {
+    return <Navigate to="/admin/costs-calendar" replace />;
   }
 
   return <Outlet />;
