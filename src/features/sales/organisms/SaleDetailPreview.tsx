@@ -10,9 +10,10 @@ import { useMemo } from "react";
 
 type SaleDetailPreviewProps = {
   sale: SaleRecord;
+  readOnly?: boolean;
 };
 
-const SaleDetailPreview = ({ sale }: SaleDetailPreviewProps) => {
+const SaleDetailPreview = ({ sale, readOnly = false }: SaleDetailPreviewProps) => {
   const filledCustomers: FilledSaleCustomer[] = sale.clients.map((client) => ({
     name: client.nameCiphertext || "Sem nome",
     document: client.documentCiphertext || undefined,
@@ -93,7 +94,7 @@ const SaleDetailPreview = ({ sale }: SaleDetailPreviewProps) => {
       showCommissionRateWarning
       getFeeRate={getFeeRate}
       paymentGrossValue={paymentGrossValue}
-      saleId={sale.id}
+      saleId={readOnly ? undefined : sale.id}
     />
   );
 };

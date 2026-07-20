@@ -12,14 +12,17 @@ import SendPaymentLinkDialog from "@/features/sales/organisms/SendPaymentLinkDia
 import SaleArchiveDeleteActions from "@/features/sales/organisms/SaleArchiveDeleteActions";
 import { getSaleCommissionValue, getSaleContractValue, getSaleSellerInfo } from "@/features/sales/utils";
 import { saleHasPaymentLink } from "@/features/sales/utils/paymentLink";
-import { hasRole } from "@/lib/session";
+import { getProfile, hasRole } from "@/lib/session";
+import { canMutateSales } from "@/services/usersApi";
 import { getSaleById } from "@/services/commercialApi";
 import { formatCurrency, formatDateTime } from "@/shared/utils/format";
 
 const SaleDetails = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const profile = getProfile();
   const isAdmin = hasRole("ADMIN");
+  const canMutate = canMutateSales(profile?.role);
   const [whatsappOpen, setWhatsappOpen] = useState(false);
   const [createLinkOpen, setCreateLinkOpen] = useState(false);
 
@@ -54,6 +57,27 @@ const SaleDetails = () => {
     );
   }
 
+  const sellerCard = (
+    <Card className="h-full">
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm text-muted-foreground">Vendedor</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="flex items-start gap-2">
+          <UserCircle className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-medium break-words">{getSaleSellerInfo(sale)}</p>
+            {sale.seller?.careerPlan?.name && (
+              <p className="text-xs text-muted-foreground mt-1">
+                <Notranslate>{sale.seller.careerPlan.name}</Notranslate>
+              </p>
+            )}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-4">
@@ -62,7 +86,7 @@ const SaleDetails = () => {
           <p className="text-muted-foreground">ID: {sale.id}</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          {!hasPaymentLink && !isArchived && (
+          {canMutate && !hasPaymentLink && !isArchived && (
             <Button
               type="button"
               size="sm"
@@ -74,7 +98,7 @@ const SaleDetails = () => {
               Link Hotmart
             </Button>
           )}
-          {!isArchived && (
+          {canMutate && !isArchived && (
             <Button
               type="button"
               size="sm"
@@ -101,26 +125,13 @@ const SaleDetails = () => {
       </div>
 
       <div className="grid gap-4 md:grid-cols-4">
-        <EditableSection editTo={`/vendas/${sale.id}/editar?step=4`} label="Editar vendedor e status" className="h-full">
-        <Card className="h-full">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-muted-foreground">Vendedor</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-start gap-2">
-              <UserCircle className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium break-words">{getSaleSellerInfo(sale)}</p>
-                {sale.seller?.careerPlan?.name && (
-                  <p className="text-xs text-muted-foreground mt-1">
-                    <Notranslate>{sale.seller.careerPlan.name}</Notranslate>
-                  </p>
-                )}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        </EditableSection>
+        {canMutate && !isArchived ? (
+          <EditableSection editTo={`/vendas/${sale.id}/editar?step=4`} label="Editar vendedor e status" className="h-full">
+            {sellerCard}
+          </EditableSection>
+        ) : (
+          sellerCard
+        )}
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm text-muted-foreground">Criada em</CardTitle>
@@ -150,10 +161,14 @@ const SaleDetails = () => {
       <Card>
         <CardHeader>
           <CardTitle>Preview completo</CardTitle>
-          <p className="text-xs text-muted-foreground">Passe o mouse sobre cada seção para editar.</p>
+          {canMutate && !isArchived ? (
+            <p className="text-xs text-muted-foreground">Passe o mouse sobre cada seção para editar.</p>
+          ) : (
+            <p className="text-xs text-muted-foreground">Visualização somente leitura.</p>
+          )}
         </CardHeader>
         <CardContent>
-          <SaleDetailPreview sale={sale} />
+          <SaleDetailPreview sale={sale} readOnly={!canMutate || isArchived} />
         </CardContent>
       </Card>
 

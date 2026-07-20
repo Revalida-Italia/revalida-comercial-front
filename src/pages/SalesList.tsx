@@ -4,7 +4,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import SaleListCard from "@/features/sales/organisms/SaleListCard";
 import SalesFiltersCard from "@/features/sales/organisms/SalesFiltersCard";
 import SalesSummaryCards from "@/features/sales/organisms/SalesSummaryCards";
-import { hasRole } from "@/lib/session";
+import { getProfile } from "@/lib/session";
+import { canViewAllSales } from "@/services/usersApi";
 import { listSales } from "@/services/commercialApi";
 import { useQuery } from "@tanstack/react-query";
 import { AlertCircle } from "lucide-react";
@@ -12,7 +13,8 @@ import { useState } from "react";
 import { useDebounce } from "use-debounce";
 
 const SalesList = () => {
-  const isAdmin = hasRole("ADMIN");
+  const profile = getProfile();
+  const canSeeGlobalSalesExtras = canViewAllSales(profile?.role);
   const [searchTerm, setSearchTerm] = useState("");
   const [gateway, setGateway] = useState("all");
   const [status, setStatus] = useState("all");
@@ -49,7 +51,7 @@ const SalesList = () => {
         <p className="text-muted-foreground">Histórico comercial com resumo financeiro e acesso ao detalhe completo.</p>
       </div>
 
-      <SalesSummaryCards summary={summary} isAdmin={isAdmin} />
+      <SalesSummaryCards summary={summary} isAdmin={canSeeGlobalSalesExtras} />
 
       <SalesFiltersCard
         searchTerm={searchTerm}
@@ -59,7 +61,7 @@ const SalesList = () => {
         onGatewayChange={setGateway}
         onStatusChange={setStatus}
         onClearFilters={handleClearFilters}
-        showStatusFilter={isAdmin}
+        showStatusFilter={canSeeGlobalSalesExtras}
       />
 
       <Card>

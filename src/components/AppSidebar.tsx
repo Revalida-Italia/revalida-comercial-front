@@ -14,7 +14,6 @@ import {
   ChevronDown,
   LayoutDashboard,
   LogOut,
-  Menu,
   MessageSquare,
   PenLine,
   PlusCircle,
@@ -46,14 +45,8 @@ function buildNavItems(input: {
 }): NavItem[] {
   if (input.isFixedCostsManager) {
     return [
-      {
-        label: "Menu",
-        icon: Menu,
-        path: "/admin/costs-calendar",
-        subItems: [
-          { label: "Calendário de Custos", path: "/admin/costs-calendar" },
-        ],
-      },
+      { label: "Dashboard", icon: LayoutDashboard, path: "/dashboard" },
+      { label: "Calendário de Custos", icon: CalendarDays, path: "/admin/costs-calendar" },
     ];
   }
 

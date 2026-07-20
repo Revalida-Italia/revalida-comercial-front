@@ -6,7 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { CalendarDays, CircleDollarSign, Link2, MessageCircle, Pencil, Users, UserCircle } from "lucide-react";
-import { hasRole } from "@/lib/session";
+import { hasRole, getProfile } from "@/lib/session";
+import { canMutateSales } from "@/services/usersApi";
 import {
   getSaleCommissionValue,
   getSaleContractValue,
@@ -24,7 +25,9 @@ type SaleListCardProps = {
 };
 
 const SaleListCard = ({ sale }: SaleListCardProps) => {
+  const profile = getProfile();
   const isAdmin = hasRole("ADMIN");
+  const canMutate = canMutateSales(profile?.role);
   const [whatsappOpen, setWhatsappOpen] = useState(false);
   const [createLinkOpen, setCreateLinkOpen] = useState(false);
   const customerNames = getSaleCustomerNames(sale);
@@ -87,7 +90,7 @@ const SaleListCard = ({ sale }: SaleListCardProps) => {
                 {sale.status}
               </Badge>
               <div className="flex flex-wrap items-center justify-end gap-1.5">
-                {!hasPaymentLink && !isArchived && (
+                {canMutate && !hasPaymentLink && !isArchived && (
                   <Button
                     type="button"
                     variant="outline"
@@ -101,7 +104,7 @@ const SaleListCard = ({ sale }: SaleListCardProps) => {
                     Link Hotmart
                   </Button>
                 )}
-                {!isArchived && (
+                {canMutate && !isArchived && (
                   <Button
                     type="button"
                     variant="outline"
@@ -115,7 +118,7 @@ const SaleListCard = ({ sale }: SaleListCardProps) => {
                     WhatsApp
                   </Button>
                 )}
-                {!isArchived && (
+                {canMutate && !isArchived && (
                   <Button asChild variant="ghost" size="sm" className="h-7 px-2 text-[11px] text-primary">
                     <Link to={`/vendas/${sale.id}/editar`}>
                       <Pencil className="mr-1 h-3.5 w-3.5" />

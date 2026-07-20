@@ -9,11 +9,13 @@ import SaleListCard from "@/features/sales/organisms/SaleListCard";
 import SalesFiltersCard from "@/features/sales/organisms/SalesFiltersCard";
 import SalesSummaryCards from "@/features/sales/organisms/SalesSummaryCards";
 import SalesDashboardFeature from "@/features/sales-dashboard/SalesDashboardFeature";
-import { hasRole } from "@/lib/session";
+import { getProfile } from "@/lib/session";
+import { canViewAllSales } from "@/services/usersApi";
 import { listSales } from "@/services/commercialApi";
 
 const Dashboard = () => {
-  const isAdmin = hasRole("ADMIN");
+  const profile = getProfile();
+  const canSeeGlobalSalesExtras = canViewAllSales(profile?.role);
   const [searchTerm, setSearchTerm] = useState("");
   const [gateway, setGateway] = useState("all");
   const [status, setStatus] = useState("all");
@@ -52,7 +54,7 @@ const Dashboard = () => {
         </p>
       </div>
 
-      <SalesSummaryCards summary={summary} isAdmin={isAdmin} />
+      <SalesSummaryCards summary={summary} isAdmin={canSeeGlobalSalesExtras} />
 
       <div className="space-y-2">
         <SalesFiltersCard
@@ -64,7 +66,7 @@ const Dashboard = () => {
           onStatusChange={setStatus}
           onClearFilters={handleClearFilters}
           compact
-          showStatusFilter={isAdmin}
+          showStatusFilter={canSeeGlobalSalesExtras}
         />
 
         <SalesDashboardFeature mode="seller" />
