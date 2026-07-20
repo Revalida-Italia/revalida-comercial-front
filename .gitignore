@@ -123,3 +123,4 @@ temp/
 /data-sample/
 migrations/
 prisma/migrations/
+/data-test/

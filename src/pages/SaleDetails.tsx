@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, Link2, MessageCircle, UserCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -9,13 +9,17 @@ import SaleDetailPreview from "@/features/sales/organisms/SaleDetailPreview";
 import EditableSection from "@/features/sales/organisms/EditableSection";
 import CreatePaymentLinkDialog from "@/features/sales/organisms/CreatePaymentLinkDialog";
 import SendPaymentLinkDialog from "@/features/sales/organisms/SendPaymentLinkDialog";
+import SaleArchiveDeleteActions from "@/features/sales/organisms/SaleArchiveDeleteActions";
 import { getSaleCommissionValue, getSaleContractValue, getSaleSellerInfo } from "@/features/sales/utils";
 import { saleHasPaymentLink } from "@/features/sales/utils/paymentLink";
+import { hasRole } from "@/lib/session";
 import { getSaleById } from "@/services/commercialApi";
 import { formatCurrency, formatDateTime } from "@/shared/utils/format";
 
 const SaleDetails = () => {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const isAdmin = hasRole("ADMIN");
   const [whatsappOpen, setWhatsappOpen] = useState(false);
   const [createLinkOpen, setCreateLinkOpen] = useState(false);
 
@@ -37,6 +41,7 @@ const SaleDetails = () => {
 
   const hasPaymentLink = saleHasPaymentLink(sale ?? {});
   const hasPayments = (sale?.payments?.length ?? 0) > 0;
+  const isArchived = String(sale?.status ?? "").toUpperCase() === "ARCHIVED";
 
   if (!sale) {
     return (
@@ -57,7 +62,7 @@ const SaleDetails = () => {
           <p className="text-muted-foreground">ID: {sale.id}</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          {!hasPaymentLink && (
+          {!hasPaymentLink && !isArchived && (
             <Button
               type="button"
               size="sm"
@@ -69,17 +74,26 @@ const SaleDetails = () => {
               Link Hotmart
             </Button>
           )}
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            className="gap-1.5"
-            disabled={!hasPaymentLink}
-            onClick={() => setWhatsappOpen(true)}
-          >
-            <MessageCircle className="h-4 w-4" />
-            Enviar link WhatsApp
-          </Button>
+          {!isArchived && (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="gap-1.5"
+              disabled={!hasPaymentLink}
+              onClick={() => setWhatsappOpen(true)}
+            >
+              <MessageCircle className="h-4 w-4" />
+              Enviar link WhatsApp
+            </Button>
+          )}
+          {isAdmin && (
+            <SaleArchiveDeleteActions
+              sale={sale}
+              size="default"
+              onDeleted={() => navigate("/dashboard", { replace: true })}
+            />
+          )}
           <Button asChild variant="outline" size="sm">
             <Link to="/dashboard"><ArrowLeft className="mr-1 h-4 w-4" />Voltar para o dashboard</Link>
           </Button>

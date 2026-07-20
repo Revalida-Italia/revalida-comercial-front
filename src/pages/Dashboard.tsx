@@ -16,19 +16,22 @@ const Dashboard = () => {
   const isAdmin = hasRole("ADMIN");
   const [searchTerm, setSearchTerm] = useState("");
   const [gateway, setGateway] = useState("all");
+  const [status, setStatus] = useState("all");
   const [debouncedSearchTerm] = useDebounce(searchTerm, 300);
 
   const salesQuery = useQuery({
-    queryKey: ["sales", debouncedSearchTerm, gateway],
+    queryKey: ["sales", debouncedSearchTerm, gateway, status],
     queryFn: () => listSales({
       searchTerm: debouncedSearchTerm || undefined,
       gateway: gateway !== "all" ? gateway : undefined,
+      status: status !== "all" ? status : undefined,
     }),
   });
 
   const handleClearFilters = () => {
     setSearchTerm("");
     setGateway("all");
+    setStatus("all");
   };
 
   const sales = salesQuery.data?.sales ?? [];
@@ -55,10 +58,13 @@ const Dashboard = () => {
         <SalesFiltersCard
           searchTerm={searchTerm}
           gateway={gateway}
+          status={status}
           onSearchTermChange={setSearchTerm}
           onGatewayChange={setGateway}
+          onStatusChange={setStatus}
           onClearFilters={handleClearFilters}
           compact
+          showStatusFilter={isAdmin}
         />
 
         <SalesDashboardFeature mode="seller" />

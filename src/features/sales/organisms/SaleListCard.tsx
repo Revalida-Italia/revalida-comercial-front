@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { CalendarDays, CircleDollarSign, Link2, MessageCircle, Pencil, Users, UserCircle } from "lucide-react";
+import { hasRole } from "@/lib/session";
 import {
   getSaleCommissionValue,
   getSaleContractValue,
@@ -16,12 +17,14 @@ import {
 import { saleHasPaymentLink } from "@/features/sales/utils/paymentLink";
 import CreatePaymentLinkDialog from "./CreatePaymentLinkDialog";
 import SendPaymentLinkDialog from "./SendPaymentLinkDialog";
+import SaleArchiveDeleteActions from "./SaleArchiveDeleteActions";
 
 type SaleListCardProps = {
   sale: SaleRecord;
 };
 
 const SaleListCard = ({ sale }: SaleListCardProps) => {
+  const isAdmin = hasRole("ADMIN");
   const [whatsappOpen, setWhatsappOpen] = useState(false);
   const [createLinkOpen, setCreateLinkOpen] = useState(false);
   const customerNames = getSaleCustomerNames(sale);
@@ -30,6 +33,7 @@ const SaleListCard = ({ sale }: SaleListCardProps) => {
   const sellerInfo = getSaleSellerInfo(sale);
   const hasPaymentLink = saleHasPaymentLink(sale);
   const hasPayments = (sale.payments?.length ?? 0) > 0;
+  const isArchived = String(sale.status).toUpperCase() === "ARCHIVED";
 
   return (
     <>
@@ -76,9 +80,14 @@ const SaleListCard = ({ sale }: SaleListCardProps) => {
             </div>
 
             <div className="flex flex-col items-end justify-end gap-2">
-              <Badge variant="outline" className="h-6 px-2 text-[10px]">{sale.status}</Badge>
+              <Badge
+                variant="outline"
+                className={`h-6 px-2 text-[10px] ${isArchived ? "border-amber-500/40 text-amber-700" : ""}`}
+              >
+                {sale.status}
+              </Badge>
               <div className="flex flex-wrap items-center justify-end gap-1.5">
-                {!hasPaymentLink && (
+                {!hasPaymentLink && !isArchived && (
                   <Button
                     type="button"
                     variant="outline"
@@ -92,27 +101,32 @@ const SaleListCard = ({ sale }: SaleListCardProps) => {
                     Link Hotmart
                   </Button>
                 )}
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="h-7 gap-1 px-2 text-[11px]"
-                  disabled={!hasPaymentLink}
-                  title={hasPaymentLink ? "Enviar link no WhatsApp" : "Venda sem link de pagamento"}
-                  onClick={() => setWhatsappOpen(true)}
-                >
-                  <MessageCircle className="h-3.5 w-3.5" />
-                  WhatsApp
-                </Button>
-                <Button asChild variant="ghost" size="sm" className="h-7 px-2 text-[11px] text-primary">
-                  <Link to={`/vendas/${sale.id}/editar`}>
-                    <Pencil className="mr-1 h-3.5 w-3.5" />
-                    Editar
-                  </Link>
-                </Button>
+                {!isArchived && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 gap-1 px-2 text-[11px]"
+                    disabled={!hasPaymentLink}
+                    title={hasPaymentLink ? "Enviar link no WhatsApp" : "Venda sem link de pagamento"}
+                    onClick={() => setWhatsappOpen(true)}
+                  >
+                    <MessageCircle className="h-3.5 w-3.5" />
+                    WhatsApp
+                  </Button>
+                )}
+                {!isArchived && (
+                  <Button asChild variant="ghost" size="sm" className="h-7 px-2 text-[11px] text-primary">
+                    <Link to={`/vendas/${sale.id}/editar`}>
+                      <Pencil className="mr-1 h-3.5 w-3.5" />
+                      Editar
+                    </Link>
+                  </Button>
+                )}
                 <Button asChild variant="ghost" size="sm" className="h-7 px-2 text-[11px] text-primary">
                   <Link to={`/vendas/${sale.id}`}>Detalhes</Link>
                 </Button>
+                {isAdmin && <SaleArchiveDeleteActions sale={sale} />}
               </div>
             </div>
           </div>

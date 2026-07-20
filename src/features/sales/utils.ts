@@ -60,3 +60,24 @@ export const getSaleSellerInfo = (sale: SaleRecord): string => {
   
   return sale.seller.email || "Vendedor não informado";
 };
+
+export const saleHasPaidRecords = (sale: SaleRecord): boolean => {
+  const paidPayment = (sale.payments ?? []).some(
+    (payment) => String(payment.status).toUpperCase() === "PAID",
+  );
+  const paidCommission = (sale.commissions ?? []).some(
+    (commission) => String(commission.status).toUpperCase() === "PAID",
+  )
+    || (sale.payments ?? []).some(
+      (payment) => String(payment.commission?.status ?? "").toUpperCase() === "PAID",
+    );
+
+  return paidPayment || paidCommission;
+};
+
+export const saleHasActiveSubscription = (sale: SaleRecord): boolean =>
+  Boolean(sale.asaasSubscriptionId)
+  || (sale.payments ?? []).some((payment) => {
+    const type = String(payment.type).toUpperCase();
+    return type === "SUBSCRIPTION" || Boolean(payment.ciclo);
+  });

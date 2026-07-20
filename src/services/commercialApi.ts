@@ -97,6 +97,7 @@ export interface SaleRecord {
   contractValue?: string | number;
   status: string;
   soldAt?: string | null;
+  asaasSubscriptionId?: string | null;
   createdAt: string;
   updatedAt: string;
   seller?: {
@@ -266,7 +267,24 @@ export async function updateGatewayFees(input: GatewayFees[]): Promise<void> {
 export interface ListSalesOptions {
   searchTerm?: string;
   gateway?: string;
+  status?: SaleStatus | string;
 }
+
+export type ArchiveSaleResult = {
+  sale: SaleRecord;
+  alreadyArchived: boolean;
+  subscriptionCancelled: boolean;
+  alreadyCancelled: boolean;
+  remoteInstallmentsNotCancelled: boolean;
+};
+
+export type DeleteSaleResult = {
+  deleted: boolean;
+  commissionsRemoved: number;
+  subscriptionCancelled: boolean;
+  alreadyCancelled: boolean;
+  remoteInstallmentsNotCancelled: boolean;
+};
 
 export type PaymentGateway = "NUBANK" | "HOTMART" | "PAYPAL" | "ASAAS" | "WISE";
 
@@ -344,6 +362,7 @@ export async function listSales(options?: ListSalesOptions): Promise<SalesListRe
   const params = new URLSearchParams();
   if (options?.searchTerm) params.set("searchTerm", options.searchTerm);
   if (options?.gateway) params.set("gateway", options.gateway);
+  if (options?.status) params.set("status", options.status);
 
   const queryString = params.toString();
   const url = `/sales${queryString ? `?${queryString}` : ""}`;
@@ -401,6 +420,38 @@ export async function updateSale(id: string, input: UpdateSaleInput): Promise<vo
     method: "PATCH",
     body: input,
   });
+}
+
+function unwrapEnvelopeData<T>(payload: ApiEnvelope<T> | T): T {
+  if (payload && typeof payload === "object" && "data" in payload && (payload as ApiEnvelope<T>).data !== undefined) {
+    return (payload as ApiEnvelope<T>).data as T;
+  }
+
+  return payload as T;
+}
+
+export async function archiveSale(id: string): Promise<ArchiveSaleResult> {
+  const payload = await apiRequest<ApiEnvelope<ArchiveSaleResult> | ArchiveSaleResult>(
+    CORE_API_URL,
+    `/sales/${encodeURIComponent(id)}/arquivar`,
+    { method: "POST" },
+  );
+
+  const data = unwrapEnvelopeData(payload);
+  return {
+    ...data,
+    sale: normalizeSaleRecord(data.sale),
+  };
+}
+
+export async function deleteSale(id: string): Promise<DeleteSaleResult> {
+  const payload = await apiRequest<ApiEnvelope<DeleteSaleResult> | DeleteSaleResult>(
+    CORE_API_URL,
+    `/sales/${encodeURIComponent(id)}`,
+    { method: "DELETE" },
+  );
+
+  return unwrapEnvelopeData(payload);
 }
 
 export type PaymentLinkProvider = "HOTMART";

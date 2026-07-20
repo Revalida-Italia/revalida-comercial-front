@@ -18,22 +18,45 @@ import { cn } from "@/lib/utils";
 const SalesFiltersCard = ({
   searchTerm,
   gateway,
+  status = "all",
   onSearchTermChange,
   onGatewayChange,
+  onStatusChange,
   onClearFilters,
   compact = false,
+  showStatusFilter = false,
 }: SalesFiltersCardProps) => {
   const { data: gatewayFees = [] } = useQuery({
     queryKey: ["gatewayFees", "active"],
     queryFn: () => listGatewayFees({ includeInactive: false }),
   });
 
-  const hasActiveFilters = Boolean(searchTerm) || gateway !== "all";
+  const hasActiveFilters = Boolean(searchTerm) || gateway !== "all" || (showStatusFilter && status !== "all");
+
+  const statusSelect = showStatusFilter && onStatusChange ? (
+    <Select value={status} onValueChange={onStatusChange}>
+      <SelectTrigger
+        id="status"
+        className={cn(
+          compact
+            && "h-10 w-full shrink-0 border-border/80 shadow-sm outline-none focus:ring-0 focus:ring-offset-0 focus-visible:ring-0 sm:w-[170px]",
+        )}
+      >
+        <SelectValue placeholder="Status" />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="all">Todos os status</SelectItem>
+        <SelectItem value="PENDING">PENDING</SelectItem>
+        <SelectItem value="CONCLUDED">CONCLUDED</SelectItem>
+        <SelectItem value="ARCHIVED">ARCHIVED</SelectItem>
+      </SelectContent>
+    </Select>
+  ) : null;
 
   if (compact) {
     return (
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-        <div className="relative min-w-0 flex-[1_1_70%] bg-muted-foreground/10 rounded-md p-2">
+        <div className="relative min-w-0 flex-[1_1_55%] bg-muted-foreground/10 rounded-md p-2">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             id="search"
@@ -48,7 +71,7 @@ const SalesFiltersCard = ({
           <Select value={gateway} onValueChange={onGatewayChange}>
             <SelectTrigger
               id="gateway"
-              className="h-10 w-full shrink-0 border-border/80 shadow-sm outline-none focus:ring-0 focus:ring-offset-0 focus-visible:ring-0 sm:w-[200px]"
+              className="h-10 w-full shrink-0 border-border/80 shadow-sm outline-none focus:ring-0 focus:ring-offset-0 focus-visible:ring-0 sm:w-[180px]"
             >
               <SelectValue placeholder="Todos os gateways" />
             </SelectTrigger>
@@ -62,6 +85,12 @@ const SalesFiltersCard = ({
             </SelectContent>
           </Select>
         </div>
+
+        {statusSelect ? (
+          <div className="bg-muted-foreground/10 rounded-md p-2">
+            {statusSelect}
+          </div>
+        ) : null}
 
         {hasActiveFilters && (
           <div className="bg-muted-foreground/10 rounded-md p-2">
@@ -81,7 +110,7 @@ const SalesFiltersCard = ({
         <div className="flex items-center justify-between">
           <div>
             <CardTitle className="text-lg">Filtros</CardTitle>
-            <CardDescription>Busque vendas por texto livre ou gateway de pagamento</CardDescription>
+            <CardDescription>Busque vendas por texto livre, gateway ou status</CardDescription>
           </div>
           {hasActiveFilters && (
             <Button variant="ghost" size="sm" onClick={onClearFilters}>
@@ -92,7 +121,7 @@ const SalesFiltersCard = ({
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className={cn("grid gap-4 md:grid-cols-2")}>
+        <div className={cn("grid gap-4", showStatusFilter ? "md:grid-cols-3" : "md:grid-cols-2")}>
           <div className="space-y-2">
             <Label htmlFor="search">Busca livre</Label>
             <div className="relative">
@@ -123,6 +152,13 @@ const SalesFiltersCard = ({
               </SelectContent>
             </Select>
           </div>
+
+          {showStatusFilter && onStatusChange ? (
+            <div className="space-y-2">
+              <Label htmlFor="status">Status</Label>
+              {statusSelect}
+            </div>
+          ) : null}
         </div>
       </CardContent>
     </Card>
