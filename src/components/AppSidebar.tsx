@@ -14,7 +14,6 @@ import {
   ChevronDown,
   LayoutDashboard,
   LogOut,
-  Menu,
   MessageSquare,
   PenLine,
   PlusCircle,
@@ -46,14 +45,9 @@ function buildNavItems(input: {
 }): NavItem[] {
   if (input.isFixedCostsManager) {
     return [
-      {
-        label: "Menu",
-        icon: Menu,
-        path: "/admin/costs-calendar",
-        subItems: [
-          { label: "Calendário de Custos", path: "/admin/costs-calendar" },
-        ],
-      },
+      { label: "Dashboard", icon: LayoutDashboard, path: "/dashboard" },
+      { label: "Calendário de Custos", icon: CalendarDays, path: "/admin/costs-calendar" },
+      { label: "Cobranças", icon: CalendarDays, path: "/calendario-cobrancas" },
     ];
   }
 
@@ -74,7 +68,14 @@ function buildNavItems(input: {
         { label: "Editar Taxas", path: "/admin/payment-gateways" },
         { label: "Produtos", path: "/admin/products" },
         { label: "Calendario de Custos", path: "/admin/costs-calendar" },
+        { label: "Calendario de Cobrancas", path: "/calendario-cobrancas" },
       ],
+    });
+  } else {
+    items.push({
+      label: "Cobranças",
+      icon: CalendarDays,
+      path: "/calendario-cobrancas",
     });
   }
 
@@ -175,7 +176,9 @@ const AppSidebar = () => {
   }, [currentStars, starsToLevelUp]);
 
   const progressPercentage = starsToLevelUp > 0 ? Math.min((currentStars / starsToLevelUp) * 100, 100) : 0;
-  const isGroupedPathActive = location.pathname.startsWith("/admin");
+  const isGroupedPathActive =
+    location.pathname.startsWith("/admin")
+    || (isAdmin && location.pathname === "/calendario-cobrancas");
 
   return (
     <aside
@@ -373,10 +376,10 @@ const AppSidebar = () => {
                       : "text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/50"
                   }`}
                 >
-                  <item.icon className="h-5 w-5" />
-                  {item.label}
+                  <item.icon className="h-5 w-5 shrink-0" />
+                  <span className="truncate">{item.label}</span>
                   <ChevronDown
-                    className={`h-4 w-4 ml-auto transition-transform ${isExpanded ? "rotate-180" : ""}`}
+                    className={`h-4 w-4 ml-auto shrink-0 transition-transform ${isExpanded ? "rotate-180" : ""}`}
                   />
                 </button>
                 {isExpanded && (
@@ -397,7 +400,7 @@ const AppSidebar = () => {
                           {isFixedCostsManager ? (
                             <CalendarDays className="h-4 w-4 shrink-0" />
                           ) : null}
-                          {subItem.label}
+                          <span className="truncate whitespace-nowrap">{subItem.label}</span>
                         </button>
                       );
                     })}
@@ -418,8 +421,8 @@ const AppSidebar = () => {
                   : "text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/50"
               }`}
             >
-              <item.icon className="h-5 w-5" />
-              {item.label}
+              <item.icon className="h-5 w-5 shrink-0" />
+              <span className="truncate whitespace-nowrap">{item.label}</span>
             </button>
           );
         })}

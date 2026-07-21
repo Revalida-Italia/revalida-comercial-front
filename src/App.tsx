@@ -14,6 +14,7 @@ import AdminCreateUser from "@/pages/AdminCreateUser";
 import AdminUsers from "@/pages/AdminUsers";
 import AdminSalesDashboard from "@/pages/AdminSalesDashboard";
 import AdminCostsCalendar from "@/pages/AdminCostsCalendar";
+import BillingCalendar from "@/pages/BillingCalendar";
 import FirstAccess from "@/pages/FirstAccess";
 import SaleDetails from "./pages/SaleDetails";
 import EditSale from "./pages/EditSale";
@@ -22,8 +23,10 @@ import NotFound from "./pages/NotFound";
 import {
   RequireAdmin,
   RequireAuth,
-  RequireCommercialAccess,
+  RequireBillingCalendarAccess,
   RequireCostsCalendarAccess,
+  RequireSalesMutationAccess,
+  RequireSalesViewAccess,
 } from "./components/RouteGuards";
 import NewSale from "./pages/NewSale";
 import Templates from "./pages/Templates";
@@ -41,12 +44,15 @@ const App = () => (
           <Route path="/primeiro-acesso" element={<FirstAccess />} />
           <Route element={<RequireAuth />}>
             <Route element={<AppLayout />}>
-              <Route element={<RequireCommercialAccess />}>
+              <Route element={<RequireSalesViewAccess />}>
                 <Route path="/dashboard" element={<Dashboard />} />
-                <Route path="/nova-venda" element={<NewSale />} />
                 <Route path="/vendas" element={<Navigate to="/dashboard" replace />} />
-                <Route path="/vendas/:id/editar" element={<EditSale />} />
                 <Route path="/vendas/:id" element={<SaleDetails />} />
+              </Route>
+
+              <Route element={<RequireSalesMutationAccess />}>
+                <Route path="/nova-venda" element={<NewSale />} />
+                <Route path="/vendas/:id/editar" element={<EditSale />} />
                 <Route path="/templates" element={<Templates />} />
               </Route>
 
@@ -63,6 +69,10 @@ const App = () => (
 
               <Route element={<RequireCostsCalendarAccess />}>
                 <Route path="/admin/costs-calendar" element={<AdminCostsCalendar />} />
+              </Route>
+
+              <Route element={<RequireBillingCalendarAccess />}>
+                <Route path="/calendario-cobrancas" element={<BillingCalendar />} />
               </Route>
             </Route>
           </Route>
