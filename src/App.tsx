@@ -14,6 +14,7 @@ import AdminCreateUser from "@/pages/AdminCreateUser";
 import AdminUsers from "@/pages/AdminUsers";
 import AdminSalesDashboard from "@/pages/AdminSalesDashboard";
 import AdminCostsCalendar from "@/pages/AdminCostsCalendar";
+import BillingCalendar from "@/pages/BillingCalendar";
 import FirstAccess from "@/pages/FirstAccess";
 import SaleDetails from "./pages/SaleDetails";
 import EditSale from "./pages/EditSale";
@@ -22,6 +23,7 @@ import NotFound from "./pages/NotFound";
 import {
   RequireAdmin,
   RequireAuth,
+  RequireBillingCalendarAccess,
   RequireCostsCalendarAccess,
   RequireSalesMutationAccess,
   RequireSalesViewAccess,
@@ -67,6 +69,10 @@ const App = () => (
 
               <Route element={<RequireCostsCalendarAccess />}>
                 <Route path="/admin/costs-calendar" element={<AdminCostsCalendar />} />
+              </Route>
+
+              <Route element={<RequireBillingCalendarAccess />}>
+                <Route path="/calendario-cobrancas" element={<BillingCalendar />} />
               </Route>
             </Route>
           </Route>
