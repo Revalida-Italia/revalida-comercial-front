@@ -39,3 +39,34 @@ export function createEmptyAsaasPaymentDraft(): SalePaymentDraft {
     notes: "",
   };
 }
+
+export type AssinaturaClientDraft = {
+  nome: string;
+  cpf: string;
+  email: string;
+  telefone: string;
+};
+
+export function createEmptyAssinaturaClientDraft(): AssinaturaClientDraft {
+  return {
+    nome: "",
+    cpf: "",
+    email: "",
+    telefone: "",
+  };
+}
+
+export function saleClientToDraft(sale: SaleRecord): AssinaturaClientDraft {
+  const client = sale.clients?.[0];
+
+  return {
+    nome: client?.nameCiphertext?.trim() || "",
+    cpf: client?.documentCiphertext?.trim() || "",
+    email: client?.email?.trim() || "",
+    telefone: client?.telefone?.trim() || "",
+  };
+}
+
+export function isValidAssinaturaClientDraft(client: AssinaturaClientDraft): boolean {
+  return Boolean(client.nome.trim() && client.cpf.trim() && client.telefone.trim());
+}

@@ -405,6 +405,13 @@ export async function updateSale(id: string, input: UpdateSaleInput): Promise<vo
   });
 }
 
+export type AsaasPaymentLinkClientInput = {
+  nome: string;
+  cpf: string;
+  telefone: string;
+  email?: string;
+};
+
 export type AsaasPaymentLinkInput = {
   type: string;
   amount: number;
@@ -412,6 +419,7 @@ export type AsaasPaymentLinkInput = {
   dueDate: string;
   totalInstallments?: number;
   ciclo?: SubscriptionCycle;
+  client: AsaasPaymentLinkClientInput;
 };
 
 function buildAsaasPaymentUpdate(
@@ -436,26 +444,25 @@ function buildAsaasPaymentUpdate(
   };
 }
 
-function buildAssinaturaInputFromSale(
+function buildAssinaturaInput(
   sale: SaleRecord,
   input: AsaasPaymentLinkInput,
 ): Parameters<typeof createAssinatura>[0] {
-  const client = sale.clients?.[0];
-  const nome = client?.nameCiphertext?.trim();
-  const cpf = client?.documentCiphertext?.trim();
-  const telefone = client?.telefone?.trim();
+  const nome = input.client.nome.trim();
+  const cpf = input.client.cpf.trim();
+  const telefone = input.client.telefone.trim();
   const descricao = sale.items?.[0]?.product?.name?.trim() || "Venda";
 
   if (!nome) {
-    throw new Error("Cliente da venda precisa ter nome cadastrado.");
+    throw new Error("Informe o nome do cliente.");
   }
 
   if (!cpf) {
-    throw new Error("Cliente da venda precisa ter CPF cadastrado.");
+    throw new Error("Informe o CPF do cliente.");
   }
 
   if (!telefone) {
-    throw new Error("Cliente da venda precisa ter telefone cadastrado.");
+    throw new Error("Informe o telefone do cliente.");
   }
 
   if (!input.ciclo) {
@@ -472,6 +479,15 @@ function buildAssinaturaInputFromSale(
     primeiraCobranca: input.dueDate,
     billingType: input.billingType,
     maxPagamentos: input.totalInstallments ?? 1,
+  };
+}
+
+function buildClientUpdate(input: AsaasPaymentLinkInput): UpdateSaleClient {
+  return {
+    nameCiphertext: input.client.nome.trim(),
+    documentCiphertext: input.client.cpf.trim(),
+    telefone: input.client.telefone.trim(),
+    ...(input.client.email?.trim() ? { email: input.client.email.trim() } : {}),
   };
 }
 
@@ -495,9 +511,10 @@ export async function createAsaasPaymentLinkForSale(
     throw new Error("A geração de link Asaas está disponível apenas para assinatura.");
   }
 
-  const assinatura = await createAssinatura(buildAssinaturaInputFromSale(sale, input));
+  const assinatura = await createAssinatura(buildAssinaturaInput(sale, input));
 
   await updateSale(saleId, {
+    clients: [buildClientUpdate(input)],
     payments: [buildAsaasPaymentUpdate(payment, input, assinatura.linkPagamento)],
   });
 

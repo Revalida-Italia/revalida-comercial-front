@@ -16,10 +16,15 @@ import {
   MAX_INSTALLMENTS,
 } from "@/features/new-sale/constants";
 import type { SalePaymentDraft } from "@/features/new-sale/types";
+import type { AssinaturaClientDraft } from "@/features/sales/utils/paymentLink";
 import AsaasPaymentConfigForm from "@/features/sales/molecules/AsaasPaymentConfigForm";
+import AssinaturaClientFields from "@/features/sales/molecules/AssinaturaClientFields";
 import {
   createEmptyAsaasPaymentDraft,
+  createEmptyAssinaturaClientDraft,
   getDefaultPaymentWithoutLink,
+  isValidAssinaturaClientDraft,
+  saleClientToDraft,
   salePaymentToDraft,
 } from "@/features/sales/utils/paymentLink";
 import {
@@ -77,6 +82,7 @@ const CreatePaymentLinkDialog = ({ sale, open, onOpenChange }: CreatePaymentLink
   const targetPayment = getDefaultPaymentWithoutLink(saleData.payments ?? []);
 
   const [paymentDraft, setPaymentDraft] = useState<SalePaymentDraft>(createEmptyAsaasPaymentDraft());
+  const [clientDraft, setClientDraft] = useState<AssinaturaClientDraft>(createEmptyAssinaturaClientDraft());
   const [generatedLink, setGeneratedLink] = useState<string | null>(null);
   const initializedForOpenRef = useRef(false);
 
@@ -91,7 +97,9 @@ const CreatePaymentLinkDialog = ({ sale, open, onOpenChange }: CreatePaymentLink
       return;
     }
 
-    const payment = getDefaultPaymentWithoutLink((saleQuery.data ?? sale).payments ?? []);
+    const currentSale = saleQuery.data ?? sale;
+    const payment = getDefaultPaymentWithoutLink(currentSale.payments ?? []);
+
     if (payment) {
       const draft = salePaymentToDraft(payment);
       setPaymentDraft({
@@ -105,6 +113,8 @@ const CreatePaymentLinkDialog = ({ sale, open, onOpenChange }: CreatePaymentLink
         paymentType: "SUBSCRIPTION",
       });
     }
+
+    setClientDraft(saleClientToDraft(currentSale));
 
     initializedForOpenRef.current = true;
   }, [open, sale, saleQuery.data, saleQuery.isLoading]);
@@ -136,6 +146,10 @@ const CreatePaymentLinkDialog = ({ sale, open, onOpenChange }: CreatePaymentLink
     });
   }
 
+  function updateClientDraft(field: keyof AssinaturaClientDraft, value: string) {
+    setClientDraft((prev) => ({ ...prev, [field]: value }));
+  }
+
   const createLinkMutation = useMutation({
     mutationFn: async () => {
       if (!targetPayment?.id) {
@@ -155,6 +169,12 @@ const CreatePaymentLinkDialog = ({ sale, open, onOpenChange }: CreatePaymentLink
         amount: Number(paymentDraft.amount),
         billingType: paymentDraft.billingType,
         dueDate: paymentDraft.dueDate,
+        client: {
+          nome: clientDraft.nome.trim(),
+          cpf: clientDraft.cpf.trim(),
+          telefone: clientDraft.telefone.trim(),
+          ...(clientDraft.email.trim() ? { email: clientDraft.email.trim() } : {}),
+        },
         ...(paymentDraft.paymentType === "SUBSCRIPTION"
           ? { ciclo: paymentDraft.ciclo || DEFAULT_SUBSCRIPTION_CYCLE }
           : {}),
@@ -186,6 +206,7 @@ const CreatePaymentLinkDialog = ({ sale, open, onOpenChange }: CreatePaymentLink
   const canSubmit = Boolean(
     targetPayment?.id
     && isValidAsaasPaymentDraft(paymentDraft)
+    && isValidAssinaturaClientDraft(clientDraft)
     && !targetPayment.linkPagamento,
   );
 
@@ -203,6 +224,11 @@ const CreatePaymentLinkDialog = ({ sale, open, onOpenChange }: CreatePaymentLink
         </DialogHeader>
 
         <div className="space-y-4">
+          <AssinaturaClientFields
+            client={clientDraft}
+            onUpdateClient={updateClientDraft}
+          />
+
           <AsaasPaymentConfigForm
             payment={paymentDraft}
             currency={saleData.currency || "BRL"}
