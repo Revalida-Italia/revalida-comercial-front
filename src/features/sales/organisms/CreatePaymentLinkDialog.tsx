@@ -183,19 +183,12 @@ const CreatePaymentLinkDialog = ({ sale, open, onOpenChange }: CreatePaymentLink
           : {}),
       });
     },
-    onSuccess: async (updatedSale) => {
+    onSuccess: async (result) => {
       await queryClient.invalidateQueries({ queryKey: ["sales"] });
       await queryClient.invalidateQueries({ queryKey: ["sale", sale.id] });
 
-      const updatedPayment = updatedSale.payments.find((payment) => payment.id === targetPayment?.id);
-      const link = updatedPayment?.linkPagamento ?? null;
-      setGeneratedLink(link);
-
-      if (link) {
-        toast.success("Link de pagamento Asaas criado com sucesso.");
-      } else {
-        toast.warning("Pagamento atualizado, mas o link ainda não foi retornado pela API.");
-      }
+      setGeneratedLink(result.linkPagamento);
+      toast.success("Link de pagamento vinculado à venda com sucesso.");
     },
     onError: (error: unknown) => {
       toast.error(error instanceof Error ? error.message : "Erro ao criar link de pagamento.");

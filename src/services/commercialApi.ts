@@ -491,11 +491,35 @@ function buildClientUpdate(input: AsaasPaymentLinkInput): UpdateSaleClient {
   };
 }
 
+function mergePaymentLinkIntoSale(
+  sale: SaleRecord,
+  paymentId: string,
+  linkPagamento: string,
+): SaleRecord {
+  return {
+    ...sale,
+    payments: sale.payments.map((item) => (
+      item.id === paymentId
+        ? {
+          ...item,
+          linkPagamento,
+          gateway: "ASAAS",
+        }
+        : item
+    )),
+  };
+}
+
+export type CreateAsaasPaymentLinkResult = {
+  sale: SaleRecord;
+  linkPagamento: string;
+};
+
 export async function createAsaasPaymentLinkForSale(
   saleId: string,
   paymentId: string,
   input: AsaasPaymentLinkInput,
-): Promise<SaleRecord> {
+): Promise<CreateAsaasPaymentLinkResult> {
   const sale = await getSaleById(saleId);
   const payment = sale.payments.find((item) => item.id === paymentId);
 
@@ -512,30 +536,18 @@ export async function createAsaasPaymentLinkForSale(
   }
 
   const assinatura = await createAssinatura(buildAssinaturaInput(sale, input));
+  const linkPagamento = assinatura.linkPagamento;
 
   await updateSale(saleId, {
     clients: [buildClientUpdate(input)],
-    payments: [buildAsaasPaymentUpdate(payment, input, assinatura.linkPagamento)],
+    payments: [buildAsaasPaymentUpdate(payment, input, linkPagamento)],
   });
 
   const updatedSale = await getSaleById(saleId);
-  const updatedPayment = updatedSale.payments.find((item) => item.id === paymentId);
-
-  if (updatedPayment?.linkPagamento) {
-    return updatedSale;
-  }
 
   return {
-    ...updatedSale,
-    payments: updatedSale.payments.map((item) => (
-      item.id === paymentId
-        ? {
-          ...item,
-          linkPagamento: assinatura.linkPagamento,
-          gateway: "ASAAS",
-        }
-        : item
-    )),
+    linkPagamento,
+    sale: mergePaymentLinkIntoSale(updatedSale, paymentId, linkPagamento),
   };
 }
 
