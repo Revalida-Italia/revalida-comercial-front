@@ -167,6 +167,12 @@ const AsaasPaymentConfigForm = ({
                 {isSubscription ? "Meses" : "Parcelas"}: <strong>{installments}</strong>
               </p>
             )}
+            {!isSubscription && (
+              <p>
+                Total enviado à API: <strong>{paymentValue.toLocaleString("pt-BR", { style: "currency", currency })}</strong>
+                {isSplitOrSubscription ? ` em ${installments} parcela(s)` : " à vista"}
+              </p>
+            )}
             {payment.billingType && (
               <p>
                 Meio de cobrança:{" "}

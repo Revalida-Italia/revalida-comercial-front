@@ -9,12 +9,10 @@ export interface CreateCobrancaInput {
   cpf: string;
   telefone: string;
   descricao: string;
-  valor: number;
   valorTotal: number;
-  vencimento: string;
+  numParcelas: number;
+  primeiraVencimento: string;
   billingType: BillingType;
-  tipo: string;
-  parcelas?: number;
 }
 
 export async function createCobranca(input: CreateCobrancaInput): Promise<AsaasPaymentLinkResult> {

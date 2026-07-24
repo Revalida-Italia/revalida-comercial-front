@@ -490,30 +490,24 @@ function buildAssinaturaInput(
   };
 }
 
-function buildCobrancaValorTotal(input: AsaasPaymentLinkInput): number {
-  if (input.type === "INSTALLMENT") {
-    return input.amount * (input.totalInstallments ?? 1);
-  }
-
-  return input.amount;
-}
-
 function buildCobrancaInput(
   sale: SaleRecord,
   input: AsaasPaymentLinkInput,
 ): Parameters<typeof createCobranca>[0] {
   const client = validatePaymentLinkClient(input);
-  const valorTotal = buildCobrancaValorTotal(input);
+  const isInstallment = input.type === "INSTALLMENT";
+  const numParcelas = isInstallment ? (input.totalInstallments ?? 1) : 1;
+  const valorTotal = isInstallment
+    ? input.amount * numParcelas
+    : input.amount;
 
   return {
     ...client,
     descricao: getPaymentDescription(sale),
-    valor: input.amount,
     valorTotal,
-    vencimento: input.dueDate,
+    numParcelas,
+    primeiraVencimento: input.dueDate,
     billingType: input.billingType,
-    tipo: input.type,
-    ...(input.type === "INSTALLMENT" ? { parcelas: input.totalInstallments ?? 1 } : {}),
   };
 }
 
