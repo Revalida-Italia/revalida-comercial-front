@@ -1,4 +1,5 @@
 import { apiRequest } from "@/lib/http";
+import { createCobranca } from "@/services/chargesApi";
 import { createAssinatura } from "@/services/subscriptionsApi";
 
 const CORE_API_URL = import.meta.env.VITE_CORE_API_URL as string;
@@ -444,14 +445,10 @@ function buildAsaasPaymentUpdate(
   };
 }
 
-function buildAssinaturaInput(
-  sale: SaleRecord,
-  input: AsaasPaymentLinkInput,
-): Parameters<typeof createAssinatura>[0] {
+function validatePaymentLinkClient(input: AsaasPaymentLinkInput) {
   const nome = input.client.nome.trim();
   const cpf = input.client.cpf.trim();
   const telefone = input.client.telefone.trim();
-  const descricao = sale.items?.[0]?.product?.name?.trim() || "Venda";
 
   if (!nome) {
     throw new Error("Informe o nome do cliente.");
@@ -465,21 +462,66 @@ function buildAssinaturaInput(
     throw new Error("Informe o telefone do cliente.");
   }
 
+  return { nome, cpf, telefone };
+}
+
+function getPaymentDescription(sale: SaleRecord): string {
+  return sale.items?.[0]?.product?.name?.trim() || "Venda";
+}
+
+function buildAssinaturaInput(
+  sale: SaleRecord,
+  input: AsaasPaymentLinkInput,
+): Parameters<typeof createAssinatura>[0] {
+  const client = validatePaymentLinkClient(input);
+
   if (!input.ciclo) {
     throw new Error("Ciclo da assinatura é obrigatório.");
   }
 
   return {
-    nome,
-    cpf,
-    telefone,
-    descricao,
+    ...client,
+    descricao: getPaymentDescription(sale),
     valor: input.amount,
     ciclo: input.ciclo,
     primeiraCobranca: input.dueDate,
     billingType: input.billingType,
     maxPagamentos: input.totalInstallments ?? 1,
   };
+}
+
+function buildCobrancaInput(
+  sale: SaleRecord,
+  input: AsaasPaymentLinkInput,
+): Parameters<typeof createCobranca>[0] {
+  const client = validatePaymentLinkClient(input);
+
+  return {
+    ...client,
+    descricao: getPaymentDescription(sale),
+    valor: input.amount,
+    vencimento: input.dueDate,
+    billingType: input.billingType,
+    tipo: input.type,
+    ...(input.type === "INSTALLMENT" ? { parcelas: input.totalInstallments ?? 1 } : {}),
+  };
+}
+
+async function createAsaasLinkForPayment(
+  sale: SaleRecord,
+  input: AsaasPaymentLinkInput,
+): Promise<string> {
+  if (input.type === "SUBSCRIPTION") {
+    const assinatura = await createAssinatura(buildAssinaturaInput(sale, input));
+    return assinatura.linkPagamento;
+  }
+
+  if (["FULL_PAYMENT", "INSTALLMENT", "ENTRY"].includes(input.type)) {
+    const cobranca = await createCobranca(buildCobrancaInput(sale, input));
+    return cobranca.linkPagamento;
+  }
+
+  throw new Error("Forma de pagamento não suportada para geração de link.");
 }
 
 function buildClientUpdate(input: AsaasPaymentLinkInput): UpdateSaleClient {
@@ -531,12 +573,7 @@ export async function createAsaasPaymentLinkForSale(
     throw new Error("Este pagamento já possui link.");
   }
 
-  if (input.type !== "SUBSCRIPTION") {
-    throw new Error("A geração de link Asaas está disponível apenas para assinatura.");
-  }
-
-  const assinatura = await createAssinatura(buildAssinaturaInput(sale, input));
-  const linkPagamento = assinatura.linkPagamento;
+  const linkPagamento = await createAsaasLinkForPayment(sale, input);
 
   await updateSale(saleId, {
     clients: [buildClientUpdate(input)],

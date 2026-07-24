@@ -17,7 +17,6 @@ type AsaasPaymentConfigFormProps = {
   gatewayFees: GatewayFees[];
   gatewayFeesLoading: boolean;
   feeRate: number;
-  subscriptionOnly?: boolean;
   onUpdatePayment: (field: keyof SalePaymentDraft, value: string) => void;
 };
 
@@ -27,13 +26,10 @@ const AsaasPaymentConfigForm = ({
   gatewayFees,
   gatewayFeesLoading,
   feeRate,
-  subscriptionOnly = false,
   onUpdatePayment,
 }: AsaasPaymentConfigFormProps) => {
   const asaasConfig = gatewayFees.find((item) => item.gateway === "ASAAS");
-  const paymentOptions = (asaasConfig?.paymentOptions ?? []).filter(
-    (option) => !subscriptionOnly || option.paymentType === "SUBSCRIPTION",
-  );
+  const paymentOptions = asaasConfig?.paymentOptions ?? [];
   const amount = Number(payment.amount);
   const installments = Number(payment.totalInstallments) || 1;
   const isSplitOrSubscription = ["INSTALLMENT", "SUBSCRIPTION"].includes(payment.paymentType);
