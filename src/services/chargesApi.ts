@@ -10,6 +10,7 @@ export interface CreateCobrancaInput {
   telefone: string;
   descricao: string;
   valor: number;
+  valorTotal: number;
   vencimento: string;
   billingType: BillingType;
   tipo: string;

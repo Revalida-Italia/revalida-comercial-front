@@ -490,16 +490,26 @@ function buildAssinaturaInput(
   };
 }
 
+function buildCobrancaValorTotal(input: AsaasPaymentLinkInput): number {
+  if (input.type === "INSTALLMENT") {
+    return input.amount * (input.totalInstallments ?? 1);
+  }
+
+  return input.amount;
+}
+
 function buildCobrancaInput(
   sale: SaleRecord,
   input: AsaasPaymentLinkInput,
 ): Parameters<typeof createCobranca>[0] {
   const client = validatePaymentLinkClient(input);
+  const valorTotal = buildCobrancaValorTotal(input);
 
   return {
     ...client,
     descricao: getPaymentDescription(sale),
     valor: input.amount,
+    valorTotal,
     vencimento: input.dueDate,
     billingType: input.billingType,
     tipo: input.type,
