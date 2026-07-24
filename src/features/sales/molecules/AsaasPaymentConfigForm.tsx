@@ -17,6 +17,7 @@ type AsaasPaymentConfigFormProps = {
   gatewayFees: GatewayFees[];
   gatewayFeesLoading: boolean;
   feeRate: number;
+  subscriptionOnly?: boolean;
   onUpdatePayment: (field: keyof SalePaymentDraft, value: string) => void;
 };
 
@@ -26,9 +27,13 @@ const AsaasPaymentConfigForm = ({
   gatewayFees,
   gatewayFeesLoading,
   feeRate,
+  subscriptionOnly = false,
   onUpdatePayment,
 }: AsaasPaymentConfigFormProps) => {
   const asaasConfig = gatewayFees.find((item) => item.gateway === "ASAAS");
+  const paymentOptions = (asaasConfig?.paymentOptions ?? []).filter(
+    (option) => !subscriptionOnly || option.paymentType === "SUBSCRIPTION",
+  );
   const amount = Number(payment.amount);
   const installments = Number(payment.totalInstallments) || 1;
   const isSplitOrSubscription = ["INSTALLMENT", "SUBSCRIPTION"].includes(payment.paymentType);
@@ -58,7 +63,7 @@ const AsaasPaymentConfigForm = ({
               <SelectValue placeholder={gatewayFeesLoading ? "Carregando..." : "Selecione"} />
             </SelectTrigger>
             <SelectContent>
-              {(asaasConfig?.paymentOptions ?? []).map((option) => (
+              {(paymentOptions).map((option) => (
                 <SelectItem key={option.paymentType} value={option.paymentType}>
                   {PAYMENT_TYPE_LABELS[option.paymentType] ?? option.paymentType} - taxa {option.feeRate}%
                 </SelectItem>

@@ -1,4 +1,5 @@
 import { apiRequest } from "@/lib/http";
+import { createAssinatura } from "@/services/subscriptionsApi";
 
 const CORE_API_URL = import.meta.env.VITE_CORE_API_URL as string;
 
@@ -217,6 +218,7 @@ export interface UpdateSalePayment {
   notes?: string;
   billingType?: BillingType;
   ciclo?: SubscriptionCycle;
+  linkPagamento?: string;
 }
 
 export interface UpdateSaleInput {
@@ -415,6 +417,7 @@ export type AsaasPaymentLinkInput = {
 function buildAsaasPaymentUpdate(
   payment: SalePayment,
   input: AsaasPaymentLinkInput,
+  linkPagamento?: string,
 ): UpdateSalePayment {
   return {
     id: payment.id,
@@ -429,6 +432,46 @@ function buildAsaasPaymentUpdate(
     ...(input.ciclo ? { ciclo: input.ciclo } : {}),
     ...(input.totalInstallments ? { totalInstallments: input.totalInstallments } : {}),
     ...(payment.installmentNumber ? { installmentNumber: payment.installmentNumber } : {}),
+    ...(linkPagamento ? { linkPagamento } : {}),
+  };
+}
+
+function buildAssinaturaInputFromSale(
+  sale: SaleRecord,
+  input: AsaasPaymentLinkInput,
+): Parameters<typeof createAssinatura>[0] {
+  const client = sale.clients?.[0];
+  const nome = client?.nameCiphertext?.trim();
+  const cpf = client?.documentCiphertext?.trim();
+  const telefone = client?.telefone?.trim();
+  const descricao = sale.items?.[0]?.product?.name?.trim() || "Venda";
+
+  if (!nome) {
+    throw new Error("Cliente da venda precisa ter nome cadastrado.");
+  }
+
+  if (!cpf) {
+    throw new Error("Cliente da venda precisa ter CPF cadastrado.");
+  }
+
+  if (!telefone) {
+    throw new Error("Cliente da venda precisa ter telefone cadastrado.");
+  }
+
+  if (!input.ciclo) {
+    throw new Error("Ciclo da assinatura é obrigatório.");
+  }
+
+  return {
+    nome,
+    cpf,
+    telefone,
+    descricao,
+    valor: input.amount,
+    ciclo: input.ciclo,
+    primeiraCobranca: input.dueDate,
+    billingType: input.billingType,
+    maxPagamentos: input.totalInstallments ?? 1,
   };
 }
 
@@ -448,8 +491,14 @@ export async function createAsaasPaymentLinkForSale(
     throw new Error("Este pagamento já possui link.");
   }
 
+  if (input.type !== "SUBSCRIPTION") {
+    throw new Error("A geração de link Asaas está disponível apenas para assinatura.");
+  }
+
+  const assinatura = await createAssinatura(buildAssinaturaInputFromSale(sale, input));
+
   await updateSale(saleId, {
-    payments: [buildAsaasPaymentUpdate(payment, input)],
+    payments: [buildAsaasPaymentUpdate(payment, input, assinatura.linkPagamento)],
   });
 
   return getSaleById(saleId);

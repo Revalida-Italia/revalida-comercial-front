@@ -97,9 +97,13 @@ const CreatePaymentLinkDialog = ({ sale, open, onOpenChange }: CreatePaymentLink
       setPaymentDraft({
         ...draft,
         gateway: "ASAAS",
+        paymentType: "SUBSCRIPTION",
       });
     } else {
-      setPaymentDraft(createEmptyAsaasPaymentDraft());
+      setPaymentDraft({
+        ...createEmptyAsaasPaymentDraft(),
+        paymentType: "SUBSCRIPTION",
+      });
     }
 
     initializedForOpenRef.current = true;
@@ -194,7 +198,7 @@ const CreatePaymentLinkDialog = ({ sale, open, onOpenChange }: CreatePaymentLink
             Criar link de pagamento
           </DialogTitle>
           <DialogDescription>
-            Configure o pagamento no Asaas. Você pode personalizar valor, parcelas e forma de cobrança.
+            Cria a assinatura no Asaas e vincula o link de pagamento nesta venda.
           </DialogDescription>
         </DialogHeader>
 
@@ -205,6 +209,7 @@ const CreatePaymentLinkDialog = ({ sale, open, onOpenChange }: CreatePaymentLink
             gatewayFees={gatewayFees}
             gatewayFeesLoading={gatewayFeesQuery.isLoading}
             feeRate={feeRate}
+            subscriptionOnly
             onUpdatePayment={updatePaymentDraft}
           />
 
@@ -246,7 +251,7 @@ const CreatePaymentLinkDialog = ({ sale, open, onOpenChange }: CreatePaymentLink
               onClick={() => createLinkMutation.mutate()}
               disabled={createLinkMutation.isPending || !canSubmit}
             >
-              {createLinkMutation.isPending ? "Gerando..." : "Gerar link Asaas"}
+              {createLinkMutation.isPending ? "Gerando..." : "Gerar link de assinatura"}
             </Button>
           )}
         </DialogFooter>
