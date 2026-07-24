@@ -30,15 +30,23 @@ const AsaasPaymentConfigForm = ({
 }: AsaasPaymentConfigFormProps) => {
   const asaasConfig = gatewayFees.find((item) => item.gateway === "ASAAS");
   const paymentOptions = asaasConfig?.paymentOptions ?? [];
-  const amount = Number(payment.amount);
   const installments = Number(payment.totalInstallments) || 1;
   const isSplitOrSubscription = ["INSTALLMENT", "SUBSCRIPTION"].includes(payment.paymentType);
   const isSubscription = payment.paymentType === "SUBSCRIPTION";
-  const paymentValue = amount > 0
+  const isFullPayment = ["FULL_PAYMENT", "ENTRY"].includes(payment.paymentType);
+  const parsedAmount = Number(String(payment.amount).replace(",", "."));
+  const amount = parsedAmount;
+  const paymentValue = parsedAmount > 0
     ? isSplitOrSubscription
-      ? amount * installments
-      : amount
+      ? parsedAmount * installments
+      : parsedAmount
     : 0;
+
+  const amountLabel = isSubscription
+    ? "Valor por mês"
+    : isSplitOrSubscription
+      ? "Valor por parcela"
+      : "Valor total";
 
   return (
     <div className="space-y-4">
@@ -107,18 +115,15 @@ const AsaasPaymentConfigForm = ({
         )}
       </div>
 
-      <div className="grid gap-3 md:grid-cols-3">
+      <div className={`grid gap-3 ${isFullPayment ? "md:grid-cols-2" : "md:grid-cols-3"}`}>
         <div className="space-y-1.5">
-          <Label>
-            Valor{isSplitOrSubscription ? " por parcela/mês" : ""} *
-          </Label>
+          <Label>{amountLabel} *</Label>
           <Input
-            type="number"
-            min="0"
-            step="0.01"
+            type="text"
+            inputMode="decimal"
             value={payment.amount}
             onChange={(event) => onUpdatePayment("amount", event.target.value)}
-            placeholder="Digite o valor"
+            placeholder="0,00"
           />
         </div>
 

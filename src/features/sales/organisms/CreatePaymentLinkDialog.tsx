@@ -41,8 +41,14 @@ type CreatePaymentLinkDialogProps = {
   onOpenChange: (open: boolean) => void;
 };
 
+function parsePaymentAmount(value: string): number {
+  const normalized = value.trim().replace(",", ".");
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
 function isValidAsaasPaymentDraft(payment: SalePaymentDraft): payment is SalePaymentDraft & { billingType: BillingType } {
-  const amountOk = Number(payment.amount) > 0;
+  const amountOk = parsePaymentAmount(payment.amount) > 0;
   const baseOk = Boolean(
     payment.gateway === "ASAAS"
     && payment.paymentType
@@ -131,16 +137,42 @@ const CreatePaymentLinkDialog = ({ sale, open, onOpenChange }: CreatePaymentLink
   function updatePaymentDraft(field: keyof SalePaymentDraft, value: string) {
     setPaymentDraft((prev) => {
       if (field === "paymentType") {
+        const wasPerUnit = ["INSTALLMENT", "SUBSCRIPTION"].includes(prev.paymentType);
+        const isPerUnit = ["INSTALLMENT", "SUBSCRIPTION"].includes(value);
+        const wasFullLike = ["FULL_PAYMENT", "ENTRY"].includes(prev.paymentType);
+        const isFullLike = ["FULL_PAYMENT", "ENTRY"].includes(value);
+
+        let nextAmount = prev.amount;
+
+        if (wasPerUnit && isFullLike) {
+          const unit = parsePaymentAmount(prev.amount);
+          const count = Number(prev.totalInstallments) || 1;
+          if (unit > 0) {
+            nextAmount = String(unit * count);
+          }
+        } else if (wasFullLike && isPerUnit) {
+          const total = parsePaymentAmount(prev.amount);
+          const count = Number(prev.totalInstallments) || 1;
+          if (total > 0 && count > 0) {
+            nextAmount = String(Number((total / count).toFixed(2)));
+          }
+        }
+
         return {
           ...prev,
           paymentType: value,
-          totalInstallments: prev.totalInstallments || "1",
+          amount: nextAmount,
+          totalInstallments: isPerUnit ? (prev.totalInstallments || "1") : "1",
           ciclo: value === "SUBSCRIPTION" ? prev.ciclo || DEFAULT_SUBSCRIPTION_CYCLE : DEFAULT_SUBSCRIPTION_CYCLE,
         };
       }
 
       if (field === "totalInstallments") {
         return { ...prev, totalInstallments: value };
+      }
+
+      if (field === "amount") {
+        return { ...prev, amount: value };
       }
 
       return { ...prev, [field]: value };
@@ -167,7 +199,7 @@ const CreatePaymentLinkDialog = ({ sale, open, onOpenChange }: CreatePaymentLink
 
       return createAsaasPaymentLinkForSale(sale.id, targetPayment.id, {
         type: paymentDraft.paymentType,
-        amount: Number(paymentDraft.amount),
+        amount: parsePaymentAmount(paymentDraft.amount),
         billingType: paymentDraft.billingType,
         dueDate: paymentDraft.dueDate,
         client: {
