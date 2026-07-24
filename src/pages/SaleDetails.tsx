@@ -66,7 +66,7 @@ const SaleDetails = () => {
               onClick={() => setCreateLinkOpen(true)}
             >
               <Link2 className="h-4 w-4" />
-              Link Hotmart
+              Link de pagamento
             </Button>
           )}
           <Button

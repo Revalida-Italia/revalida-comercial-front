@@ -402,31 +402,57 @@ export async function updateSale(id: string, input: UpdateSaleInput): Promise<vo
   });
 }
 
-export type PaymentLinkProvider = "HOTMART";
+export type AsaasPaymentLinkInput = {
+  type: string;
+  amount: number;
+  billingType: BillingType;
+  dueDate: string;
+  totalInstallments?: number;
+  ciclo?: SubscriptionCycle;
+};
 
-function mapPaymentsForHotmartLink(
+function mapPaymentsForAsaasLink(
   payments: SalePayment[],
   targetPaymentId: string,
+  input: AsaasPaymentLinkInput,
 ): UpdateSalePayment[] {
-  return payments.map((payment) => ({
-    type: payment.type,
-    gateway: payment.id === targetPaymentId ? "HOTMART" : payment.gateway,
-    amount: Number(payment.amount),
-    dueDate: payment.dueDate?.slice(0, 10),
-    paymentDate: payment.paymentDate?.slice(0, 10) || undefined,
-    status: payment.status,
-    ...(payment.notes ? { notes: payment.notes } : {}),
-    billingType: (payment.billingType as BillingType) || "PIX",
-    ...(payment.ciclo ? { ciclo: payment.ciclo as SubscriptionCycle } : {}),
-    ...(payment.totalInstallments ? { totalInstallments: payment.totalInstallments } : {}),
-    ...(payment.installmentNumber ? { installmentNumber: payment.installmentNumber } : {}),
-  }));
+  return payments.map((payment) => {
+    if (payment.id !== targetPaymentId) {
+      return {
+        type: payment.type,
+        gateway: payment.gateway,
+        amount: Number(payment.amount),
+        dueDate: payment.dueDate?.slice(0, 10),
+        paymentDate: payment.paymentDate?.slice(0, 10) || undefined,
+        status: payment.status,
+        ...(payment.notes ? { notes: payment.notes } : {}),
+        billingType: (payment.billingType as BillingType) || "PIX",
+        ...(payment.ciclo ? { ciclo: payment.ciclo as SubscriptionCycle } : {}),
+        ...(payment.totalInstallments ? { totalInstallments: payment.totalInstallments } : {}),
+        ...(payment.installmentNumber ? { installmentNumber: payment.installmentNumber } : {}),
+      };
+    }
+
+    return {
+      type: input.type,
+      gateway: "ASAAS",
+      amount: input.amount,
+      dueDate: input.dueDate,
+      paymentDate: payment.paymentDate?.slice(0, 10) || undefined,
+      status: payment.status,
+      ...(payment.notes ? { notes: payment.notes } : {}),
+      billingType: input.billingType,
+      ...(input.ciclo ? { ciclo: input.ciclo } : {}),
+      ...(input.totalInstallments ? { totalInstallments: input.totalInstallments } : {}),
+      ...(payment.installmentNumber ? { installmentNumber: payment.installmentNumber } : {}),
+    };
+  });
 }
 
-export async function createPaymentLinkForSale(
+export async function createAsaasPaymentLinkForSale(
   saleId: string,
   paymentId: string,
-  hotmartFixedLink: string,
+  input: AsaasPaymentLinkInput,
 ): Promise<SaleRecord> {
   const sale = await getSaleById(saleId);
   const payment = sale.payments.find((item) => item.id === paymentId);
@@ -439,29 +465,11 @@ export async function createPaymentLinkForSale(
     throw new Error("Este pagamento já possui link.");
   }
 
-  if (!hotmartFixedLink.trim()) {
-    throw new Error("Produto da venda não possui link fixo da Hotmart cadastrado.");
-  }
-
   await updateSale(saleId, {
-    payments: mapPaymentsForHotmartLink(sale.payments, paymentId),
+    payments: mapPaymentsForAsaasLink(sale.payments, paymentId, input),
   });
 
-  const updatedSale = await getSaleById(saleId);
-  const updatedPayment = updatedSale.payments.find((item) => item.id === paymentId);
-
-  if (!updatedPayment?.linkPagamento) {
-    return {
-      ...updatedSale,
-      payments: updatedSale.payments.map((item) => (
-        item.id === paymentId
-          ? { ...item, linkPagamento: hotmartFixedLink, gateway: "HOTMART" }
-          : item
-      )),
-    };
-  }
-
-  return updatedSale;
+  return getSaleById(saleId);
 }
 
 export async function fetchSalesDashboard(payload: SalesDashboardRequest): Promise<SalesDashboardResponse> {
