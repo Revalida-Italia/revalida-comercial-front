@@ -205,6 +205,7 @@ export interface UpdateSaleItem {
 }
 
 export interface UpdateSalePayment {
+  id?: string;
   type: string;
   gateway: string;
   amount: number;
@@ -411,42 +412,24 @@ export type AsaasPaymentLinkInput = {
   ciclo?: SubscriptionCycle;
 };
 
-function mapPaymentsForAsaasLink(
-  payments: SalePayment[],
-  targetPaymentId: string,
+function buildAsaasPaymentUpdate(
+  payment: SalePayment,
   input: AsaasPaymentLinkInput,
-): UpdateSalePayment[] {
-  return payments.map((payment) => {
-    if (payment.id !== targetPaymentId) {
-      return {
-        type: payment.type,
-        gateway: payment.gateway,
-        amount: Number(payment.amount),
-        dueDate: payment.dueDate?.slice(0, 10),
-        paymentDate: payment.paymentDate?.slice(0, 10) || undefined,
-        status: payment.status,
-        ...(payment.notes ? { notes: payment.notes } : {}),
-        billingType: (payment.billingType as BillingType) || "PIX",
-        ...(payment.ciclo ? { ciclo: payment.ciclo as SubscriptionCycle } : {}),
-        ...(payment.totalInstallments ? { totalInstallments: payment.totalInstallments } : {}),
-        ...(payment.installmentNumber ? { installmentNumber: payment.installmentNumber } : {}),
-      };
-    }
-
-    return {
-      type: input.type,
-      gateway: "ASAAS",
-      amount: input.amount,
-      dueDate: input.dueDate,
-      paymentDate: payment.paymentDate?.slice(0, 10) || undefined,
-      status: payment.status,
-      ...(payment.notes ? { notes: payment.notes } : {}),
-      billingType: input.billingType,
-      ...(input.ciclo ? { ciclo: input.ciclo } : {}),
-      ...(input.totalInstallments ? { totalInstallments: input.totalInstallments } : {}),
-      ...(payment.installmentNumber ? { installmentNumber: payment.installmentNumber } : {}),
-    };
-  });
+): UpdateSalePayment {
+  return {
+    id: payment.id,
+    type: input.type,
+    gateway: "ASAAS",
+    amount: input.amount,
+    dueDate: input.dueDate,
+    paymentDate: payment.paymentDate?.slice(0, 10) || undefined,
+    status: payment.status,
+    ...(payment.notes ? { notes: payment.notes } : {}),
+    billingType: input.billingType,
+    ...(input.ciclo ? { ciclo: input.ciclo } : {}),
+    ...(input.totalInstallments ? { totalInstallments: input.totalInstallments } : {}),
+    ...(payment.installmentNumber ? { installmentNumber: payment.installmentNumber } : {}),
+  };
 }
 
 export async function createAsaasPaymentLinkForSale(
@@ -466,7 +449,7 @@ export async function createAsaasPaymentLinkForSale(
   }
 
   await updateSale(saleId, {
-    payments: mapPaymentsForAsaasLink(sale.payments, paymentId, input),
+    payments: [buildAsaasPaymentUpdate(payment, input)],
   });
 
   return getSaleById(saleId);
