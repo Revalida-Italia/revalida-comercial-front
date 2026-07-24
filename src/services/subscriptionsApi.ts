@@ -15,28 +15,49 @@ export interface CreateAssinaturaInput {
   maxPagamentos: number;
 }
 
-interface CreateAssinaturaEnvelope {
-  success?: boolean;
-  data?: {
-    linkPagamento?: string;
-  };
+export interface AssinaturaInstallment {
+  id?: string;
+  asaasPaymentId?: string;
+  linkCobranca?: string;
+}
+
+export interface CreateAssinaturaResponse {
+  subscriptionId?: string;
+  clientId?: string;
+  asaasSubscriptionId?: string;
   linkPagamento?: string;
+  installments?: AssinaturaInstallment[];
 }
 
-function unwrapAssinaturaLink(payload: CreateAssinaturaEnvelope | { linkPagamento?: string }): string {
-  if ("data" in payload && payload.data?.linkPagamento) {
-    return payload.data.linkPagamento;
-  }
-
-  if ("linkPagamento" in payload && payload.linkPagamento) {
-    return payload.linkPagamento;
-  }
-
-  throw new Error("Resposta da API de assinatura sem linkPagamento.");
+export interface CreateAssinaturaResult {
+  linkPagamento: string;
+  subscriptionId?: string;
+  asaasSubscriptionId?: string;
+  installmentId?: string;
 }
 
-export async function createAssinatura(input: CreateAssinaturaInput): Promise<{ linkPagamento: string }> {
-  const payload = await apiRequest<CreateAssinaturaEnvelope | { linkPagamento?: string }>(
+function extractAssinaturaResult(payload: unknown): CreateAssinaturaResult {
+  const root = payload as CreateAssinaturaResponse & { data?: CreateAssinaturaResponse };
+  const data = root.data ?? root;
+  const firstInstallment = data.installments?.find((item) => item.linkCobranca?.trim());
+
+  const linkPagamento = data.linkPagamento?.trim()
+    ?? firstInstallment?.linkCobranca?.trim();
+
+  if (!linkPagamento) {
+    throw new Error("Resposta da API de assinatura sem link de cobrança.");
+  }
+
+  return {
+    linkPagamento,
+    subscriptionId: data.subscriptionId,
+    asaasSubscriptionId: data.asaasSubscriptionId,
+    installmentId: firstInstallment?.id,
+  };
+}
+
+export async function createAssinatura(input: CreateAssinaturaInput): Promise<CreateAssinaturaResult> {
+  const payload = await apiRequest<CreateAssinaturaResponse | { data?: CreateAssinaturaResponse }>(
     CORE_API_URL,
     "/api/assinaturas",
     {
@@ -45,5 +66,5 @@ export async function createAssinatura(input: CreateAssinaturaInput): Promise<{ 
     },
   );
 
-  return { linkPagamento: unwrapAssinaturaLink(payload) };
+  return extractAssinaturaResult(payload);
 }

@@ -518,7 +518,25 @@ export async function createAsaasPaymentLinkForSale(
     payments: [buildAsaasPaymentUpdate(payment, input, assinatura.linkPagamento)],
   });
 
-  return getSaleById(saleId);
+  const updatedSale = await getSaleById(saleId);
+  const updatedPayment = updatedSale.payments.find((item) => item.id === paymentId);
+
+  if (updatedPayment?.linkPagamento) {
+    return updatedSale;
+  }
+
+  return {
+    ...updatedSale,
+    payments: updatedSale.payments.map((item) => (
+      item.id === paymentId
+        ? {
+          ...item,
+          linkPagamento: assinatura.linkPagamento,
+          gateway: "ASAAS",
+        }
+        : item
+    )),
+  };
 }
 
 export async function fetchSalesDashboard(payload: SalesDashboardRequest): Promise<SalesDashboardResponse> {
