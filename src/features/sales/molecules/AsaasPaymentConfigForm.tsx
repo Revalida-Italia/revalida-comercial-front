@@ -117,7 +117,7 @@ const AsaasPaymentConfigForm = ({
             step="0.01"
             value={payment.amount}
             onChange={(event) => onUpdatePayment("amount", event.target.value)}
-            placeholder="0,00"
+            placeholder="Digite o valor"
           />
         </div>
 

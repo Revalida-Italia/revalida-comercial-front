@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Copy, ExternalLink, Link2 } from "lucide-react";
 import { toast } from "sonner";
@@ -11,12 +11,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   DEFAULT_SUBSCRIPTION_CYCLE,
   MAX_INSTALLMENTS,
-  PAYMENT_TYPE_LABELS,
 } from "@/features/new-sale/constants";
 import type { SalePaymentDraft } from "@/features/new-sale/types";
 import AsaasPaymentConfigForm from "@/features/sales/molecules/AsaasPaymentConfigForm";
@@ -77,27 +74,36 @@ const CreatePaymentLinkDialog = ({ sale, open, onOpenChange }: CreatePaymentLink
   });
 
   const saleData = saleQuery.data ?? sale;
-  const defaultPayment = useMemo(
-    () => getDefaultPaymentWithoutLink(saleData.payments ?? []),
-    [saleData.payments],
-  );
+  const targetPayment = getDefaultPaymentWithoutLink(saleData.payments ?? []);
 
-  const [paymentId, setPaymentId] = useState(defaultPayment?.id ?? "");
   const [paymentDraft, setPaymentDraft] = useState<SalePaymentDraft>(createEmptyAsaasPaymentDraft());
   const [generatedLink, setGeneratedLink] = useState<string | null>(null);
+  const initializedForOpenRef = useRef(false);
 
   useEffect(() => {
     if (!open) {
       setGeneratedLink(null);
+      initializedForOpenRef.current = false;
       return;
     }
 
-    const payment = getDefaultPaymentWithoutLink(saleData.payments ?? []);
-    setPaymentId(payment?.id ?? "");
-    setPaymentDraft(payment ? salePaymentToDraft(payment) : createEmptyAsaasPaymentDraft());
-  }, [open, saleData.payments]);
+    if (initializedForOpenRef.current || saleQuery.isLoading) {
+      return;
+    }
 
-  const selectedPayment = saleData.payments?.find((payment) => payment.id === paymentId);
+    const payment = getDefaultPaymentWithoutLink((saleQuery.data ?? sale).payments ?? []);
+    if (payment) {
+      const draft = salePaymentToDraft(payment);
+      setPaymentDraft({
+        ...draft,
+        gateway: "ASAAS",
+      });
+    } else {
+      setPaymentDraft(createEmptyAsaasPaymentDraft());
+    }
+
+    initializedForOpenRef.current = true;
+  }, [open, sale, saleQuery.data, saleQuery.isLoading]);
   const gatewayFees = gatewayFeesQuery.data ?? [];
 
   function getFeeRate(gateway: string, paymentType: string): number {
@@ -126,27 +132,21 @@ const CreatePaymentLinkDialog = ({ sale, open, onOpenChange }: CreatePaymentLink
     });
   }
 
-  function handlePaymentChange(nextPaymentId: string) {
-    setPaymentId(nextPaymentId);
-    const payment = saleData.payments?.find((item) => item.id === nextPaymentId);
-    setPaymentDraft(payment ? salePaymentToDraft(payment) : createEmptyAsaasPaymentDraft());
-  }
-
   const createLinkMutation = useMutation({
     mutationFn: async () => {
-      if (!paymentId) {
-        throw new Error("Selecione um pagamento.");
+      if (!targetPayment?.id) {
+        throw new Error("Venda sem pagamento disponível para gerar link.");
       }
 
       if (!isValidAsaasPaymentDraft(paymentDraft)) {
         throw new Error("Preencha todos os campos do pagamento Asaas.");
       }
 
-      if (selectedPayment?.linkPagamento) {
-        throw new Error("Este pagamento já possui link.");
+      if (targetPayment.linkPagamento) {
+        throw new Error("Esta venda já possui link de pagamento.");
       }
 
-      return createAsaasPaymentLinkForSale(sale.id, paymentId, {
+      return createAsaasPaymentLinkForSale(sale.id, targetPayment.id, {
         type: paymentDraft.paymentType,
         amount: Number(paymentDraft.amount),
         billingType: paymentDraft.billingType,
@@ -163,7 +163,7 @@ const CreatePaymentLinkDialog = ({ sale, open, onOpenChange }: CreatePaymentLink
       await queryClient.invalidateQueries({ queryKey: ["sales"] });
       await queryClient.invalidateQueries({ queryKey: ["sale", sale.id] });
 
-      const updatedPayment = updatedSale.payments.find((payment) => payment.id === paymentId);
+      const updatedPayment = updatedSale.payments.find((payment) => payment.id === targetPayment?.id);
       const link = updatedPayment?.linkPagamento ?? null;
       setGeneratedLink(link);
 
@@ -180,9 +180,9 @@ const CreatePaymentLinkDialog = ({ sale, open, onOpenChange }: CreatePaymentLink
 
   const feeRate = getFeeRate("ASAAS", paymentDraft.paymentType);
   const canSubmit = Boolean(
-    paymentId
+    targetPayment?.id
     && isValidAsaasPaymentDraft(paymentDraft)
-    && !selectedPayment?.linkPagamento,
+    && !targetPayment.linkPagamento,
   );
 
   return (
@@ -194,30 +194,11 @@ const CreatePaymentLinkDialog = ({ sale, open, onOpenChange }: CreatePaymentLink
             Criar link de pagamento
           </DialogTitle>
           <DialogDescription>
-            Configure o pagamento no Asaas. O gateway será atualizado e o link será gerado pela API.
+            Configure o pagamento no Asaas. Você pode personalizar valor, parcelas e forma de cobrança.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
-          {(saleData.payments?.length ?? 0) > 1 && (
-            <div className="space-y-1.5">
-              <Label>Pagamento da venda *</Label>
-              <Select value={paymentId} onValueChange={handlePaymentChange}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione o pagamento" />
-                </SelectTrigger>
-                <SelectContent>
-                  {(saleData.payments ?? []).map((payment) => (
-                    <SelectItem key={payment.id} value={payment.id}>
-                      {payment.gateway} · {PAYMENT_TYPE_LABELS[payment.type] ?? payment.type} · R$ {payment.amount}
-                      {payment.linkPagamento ? " (já tem link)" : ""}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-
           <AsaasPaymentConfigForm
             payment={paymentDraft}
             currency={saleData.currency || "BRL"}
