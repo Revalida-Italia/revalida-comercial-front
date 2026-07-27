@@ -48,6 +48,7 @@ export const EMPTY_PAYMENT: SalePaymentDraft = {
   paymentDate: "",
   status: "PENDING",
   notes: "",
+  generatePaymentLink: false,
 };
 
 export const SALE_STATUS_OPTIONS = [

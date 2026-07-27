@@ -1,4 +1,6 @@
 import { apiRequest } from "@/lib/http";
+import { createCobranca } from "@/services/chargesApi";
+import { createAssinatura } from "@/services/subscriptionsApi";
 
 const CORE_API_URL = import.meta.env.VITE_CORE_API_URL as string;
 
@@ -206,6 +208,7 @@ export interface UpdateSaleItem {
 }
 
 export interface UpdateSalePayment {
+  id?: string;
   type: string;
   gateway: string;
   amount: number;
@@ -217,6 +220,7 @@ export interface UpdateSalePayment {
   notes?: string;
   billingType?: BillingType;
   ciclo?: SubscriptionCycle;
+  linkPagamento?: string;
 }
 
 export interface UpdateSaleInput {
@@ -380,11 +384,17 @@ export async function listSales(options?: ListSalesOptions): Promise<SalesListRe
   throw new Error("Resposta de /sales fora do contrato esperado.");
 }
 
-export async function createSale(input: CreateSaleInput): Promise<void> {
-  await apiRequest<void>(CORE_API_URL, "/sales", {
-    method: "POST",
-    body: input,
-  });
+export async function createSale(input: CreateSaleInput): Promise<SaleRecord> {
+  const payload = await apiRequest<SaleByIdEnvelope | ApiEnvelope<SaleRecord> | SaleRecord>(
+    CORE_API_URL,
+    "/sales",
+    {
+      method: "POST",
+      body: input,
+    },
+  );
+
+  return unwrapSale(payload);
 }
 
 function unwrapSale(payload: SaleByIdEnvelope | ApiEnvelope<SaleRecord> | SaleRecord): SaleRecord {
@@ -454,32 +464,166 @@ export async function deleteSale(id: string): Promise<DeleteSaleResult> {
   return unwrapEnvelopeData(payload);
 }
 
-export type PaymentLinkProvider = "HOTMART";
+export type AsaasPaymentLinkClientInput = {
+  nome: string;
+  cpf: string;
+  telefone: string;
+  email?: string;
+};
 
-function mapPaymentsForHotmartLink(
-  payments: SalePayment[],
-  targetPaymentId: string,
-): UpdateSalePayment[] {
-  return payments.map((payment) => ({
-    type: payment.type,
-    gateway: payment.id === targetPaymentId ? "HOTMART" : payment.gateway,
-    amount: Number(payment.amount),
-    dueDate: payment.dueDate?.slice(0, 10),
+export type AsaasPaymentLinkInput = {
+  type: string;
+  amount: number;
+  billingType: BillingType;
+  dueDate: string;
+  totalInstallments?: number;
+  ciclo?: SubscriptionCycle;
+  client: AsaasPaymentLinkClientInput;
+};
+
+function buildAsaasPaymentUpdate(
+  payment: SalePayment,
+  input: AsaasPaymentLinkInput,
+  linkPagamento?: string,
+): UpdateSalePayment {
+  return {
+    id: payment.id,
+    type: input.type,
+    gateway: "ASAAS",
+    amount: input.amount,
+    dueDate: input.dueDate,
     paymentDate: payment.paymentDate?.slice(0, 10) || undefined,
     status: payment.status,
     ...(payment.notes ? { notes: payment.notes } : {}),
-    billingType: (payment.billingType as BillingType) || "PIX",
-    ...(payment.ciclo ? { ciclo: payment.ciclo as SubscriptionCycle } : {}),
-    ...(payment.totalInstallments ? { totalInstallments: payment.totalInstallments } : {}),
+    billingType: input.billingType,
+    ...(input.ciclo ? { ciclo: input.ciclo } : {}),
+    ...(input.totalInstallments ? { totalInstallments: input.totalInstallments } : {}),
     ...(payment.installmentNumber ? { installmentNumber: payment.installmentNumber } : {}),
-  }));
+    ...(linkPagamento ? { linkPagamento } : {}),
+  };
 }
 
-export async function createPaymentLinkForSale(
+function validatePaymentLinkClient(input: AsaasPaymentLinkInput) {
+  const nome = input.client.nome.trim();
+  const cpf = input.client.cpf.trim();
+  const telefone = input.client.telefone.trim();
+
+  if (!nome) {
+    throw new Error("Informe o nome do cliente.");
+  }
+
+  if (!cpf) {
+    throw new Error("Informe o CPF do cliente.");
+  }
+
+  if (!telefone) {
+    throw new Error("Informe o telefone do cliente.");
+  }
+
+  return { nome, cpf, telefone };
+}
+
+function getPaymentDescription(sale: SaleRecord): string {
+  return sale.items?.[0]?.product?.name?.trim() || "Venda";
+}
+
+function buildAssinaturaInput(
+  sale: SaleRecord,
+  input: AsaasPaymentLinkInput,
+): Parameters<typeof createAssinatura>[0] {
+  const client = validatePaymentLinkClient(input);
+
+  if (!input.ciclo) {
+    throw new Error("Ciclo da assinatura é obrigatório.");
+  }
+
+  return {
+    ...client,
+    descricao: getPaymentDescription(sale),
+    valor: input.amount,
+    ciclo: input.ciclo,
+    primeiraCobranca: input.dueDate,
+    billingType: input.billingType,
+    maxPagamentos: input.totalInstallments ?? 1,
+  };
+}
+
+function buildCobrancaInput(
+  sale: SaleRecord,
+  input: AsaasPaymentLinkInput,
+): Parameters<typeof createCobranca>[0] {
+  const client = validatePaymentLinkClient(input);
+  const isInstallment = input.type === "INSTALLMENT";
+  const numParcelas = isInstallment ? (input.totalInstallments ?? 1) : 1;
+  const valorTotal = isInstallment
+    ? input.amount * numParcelas
+    : input.amount;
+
+  return {
+    ...client,
+    descricao: getPaymentDescription(sale),
+    valorTotal,
+    numParcelas,
+    primeiraVencimento: input.dueDate,
+    billingType: input.billingType,
+  };
+}
+
+async function createAsaasLinkForPayment(
+  sale: SaleRecord,
+  input: AsaasPaymentLinkInput,
+): Promise<string> {
+  if (input.type === "SUBSCRIPTION") {
+    const assinatura = await createAssinatura(buildAssinaturaInput(sale, input));
+    return assinatura.linkPagamento;
+  }
+
+  if (["FULL_PAYMENT", "INSTALLMENT", "ENTRY"].includes(input.type)) {
+    const cobranca = await createCobranca(buildCobrancaInput(sale, input));
+    return cobranca.linkPagamento;
+  }
+
+  throw new Error("Forma de pagamento não suportada para geração de link.");
+}
+
+function buildClientUpdate(input: AsaasPaymentLinkInput): UpdateSaleClient {
+  return {
+    nameCiphertext: input.client.nome.trim(),
+    documentCiphertext: input.client.cpf.trim(),
+    telefone: input.client.telefone.trim(),
+    ...(input.client.email?.trim() ? { email: input.client.email.trim() } : {}),
+  };
+}
+
+function mergePaymentLinkIntoSale(
+  sale: SaleRecord,
+  paymentId: string,
+  linkPagamento: string,
+): SaleRecord {
+  return {
+    ...sale,
+    payments: sale.payments.map((item) => (
+      item.id === paymentId
+        ? {
+          ...item,
+          linkPagamento,
+          gateway: "ASAAS",
+        }
+        : item
+    )),
+  };
+}
+
+export type CreateAsaasPaymentLinkResult = {
+  sale: SaleRecord;
+  linkPagamento: string;
+};
+
+export async function createAsaasPaymentLinkForSale(
   saleId: string,
   paymentId: string,
-  hotmartFixedLink: string,
-): Promise<SaleRecord> {
+  input: AsaasPaymentLinkInput,
+): Promise<CreateAsaasPaymentLinkResult> {
   const sale = await getSaleById(saleId);
   const payment = sale.payments.find((item) => item.id === paymentId);
 
@@ -491,29 +635,19 @@ export async function createPaymentLinkForSale(
     throw new Error("Este pagamento já possui link.");
   }
 
-  if (!hotmartFixedLink.trim()) {
-    throw new Error("Produto da venda não possui link fixo da Hotmart cadastrado.");
-  }
+  const linkPagamento = await createAsaasLinkForPayment(sale, input);
 
   await updateSale(saleId, {
-    payments: mapPaymentsForHotmartLink(sale.payments, paymentId),
+    clients: [buildClientUpdate(input)],
+    payments: [buildAsaasPaymentUpdate(payment, input, linkPagamento)],
   });
 
   const updatedSale = await getSaleById(saleId);
-  const updatedPayment = updatedSale.payments.find((item) => item.id === paymentId);
 
-  if (!updatedPayment?.linkPagamento) {
-    return {
-      ...updatedSale,
-      payments: updatedSale.payments.map((item) => (
-        item.id === paymentId
-          ? { ...item, linkPagamento: hotmartFixedLink, gateway: "HOTMART" }
-          : item
-      )),
-    };
-  }
-
-  return updatedSale;
+  return {
+    linkPagamento,
+    sale: mergePaymentLinkIntoSale(updatedSale, paymentId, linkPagamento),
+  };
 }
 
 export async function fetchSalesDashboard(payload: SalesDashboardRequest): Promise<SalesDashboardResponse> {

@@ -5,7 +5,7 @@ import { formatCurrency, formatDate } from "@/shared/utils/format";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { CalendarDays, CircleDollarSign, Link2, MessageCircle, Pencil, Users, UserCircle } from "lucide-react";
+import { CalendarDays, CircleDollarSign, Eye, Link2, MessageCircle, Pencil, Users, UserCircle } from "lucide-react";
 import { hasRole, getProfile } from "@/lib/session";
 import { canMutateSales } from "@/services/usersApi";
 import {
@@ -19,6 +19,7 @@ import { saleHasPaymentLink } from "@/features/sales/utils/paymentLink";
 import CreatePaymentLinkDialog from "./CreatePaymentLinkDialog";
 import SendPaymentLinkDialog from "./SendPaymentLinkDialog";
 import SaleArchiveDeleteActions from "./SaleArchiveDeleteActions";
+import ViewPaymentLinkDialog from "./ViewPaymentLinkDialog";
 
 type SaleListCardProps = {
   sale: SaleRecord;
@@ -30,6 +31,7 @@ const SaleListCard = ({ sale }: SaleListCardProps) => {
   const canMutate = canMutateSales(profile?.role);
   const [whatsappOpen, setWhatsappOpen] = useState(false);
   const [createLinkOpen, setCreateLinkOpen] = useState(false);
+  const [viewLinkOpen, setViewLinkOpen] = useState(false);
   const customerNames = getSaleCustomerNames(sale);
   const contractValue = getSaleContractValue(sale);
   const commissionValue = getSaleCommissionValue(sale);
@@ -90,6 +92,19 @@ const SaleListCard = ({ sale }: SaleListCardProps) => {
                 {sale.status}
               </Badge>
               <div className="flex flex-wrap items-center justify-end gap-1.5">
+                {hasPaymentLink && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 gap-1 px-2 text-[11px]"
+                    title="Ver link de pagamento"
+                    onClick={() => setViewLinkOpen(true)}
+                  >
+                    <Eye className="h-3.5 w-3.5" />
+                    Ver link
+                  </Button>
+                )}
                 {canMutate && !hasPaymentLink && !isArchived && (
                   <Button
                     type="button"
@@ -97,11 +112,11 @@ const SaleListCard = ({ sale }: SaleListCardProps) => {
                     size="sm"
                     className="h-7 gap-1 px-2 text-[11px]"
                     disabled={!hasPayments}
-                    title={hasPayments ? "Aplicar link fixo Hotmart do produto" : "Venda sem pagamentos"}
+                    title={hasPayments ? "Criar link de pagamento no Asaas" : "Venda sem pagamentos"}
                     onClick={() => setCreateLinkOpen(true)}
                   >
                     <Link2 className="h-3.5 w-3.5" />
-                    Link Hotmart
+                    Link de pagamento
                   </Button>
                 )}
                 {canMutate && !isArchived && (
@@ -137,6 +152,7 @@ const SaleListCard = ({ sale }: SaleListCardProps) => {
       </Card>
 
       <CreatePaymentLinkDialog sale={sale} open={createLinkOpen} onOpenChange={setCreateLinkOpen} />
+      <ViewPaymentLinkDialog sale={sale} open={viewLinkOpen} onOpenChange={setViewLinkOpen} />
       <SendPaymentLinkDialog sale={sale} open={whatsappOpen} onOpenChange={setWhatsappOpen} />
     </>
   );
