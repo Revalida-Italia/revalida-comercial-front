@@ -364,11 +364,17 @@ export async function listSales(options?: ListSalesOptions): Promise<SalesListRe
   throw new Error("Resposta de /sales fora do contrato esperado.");
 }
 
-export async function createSale(input: CreateSaleInput): Promise<void> {
-  await apiRequest<void>(CORE_API_URL, "/sales", {
-    method: "POST",
-    body: input,
-  });
+export async function createSale(input: CreateSaleInput): Promise<SaleRecord> {
+  const payload = await apiRequest<SaleByIdEnvelope | ApiEnvelope<SaleRecord> | SaleRecord>(
+    CORE_API_URL,
+    "/sales",
+    {
+      method: "POST",
+      body: input,
+    },
+  );
+
+  return unwrapSale(payload);
 }
 
 function unwrapSale(payload: SaleByIdEnvelope | ApiEnvelope<SaleRecord> | SaleRecord): SaleRecord {

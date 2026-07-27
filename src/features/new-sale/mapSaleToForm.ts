@@ -45,6 +45,7 @@ export function mapSaleToForm(sale: SaleRecord): SaleFormState {
         paymentDate: toDateInput(payment.paymentDate),
         status: payment.status || "PENDING",
         notes: payment.notes || "",
+        generatePaymentLink: false,
       }))
       : [],
     currency: sale.currency || "BRL",

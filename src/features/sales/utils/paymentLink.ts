@@ -1,5 +1,5 @@
 import type { BillingType, SalePayment, SaleRecord, SubscriptionCycle } from "@/services/commercialApi";
-import { DEFAULT_SUBSCRIPTION_CYCLE } from "@/features/new-sale/constants";
+import { DEFAULT_SUBSCRIPTION_CYCLE, PAYMENT_TYPE_LABELS, BILLING_TYPE_LABELS } from "@/features/new-sale/constants";
 import type { SalePaymentDraft } from "@/features/new-sale/types";
 
 export function saleHasPaymentLink(sale: { payments?: { linkPagamento?: string | null }[] }): boolean {
@@ -69,4 +69,37 @@ export function saleClientToDraft(sale: SaleRecord): AssinaturaClientDraft {
 
 export function isValidAssinaturaClientDraft(client: AssinaturaClientDraft): boolean {
   return Boolean(client.nome.trim() && client.cpf.trim() && client.telefone.trim());
+}
+
+export type SalePaymentLinkItem = {
+  paymentId: string;
+  linkPagamento: string;
+  gateway: string;
+  type: string;
+  amount: string | number;
+  billingType?: string | null;
+};
+
+export function getSalePaymentLinks(sale: SaleRecord): SalePaymentLinkItem[] {
+  return (sale.payments ?? [])
+    .filter((payment): payment is SalePayment & { linkPagamento: string } => Boolean(payment.linkPagamento))
+    .map((payment) => ({
+      paymentId: payment.id,
+      linkPagamento: payment.linkPagamento!,
+      gateway: payment.gateway,
+      type: payment.type,
+      amount: payment.amount,
+      billingType: payment.billingType,
+    }));
+}
+
+export function formatPaymentLinkLabel(payment: SalePaymentLinkItem): string {
+  const typeLabel = PAYMENT_TYPE_LABELS[payment.type] ?? payment.type;
+  const billingLabel = payment.billingType
+    ? BILLING_TYPE_LABELS[payment.billingType] ?? payment.billingType
+    : null;
+
+  return [payment.gateway, typeLabel, billingLabel, `R$ ${payment.amount}`]
+    .filter(Boolean)
+    .join(" · ");
 }

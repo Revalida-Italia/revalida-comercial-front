@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Link2, MessageCircle, UserCircle } from "lucide-react";
+import { ArrowLeft, Eye, Link2, MessageCircle, UserCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Notranslate } from "@/components/Notranslate";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,6 +9,7 @@ import SaleDetailPreview from "@/features/sales/organisms/SaleDetailPreview";
 import EditableSection from "@/features/sales/organisms/EditableSection";
 import CreatePaymentLinkDialog from "@/features/sales/organisms/CreatePaymentLinkDialog";
 import SendPaymentLinkDialog from "@/features/sales/organisms/SendPaymentLinkDialog";
+import ViewPaymentLinkDialog from "@/features/sales/organisms/ViewPaymentLinkDialog";
 import { getSaleCommissionValue, getSaleContractValue, getSaleSellerInfo } from "@/features/sales/utils";
 import { saleHasPaymentLink } from "@/features/sales/utils/paymentLink";
 import { getSaleById } from "@/services/commercialApi";
@@ -18,6 +19,7 @@ const SaleDetails = () => {
   const { id } = useParams<{ id: string }>();
   const [whatsappOpen, setWhatsappOpen] = useState(false);
   const [createLinkOpen, setCreateLinkOpen] = useState(false);
+  const [viewLinkOpen, setViewLinkOpen] = useState(false);
 
   const saleQuery = useQuery({
     queryKey: ["sale", id],
@@ -57,6 +59,18 @@ const SaleDetails = () => {
           <p className="text-muted-foreground">ID: {sale.id}</p>
         </div>
         <div className="flex flex-wrap gap-2">
+          {hasPaymentLink && (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="gap-1.5"
+              onClick={() => setViewLinkOpen(true)}
+            >
+              <Eye className="h-4 w-4" />
+              Ver link
+            </Button>
+          )}
           {!hasPaymentLink && (
             <Button
               type="button"
@@ -144,6 +158,7 @@ const SaleDetails = () => {
       </Card>
 
       <CreatePaymentLinkDialog sale={sale} open={createLinkOpen} onOpenChange={setCreateLinkOpen} />
+      <ViewPaymentLinkDialog sale={sale} open={viewLinkOpen} onOpenChange={setViewLinkOpen} />
       <SendPaymentLinkDialog sale={sale} open={whatsappOpen} onOpenChange={setWhatsappOpen} />
     </div>
   );
