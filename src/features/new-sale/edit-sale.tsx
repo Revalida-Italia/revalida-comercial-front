@@ -293,19 +293,43 @@ const EditSaleFeature = () => {
     setSaleItemsDraft((prev) => prev.filter((_, i) => i !== index));
   }
 
-  function updatePayment(index: number, field: keyof SalePaymentDraft, value: string) {
+  function setPaymentGateway(index: number, gateway: string, generatePaymentLink: boolean) {
+    setPayments((prev) => prev.map((payment, i) => {
+      if (i !== index) {
+        return payment;
+      }
+
+      const gatewayChanged = payment.gateway !== gateway;
+
+      return {
+        ...payment,
+        gateway,
+        paymentType: gatewayChanged ? "" : payment.paymentType,
+        generatePaymentLink: gateway === "ASAAS" ? generatePaymentLink : false,
+      };
+    }));
+  }
+
+  function updatePayment(index: number, field: keyof SalePaymentDraft, value: string | boolean) {
     setPayments((prev) => prev.map((payment, i) => {
       if (i !== index) return payment;
-      if (field === "gateway") return { ...payment, gateway: value, paymentType: "" };
+      if (field === "gateway") {
+        const gateway = String(value);
+        return { ...payment, gateway, paymentType: "", generatePaymentLink: false };
+      }
+      if (field === "generatePaymentLink") {
+        return { ...payment, generatePaymentLink: Boolean(value) };
+      }
       if (field === "paymentType") {
+        const paymentType = String(value);
         return {
           ...payment,
-          paymentType: value,
+          paymentType,
           totalInstallments: payment.totalInstallments || "1",
-          ciclo: value === "SUBSCRIPTION" ? payment.ciclo || DEFAULT_SUBSCRIPTION_CYCLE : DEFAULT_SUBSCRIPTION_CYCLE,
+          ciclo: paymentType === "SUBSCRIPTION" ? payment.ciclo || DEFAULT_SUBSCRIPTION_CYCLE : DEFAULT_SUBSCRIPTION_CYCLE,
         };
       }
-      if (field === "totalInstallments") return { ...payment, totalInstallments: value };
+      if (field === "totalInstallments") return { ...payment, totalInstallments: String(value) };
       if (field === "inputCurrency") {
         return {
           ...payment,
@@ -458,6 +482,7 @@ const EditSaleFeature = () => {
               ratesLoading={exchangeRatesQuery.isLoading || exchangeRatesQuery.isFetching}
               ratesError={exchangeRatesQuery.isError}
               onUpdatePayment={updatePayment}
+              onSetPaymentGateway={setPaymentGateway}
               onAddPayment={addPayment}
               onRemovePayment={removePayment}
               onBack={() => setStep(2)}

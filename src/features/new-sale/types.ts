@@ -14,6 +14,7 @@ export type SalePaymentDraft = {
   paymentDate: string;
   status: string;
   notes: string;
+  generatePaymentLink: boolean;
 };
 
 export type SaleItemDraft = {

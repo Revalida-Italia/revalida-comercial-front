@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { createSale, listGatewayFees, type BillingType, type CreateSaleCustomer } from "@/services/commercialApi";
+import { createAsaasPaymentLinkForSale } from "@/services/commercialApi";
 import { listProducts } from "@/services/productsApi";
 import { buildCommissionBreakdown, normalizeCommissionRate } from "@/services/commissionApi";
 import { fetchExchangeRates } from "@/services/exchangeRatesApi";
@@ -201,8 +202,17 @@ const NewSaleFeature = () => {
 
   const hasExchangeRatesReady = !needsExchangeRates
     || Boolean(exchangeRatesQuery.data?.rates);
+  const wantsPaymentLink = useMemo(
+    () => payments.some((payment) => payment.gateway === "ASAAS" && payment.generatePaymentLink),
+    [payments],
+  );
 
-  const canGoStep4 = hasValidPayments && hasExchangeRatesReady && !(needsExchangeRates && exchangeRatesQuery.isError);
+  const paymentLinkClientOk = !wantsPaymentLink || Boolean(filledCustomers[0]?.document?.trim());
+
+  const canGoStep4 = hasValidPayments
+    && hasExchangeRatesReady
+    && !(needsExchangeRates && exchangeRatesQuery.isError)
+    && paymentLinkClientOk;
   const canSubmit = canGoStep2 && canGoStep3 && canGoStep4 && Boolean(profile?.sub);
 
   function updateCustomer(index: number, field: keyof CreateSaleCustomer, value: string) {
@@ -229,22 +239,49 @@ const NewSaleFeature = () => {
     setSaleItemsDraft((prev) => prev.filter((_, i) => i !== index));
   }
 
-  function updatePayment(index: number, field: keyof SalePaymentDraft, value: string) {
+  function setPaymentGateway(index: number, gateway: string, generatePaymentLink: boolean) {
+    setPayments((prev) => prev.map((payment, i) => {
+      if (i !== index) {
+        return payment;
+      }
+
+      const gatewayChanged = payment.gateway !== gateway;
+
+      return {
+        ...payment,
+        gateway,
+        paymentType: gatewayChanged ? "" : payment.paymentType,
+        generatePaymentLink: gateway === "ASAAS" ? generatePaymentLink : false,
+      };
+    }));
+  }
+
+  function updatePayment(index: number, field: keyof SalePaymentDraft, value: string | boolean) {
     setPayments((prev) => prev.map((payment, i) => {
       if (i !== index) return payment;
       if (field === "gateway") {
-        return { ...payment, gateway: value, paymentType: "" };
-      }
-      if (field === "paymentType") {
+        const gateway = String(value);
         return {
           ...payment,
-          paymentType: value,
+          gateway,
+          paymentType: "",
+          generatePaymentLink: gateway === "ASAAS" ? payment.generatePaymentLink : false,
+        };
+      }
+      if (field === "generatePaymentLink") {
+        return { ...payment, generatePaymentLink: Boolean(value) };
+      }
+      if (field === "paymentType") {
+        const paymentType = String(value);
+        return {
+          ...payment,
+          paymentType,
           totalInstallments: payment.totalInstallments || "1",
-          ciclo: value === "SUBSCRIPTION" ? payment.ciclo || DEFAULT_SUBSCRIPTION_CYCLE : DEFAULT_SUBSCRIPTION_CYCLE,
+          ciclo: paymentType === "SUBSCRIPTION" ? payment.ciclo || DEFAULT_SUBSCRIPTION_CYCLE : DEFAULT_SUBSCRIPTION_CYCLE,
         };
       }
       if (field === "totalInstallments") {
-        return { ...payment, totalInstallments: value };
+        return { ...payment, totalInstallments: String(value) };
       }
       if (field === "inputCurrency") {
         return {
@@ -262,6 +299,13 @@ const NewSaleFeature = () => {
 
   function removePayment(index: number) {
     setPayments((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  function getPayablePaymentDrafts() {
+    return payments.filter(
+      (payment): payment is SalePaymentDraft & { billingType: BillingType } =>
+        Number(payment.amount) > 0 && hasConfiguredBillingType(payment),
+    );
   }
 
   const mutation = useMutation({
@@ -285,8 +329,11 @@ const NewSaleFeature = () => {
       if (needsExchangeRates && !exchangeRatesQuery.data?.rates) {
         throw new Error("Cotação indisponível para converter o pagamento para BRL.");
       }
+      if (wantsPaymentLink && !filledCustomers[0]?.document?.trim()) {
+        throw new Error("Informe o CPF do cliente para gerar o link de pagamento.");
+      }
 
-      await createSale({
+      const createdSale = await createSale({
         sellerId: profile.sub,
         currency: "BRL",
         clients: filledCustomers.map((c) => ({
@@ -306,10 +353,44 @@ const NewSaleFeature = () => {
           ...(payment.totalInstallments ? { totalInstallments: payment.totalInstallments } : {}),
         })),
       });
+
+      const payableDrafts = getPayablePaymentDrafts();
+      const primaryClient = filledCustomers[0];
+
+      for (let index = 0; index < payableDrafts.length; index += 1) {
+        const draft = payableDrafts[index];
+        const createdPayment = createdSale.payments[index];
+
+        if (!draft.generatePaymentLink || draft.gateway !== "ASAAS" || !createdPayment?.id) {
+          continue;
+        }
+
+        await createAsaasPaymentLinkForSale(createdSale.id, createdPayment.id, {
+          type: draft.paymentType,
+          amount: Number(draft.amount),
+          billingType: draft.billingType,
+          dueDate: draft.dueDate,
+          client: {
+            nome: primaryClient.name,
+            cpf: primaryClient.document?.trim() ?? "",
+            telefone: primaryClient.telefone,
+            ...(primaryClient.email ? { email: primaryClient.email } : {}),
+          },
+          ...(draft.paymentType === "SUBSCRIPTION"
+            ? { ciclo: draft.ciclo || DEFAULT_SUBSCRIPTION_CYCLE }
+            : {}),
+          ...(["INSTALLMENT", "SUBSCRIPTION"].includes(draft.paymentType)
+            ? { totalInstallments: Number(draft.totalInstallments || "1") }
+            : {}),
+        });
+      }
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["sales"] });
-      toast.success("Venda criada com sucesso.");
+      const message = wantsPaymentLink
+        ? "Venda criada e link de pagamento gerado com sucesso."
+        : "Venda criada com sucesso.";
+      toast.success(message);
       setStep(1);
       setCustomers([{ ...EMPTY_CUSTOMER }]);
       setSaleItemsDraft([{ productId: "", releaseDate: "", notes: "" }]);
@@ -368,7 +449,9 @@ const NewSaleFeature = () => {
               rateDate={exchangeRatesQuery.data?.rateDate}
               ratesLoading={exchangeRatesQuery.isLoading || exchangeRatesQuery.isFetching}
               ratesError={exchangeRatesQuery.isError}
+              customerHasDocument={Boolean(filledCustomers[0]?.document?.trim())}
               onUpdatePayment={updatePayment}
+              onSetPaymentGateway={setPaymentGateway}
               onAddPayment={addPayment}
               onRemovePayment={removePayment}
               onBack={() => setStep(2)}

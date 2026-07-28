@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Link2, MessageCircle, UserCircle } from "lucide-react";
+import { ArrowLeft, Eye, Link2, MessageCircle, UserCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Notranslate } from "@/components/Notranslate";
@@ -12,6 +12,7 @@ import EditableSection from "@/features/sales/organisms/EditableSection";
 import CreatePaymentLinkDialog from "@/features/sales/organisms/CreatePaymentLinkDialog";
 import SendPaymentLinkDialog from "@/features/sales/organisms/SendPaymentLinkDialog";
 import SaleArchiveDeleteActions from "@/features/sales/organisms/SaleArchiveDeleteActions";
+import ViewPaymentLinkDialog from "@/features/sales/organisms/ViewPaymentLinkDialog";
 import { getSaleCommissionValue, getSaleContractValue, getSaleSellerInfo } from "@/features/sales/utils";
 import { saleHasPaymentLink } from "@/features/sales/utils/paymentLink";
 import { getProfile, hasRole } from "@/lib/session";
@@ -35,6 +36,7 @@ const SaleDetails = () => {
   const [whatsappOpen, setWhatsappOpen] = useState(false);
   const [createLinkOpen, setCreateLinkOpen] = useState(false);
   const [displayCurrency, setDisplayCurrency] = useState<DisplayCurrency>("BRL");
+  const [viewLinkOpen, setViewLinkOpen] = useState(false);
 
   const saleQuery = useQuery({
     queryKey: ["sale", id],
@@ -111,11 +113,24 @@ const SaleDetails = () => {
           <p className="text-muted-foreground">ID: {sale.id}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <DisplayCurrencySelect
             value={displayCurrency}
             onChange={setDisplayCurrency}
             label="Moeda de exibição"
           />
+          {hasPaymentLink && (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="gap-1.5"
+              onClick={() => setViewLinkOpen(true)}
+            >
+              <Eye className="h-4 w-4" />
+              Ver link
+            </Button>
+          )}
           {canMutate && !hasPaymentLink && !isArchived && (
             <Button
               type="button"
@@ -125,7 +140,7 @@ const SaleDetails = () => {
               onClick={() => setCreateLinkOpen(true)}
             >
               <Link2 className="h-4 w-4" />
-              Link Hotmart
+              Link de pagamento
             </Button>
           )}
           {canMutate && !isArchived && (
@@ -261,6 +276,7 @@ const SaleDetails = () => {
       </Card>
 
       <CreatePaymentLinkDialog sale={sale} open={createLinkOpen} onOpenChange={setCreateLinkOpen} />
+      <ViewPaymentLinkDialog sale={sale} open={viewLinkOpen} onOpenChange={setViewLinkOpen} />
       <SendPaymentLinkDialog sale={sale} open={whatsappOpen} onOpenChange={setWhatsappOpen} />
     </div>
   );
