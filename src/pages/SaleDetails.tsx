@@ -113,7 +113,6 @@ const SaleDetails = () => {
           <p className="text-muted-foreground">ID: {sale.id}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-        <div className="flex flex-wrap items-center gap-2">
           <DisplayCurrencySelect
             value={displayCurrency}
             onChange={setDisplayCurrency}
