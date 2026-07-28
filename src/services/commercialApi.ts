@@ -1,4 +1,5 @@
 import { apiRequest } from "@/lib/http";
+import type { DisplayCurrency, ExchangeRates } from "@/services/exchangeRatesApi";
 
 const CORE_API_URL = import.meta.env.VITE_CORE_API_URL as string;
 
@@ -95,6 +96,12 @@ export interface SaleRecord {
   sellerId: string;
   currency: string;
   contractValue?: string | number;
+  /** Snapshot: BRL por 1 USD no momento da criação da venda. */
+  usdRateBrl?: string | number | null;
+  /** Snapshot: BRL por 1 EUR no momento da criação da venda. */
+  eurRateBrl?: string | number | null;
+  exchangeRateDate?: string | null;
+  exchangeRateSource?: string | null;
   status: string;
   soldAt?: string | null;
   asaasSubscriptionId?: string | null;
@@ -126,6 +133,10 @@ export interface SalesSummary {
   commission?: number;
   commissionFuture?: number;
   totalFixedCostsThisMonth?: number;
+  displayCurrency?: DisplayCurrency;
+  rates?: ExchangeRates;
+  rateDate?: string;
+  ratesStale?: boolean;
 }
 
 export interface SalesListResponse {
@@ -268,6 +279,7 @@ export interface ListSalesOptions {
   searchTerm?: string;
   gateway?: string;
   status?: SaleStatus | string;
+  displayCurrency?: DisplayCurrency;
 }
 
 export type ArchiveSaleResult = {
@@ -292,6 +304,7 @@ export interface SalesDashboardRequest {
   sellerId?: string;
   gateway?: PaymentGateway;
   searchTerm?: string;
+  displayCurrency?: DisplayCurrency;
 }
 
 export interface SalesDashboardPeriod {
@@ -312,6 +325,10 @@ export interface SalesDashboardCareerPlanSummary {
 
 export interface SalesDashboardSummary {
   careerPlan: SalesDashboardCareerPlanSummary;
+  displayCurrency?: DisplayCurrency;
+  rates?: ExchangeRates;
+  rateDate?: string;
+  ratesStale?: boolean;
 }
 
 export interface SalesDashboardResponse {
@@ -363,6 +380,7 @@ export async function listSales(options?: ListSalesOptions): Promise<SalesListRe
   if (options?.searchTerm) params.set("searchTerm", options.searchTerm);
   if (options?.gateway) params.set("gateway", options.gateway);
   if (options?.status) params.set("status", options.status);
+  if (options?.displayCurrency) params.set("displayCurrency", options.displayCurrency);
 
   const queryString = params.toString();
   const url = `/sales${queryString ? `?${queryString}` : ""}`;
@@ -529,6 +547,10 @@ export async function fetchSalesDashboard(payload: SalesDashboardRequest): Promi
         minimumMonthlySales: Number(response.data?.summary?.careerPlan?.minimumMonthlySales ?? 0),
         monthlyGoalSales: Number(response.data?.summary?.careerPlan?.monthlyGoalSales ?? 0),
       },
+      displayCurrency: response.data?.summary?.displayCurrency,
+      rates: response.data?.summary?.rates,
+      rateDate: response.data?.summary?.rateDate,
+      ratesStale: response.data?.summary?.ratesStale,
     },
   };
 }

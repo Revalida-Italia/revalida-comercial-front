@@ -9,11 +9,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
 import { Skeleton } from "@/components/ui/skeleton";
+import DisplayCurrencySelect from "@/components/DisplayCurrencySelect";
 import { useToast } from "@/hooks/use-toast";
 import {
   fetchSalesDashboard,
   type SalesDashboardCareerPlanSummary,
 } from "@/services/commercialApi";
+import type { DisplayCurrency } from "@/services/exchangeRatesApi";
 import { listUsers, searchUsers, type UserSearchResult } from "@/services/usersApi";
 import UserSearchCard from "@/features/admin-career-plan/organisms/UserSearchCard";
 import { type SalesDashboardFeatureProps } from "./types";
@@ -391,13 +393,16 @@ const ChartPanel = ({
   );
 };
 
-const SalesDashboardFeature = ({ mode }: SalesDashboardFeatureProps) => {
+const SalesDashboardFeature = ({ mode, displayCurrency: displayCurrencyProp }: SalesDashboardFeatureProps) => {
   const isAdminMode = mode === "admin";
   const { toast } = useToast();
 
   const [sellerId, setSellerId] = useState("all");
   const [sellerSearchTerm, setSellerSearchTerm] = useState("");
   const [debouncedSellerSearchTerm] = useDebounce(sellerSearchTerm, 300);
+  const [internalDisplayCurrency, setInternalDisplayCurrency] = useState<DisplayCurrency>("BRL");
+  const displayCurrency = displayCurrencyProp ?? internalDisplayCurrency;
+  const showCurrencySelect = displayCurrencyProp == null;
 
   const usersQuery = useQuery({
     queryKey: ["dashboard-users", debouncedSellerSearchTerm],
@@ -433,10 +438,11 @@ const SalesDashboardFeature = ({ mode }: SalesDashboardFeatureProps) => {
   }, [isAdminMode, sellerId, sellerOptions]);
 
   const dashboardQuery = useQuery({
-    queryKey: ["sales-dashboard", mode, sellerId],
+    queryKey: ["sales-dashboard", mode, sellerId, displayCurrency],
     queryFn: () =>
       fetchSalesDashboard({
         sellerId: isAdminMode ? sellerId : undefined,
+        displayCurrency,
       }),
     enabled: !isAdminMode || sellerId !== "all",
   });
@@ -485,37 +491,53 @@ const SalesDashboardFeature = ({ mode }: SalesDashboardFeatureProps) => {
 
   return (
     <div className="space-y-2">
-      {isAdminMode && (
+      {(isAdminMode || showCurrencySelect) && (
         <div className="space-y-2">
-          <UserSearchCard
-            searchTerm={sellerSearchTerm}
-            onSearchTermChange={(value) => {
-              setSellerSearchTerm(value);
-              if (sellerId !== "all") {
-                setSellerId("all");
-              }
-            }}
-            searchResults={sellerOptions}
-            isSearching={usersQuery.isLoading || usersQuery.isFetching}
-            selectedUser={selectedSeller}
-            onSelectUser={(user) => {
-              setSellerId(user.externalId || user.id);
-              setSellerSearchTerm(user.email || user.name || "");
-            }}
-            hideResultsWhenSelected
-            selectedItemClassName="bg-[#0c3559] text-white hover:bg-[#0a2c4a]"
-          />
-
-          <div className="flex justify-end">
-            <Button
-              variant="outline"
-              onClick={() => {
-                setSellerSearchTerm("");
-                setSellerId("all");
+          {isAdminMode && (
+            <UserSearchCard
+              searchTerm={sellerSearchTerm}
+              onSearchTermChange={(value) => {
+                setSellerSearchTerm(value);
+                if (sellerId !== "all") {
+                  setSellerId("all");
+                }
               }}
-            >
-              Limpar seleção
-            </Button>
+              searchResults={sellerOptions}
+              isSearching={usersQuery.isLoading || usersQuery.isFetching}
+              selectedUser={selectedSeller}
+              onSelectUser={(user) => {
+                setSellerId(user.externalId || user.id);
+                setSellerSearchTerm(user.email || user.name || "");
+              }}
+              hideResultsWhenSelected
+              selectedItemClassName="bg-[#0c3559] text-white hover:bg-[#0a2c4a]"
+            />
+          )}
+
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            {showCurrencySelect ? (
+              <DisplayCurrencySelect
+                value={displayCurrency}
+                onChange={setInternalDisplayCurrency}
+                ratesStale={Boolean(dashboardQuery.data?.summary?.ratesStale)}
+                rateDate={dashboardQuery.data?.summary?.rateDate}
+                label="Moeda do balanço"
+              />
+            ) : (
+              <div />
+            )}
+
+            {isAdminMode && (
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setSellerSearchTerm("");
+                  setSellerId("all");
+                }}
+              >
+                Limpar seleção
+              </Button>
+            )}
           </div>
         </div>
       )}

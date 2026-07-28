@@ -1,11 +1,13 @@
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import DisplayCurrencySelect from "@/components/DisplayCurrencySelect";
 import SaleListCard from "@/features/sales/organisms/SaleListCard";
 import SalesFiltersCard from "@/features/sales/organisms/SalesFiltersCard";
 import SalesSummaryCards from "@/features/sales/organisms/SalesSummaryCards";
 import { hasRole } from "@/lib/session";
 import { listSales } from "@/services/commercialApi";
+import type { DisplayCurrency } from "@/services/exchangeRatesApi";
 import { useQuery } from "@tanstack/react-query";
 import { AlertCircle } from "lucide-react";
 import { useState } from "react";
@@ -16,14 +18,16 @@ const SalesList = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [gateway, setGateway] = useState("all");
   const [status, setStatus] = useState("all");
+  const [displayCurrency, setDisplayCurrency] = useState<DisplayCurrency>("BRL");
   const [debouncedSearchTerm] = useDebounce(searchTerm, 300);
 
   const salesQuery = useQuery({
-    queryKey: ["sales", debouncedSearchTerm, gateway, status],
+    queryKey: ["sales", debouncedSearchTerm, gateway, status, displayCurrency],
     queryFn: () => listSales({
       searchTerm: debouncedSearchTerm || undefined,
       gateway: gateway !== "all" ? gateway : undefined,
       status: status !== "all" ? status : undefined,
+      displayCurrency,
     }),
   });
 
@@ -44,12 +48,21 @@ const SalesList = () => {
 
   return (
     <div className="space-y-5">
-      <div className="rounded-xl border border-border/70 p-4">
-        <h1 className="text-3xl font-bold text-foreground">Vendas</h1>
-        <p className="text-muted-foreground">Histórico comercial com resumo financeiro e acesso ao detalhe completo.</p>
+      <div className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-border/70 p-4">
+        <div>
+          <h1 className="text-3xl font-bold text-foreground">Vendas</h1>
+          <p className="text-muted-foreground">Histórico comercial com resumo financeiro e acesso ao detalhe completo.</p>
+        </div>
+        <DisplayCurrencySelect
+          value={displayCurrency}
+          onChange={setDisplayCurrency}
+          ratesStale={Boolean(summary.ratesStale)}
+          rateDate={summary.rateDate}
+          label="Moeda do balanço"
+        />
       </div>
 
-      <SalesSummaryCards summary={summary} isAdmin={isAdmin} />
+      <SalesSummaryCards summary={summary} isAdmin={isAdmin} displayCurrency={displayCurrency} />
 
       <SalesFiltersCard
         searchTerm={searchTerm}
@@ -98,7 +111,7 @@ const SalesList = () => {
             <p className="text-sm text-muted-foreground">Nenhuma venda encontrada.</p>
           ) : (
             sales.map((sale) => (
-              <SaleListCard key={sale.id} sale={sale} />
+              <SaleListCard key={sale.id} sale={sale} displayCurrency={displayCurrency} />
             ))
           )}
         </CardContent>

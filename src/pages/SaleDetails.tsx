@@ -2,9 +2,11 @@ import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, Link2, MessageCircle, UserCircle } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Notranslate } from "@/components/Notranslate";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import DisplayCurrencySelect from "@/components/DisplayCurrencySelect";
 import SaleDetailPreview from "@/features/sales/organisms/SaleDetailPreview";
 import EditableSection from "@/features/sales/organisms/EditableSection";
 import CreatePaymentLinkDialog from "@/features/sales/organisms/CreatePaymentLinkDialog";
@@ -14,7 +16,14 @@ import { getSaleCommissionValue, getSaleContractValue, getSaleSellerInfo } from 
 import { saleHasPaymentLink } from "@/features/sales/utils/paymentLink";
 import { hasRole } from "@/lib/session";
 import { getSaleById } from "@/services/commercialApi";
+import type { DisplayCurrency } from "@/services/exchangeRatesApi";
 import { formatCurrency, formatDateTime } from "@/shared/utils/format";
+import {
+  convertBrlWithSaleRate,
+  formatSaleExchangeRateLabel,
+  getSaleRateBrl,
+  hasSaleExchangeRate,
+} from "@/shared/utils/exchange";
 
 const SaleDetails = () => {
   const { id } = useParams<{ id: string }>();
@@ -22,6 +31,7 @@ const SaleDetails = () => {
   const isAdmin = hasRole("ADMIN");
   const [whatsappOpen, setWhatsappOpen] = useState(false);
   const [createLinkOpen, setCreateLinkOpen] = useState(false);
+  const [displayCurrency, setDisplayCurrency] = useState<DisplayCurrency>("BRL");
 
   const saleQuery = useQuery({
     queryKey: ["sale", id],
@@ -54,14 +64,34 @@ const SaleDetails = () => {
     );
   }
 
+  const contractBrl = getSaleContractValue(sale);
+  const commissionBrl = getSaleCommissionValue(sale);
+  const exchangeRateLabel = formatSaleExchangeRateLabel(sale);
+  const hasSnapshot = hasSaleExchangeRate(sale, "USD") || hasSaleExchangeRate(sale, "EUR");
+
+  const contractDisplay = displayCurrency === "BRL" || !hasSaleExchangeRate(sale, displayCurrency)
+    ? formatCurrency(contractBrl, "BRL")
+    : formatCurrency(convertBrlWithSaleRate(contractBrl, displayCurrency, sale) ?? 0, displayCurrency);
+
+  const commissionDisplay = displayCurrency === "BRL" || !hasSaleExchangeRate(sale, displayCurrency)
+    ? formatCurrency(commissionBrl, "BRL")
+    : formatCurrency(convertBrlWithSaleRate(commissionBrl, displayCurrency, sale) ?? 0, displayCurrency);
+
+  const missingRateForDisplay = displayCurrency !== "BRL" && !hasSaleExchangeRate(sale, displayCurrency);
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-foreground">Detalhes da venda</h1>
           <p className="text-muted-foreground">ID: {sale.id}</p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <DisplayCurrencySelect
+            value={displayCurrency}
+            onChange={setDisplayCurrency}
+            label="Moeda de exibição"
+          />
           {!hasPaymentLink && !isArchived && (
             <Button
               type="button"
@@ -133,24 +163,78 @@ const SaleDetails = () => {
           <CardHeader className="pb-2">
             <CardTitle className="text-sm text-muted-foreground">Contrato total</CardTitle>
           </CardHeader>
-          <CardContent>
-            <p className="text-base font-semibold">{formatCurrency(getSaleContractValue(sale), sale.currency || "BRL")}</p>
+          <CardContent className="space-y-1">
+            <p className="text-base font-semibold">{contractDisplay}</p>
+            {displayCurrency !== "BRL" && !missingRateForDisplay && (
+              <p className="text-xs text-muted-foreground">{formatCurrency(contractBrl, "BRL")}</p>
+            )}
+            {missingRateForDisplay && (
+              <Badge variant="outline" className="border-amber-300 bg-amber-50 text-[10px] text-amber-900">
+                sem cotação
+              </Badge>
+            )}
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm text-muted-foreground">Comissao total</CardTitle>
           </CardHeader>
-          <CardContent>
-            <p className="text-base font-semibold text-primary">{formatCurrency(getSaleCommissionValue(sale), "BRL")}</p>
+          <CardContent className="space-y-1">
+            <p className="text-base font-semibold text-primary">{commissionDisplay}</p>
+            {displayCurrency !== "BRL" && !missingRateForDisplay && (
+              <p className="text-xs text-muted-foreground">{formatCurrency(commissionBrl, "BRL")}</p>
+            )}
+            {missingRateForDisplay && (
+              <Badge variant="outline" className="border-amber-300 bg-amber-50 text-[10px] text-amber-900">
+                sem cotação
+              </Badge>
+            )}
           </CardContent>
         </Card>
       </div>
 
       <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm">Cotação usada nesta venda</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {hasSnapshot && exchangeRateLabel ? (
+            <>
+              <p className="text-sm text-foreground">{exchangeRateLabel}</p>
+              <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+                {getSaleRateBrl(sale, "USD") != null && (
+                  <span>
+                    Contrato em USD:{" "}
+                    <strong className="text-foreground">
+                      {formatCurrency(convertBrlWithSaleRate(contractBrl, "USD", sale) ?? 0, "USD")}
+                    </strong>
+                  </span>
+                )}
+                {getSaleRateBrl(sale, "EUR") != null && (
+                  <span>
+                    Contrato em EUR:{" "}
+                    <strong className="text-foreground">
+                      {formatCurrency(convertBrlWithSaleRate(contractBrl, "EUR", sale) ?? 0, "EUR")}
+                    </strong>
+                  </span>
+                )}
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                Cotação do histórico corresponde ao dia de criação da venda {formatDateTime(sale.createdAt)}.
+              </p>
+            </>
+          ) : (
+            <Badge variant="outline" className="border-amber-300 bg-amber-50 text-[10px] text-amber-900">
+              sem cotação
+            </Badge>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
         <CardHeader>
           <CardTitle>Preview completo</CardTitle>
-          <p className="text-xs text-muted-foreground">Passe o mouse sobre cada seção para editar.</p>
+          <p className="text-xs text-muted-foreground">Passe o mouse sobre cada seção para editar. Valores do preview permanecem em BRL.</p>
         </CardHeader>
         <CardContent>
           <SaleDetailPreview sale={sale} />

@@ -71,12 +71,6 @@ function buildNavItems(input: {
         { label: "Calendario de Cobrancas", path: "/calendario-cobrancas" },
       ],
     });
-  } else {
-    items.push({
-      label: "Cobranças",
-      icon: CalendarDays,
-      path: "/calendario-cobrancas",
-    });
   }
 
   return items;

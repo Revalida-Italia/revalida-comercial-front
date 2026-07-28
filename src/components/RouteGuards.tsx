@@ -31,9 +31,9 @@ export const RequireCostsCalendarAccess = () => {
   return <Navigate to={homePathForRole(profile?.role)} replace />;
 };
 
-/** Calendário de cobranças: admin, gestor de custos e seller. */
+/** Calendário de cobranças: admin e gestor de custos. */
 export const RequireBillingCalendarAccess = () => {
-  if (hasRole("ADMIN") || hasRole("SELLER") || hasRole("FIXED_COSTS_MANAGER")) {
+  if (hasRole("ADMIN") || hasRole("FIXED_COSTS_MANAGER")) {
     return <Outlet />;
   }
 

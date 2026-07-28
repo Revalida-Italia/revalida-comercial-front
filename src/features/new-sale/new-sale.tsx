@@ -2,10 +2,11 @@ import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { createSale, listGatewayFees } from "@/services/commercialApi";
+import { createSale, listGatewayFees, type BillingType, type CreateSaleCustomer } from "@/services/commercialApi";
 import { listProducts } from "@/services/productsApi";
-import type { BillingType, CreateSaleCustomer, GatewayFees } from "@/services/commercialApi";
 import { buildCommissionBreakdown, normalizeCommissionRate } from "@/services/commissionApi";
+import { fetchExchangeRates } from "@/services/exchangeRatesApi";
+import { convertToBrl, isDisplayCurrency } from "@/shared/utils/exchange";
 import { getProfile } from "@/lib/session";
 import {
   DEFAULT_SUBSCRIPTION_CYCLE,
@@ -38,8 +39,12 @@ const NewSaleFeature = () => {
 
   const [saleItemsDraft, setSaleItemsDraft] = useState<SaleItemDraft[]>([{ productId: "", releaseDate: "", notes: "" }]);
 
-  const [currency, setCurrency] = useState("BRL");
   const [payments, setPayments] = useState<SalePaymentDraft[]>([{ ...EMPTY_PAYMENT }]);
+
+  const needsExchangeRates = useMemo(
+    () => payments.some((payment) => payment.inputCurrency !== "BRL"),
+    [payments],
+  );
 
   const productsQuery = useQuery({
     queryKey: ["products"],
@@ -50,6 +55,13 @@ const NewSaleFeature = () => {
     queryKey: ["gateway-fees"],
     queryFn: () => listGatewayFees(),
     enabled: step >= 3,
+  });
+
+  const exchangeRatesQuery = useQuery({
+    queryKey: ["exchange-rates"],
+    queryFn: fetchExchangeRates,
+    enabled: step >= 3 && needsExchangeRates,
+    staleTime: 5 * 60_000,
   });
 
   const selectedSaleItems = useMemo(
@@ -136,21 +148,31 @@ const NewSaleFeature = () => {
   const configuredPayments = useMemo(
     () => payments
       .filter((payment): payment is SalePaymentDraft & { billingType: BillingType } => Number(payment.amount) > 0 && hasConfiguredBillingType(payment))
-      .map((payment) => ({
-        gateway: payment.gateway,
-        paymentType: payment.paymentType,
-        amount: Number(payment.amount),
-        totalInstallments: ["INSTALLMENT", "SUBSCRIPTION"].includes(payment.paymentType)
-          ? Number(payment.totalInstallments || "1")
-          : undefined,
-        dueDate: payment.dueDate,
-        billingType: payment.billingType,
-        ciclo: payment.paymentType === "SUBSCRIPTION"
-          ? payment.ciclo || DEFAULT_SUBSCRIPTION_CYCLE
-          : undefined,
-        feeRate: getFeeRate(payment.gateway, payment.paymentType),
-      })),
-    [payments, gatewayFeesQuery.data],
+      .map((payment) => {
+        const rawAmount = Number(payment.amount);
+        const inputCurrency = payment.inputCurrency || "BRL";
+        const amountInBrl = inputCurrency === "BRL"
+          ? convertToBrl(rawAmount, "BRL")
+          : exchangeRatesQuery.data?.rates
+            ? convertToBrl(rawAmount, inputCurrency, exchangeRatesQuery.data.rates)
+            : 0;
+
+        return {
+          gateway: payment.gateway,
+          paymentType: payment.paymentType,
+          amount: amountInBrl,
+          totalInstallments: ["INSTALLMENT", "SUBSCRIPTION"].includes(payment.paymentType)
+            ? Number(payment.totalInstallments || "1")
+            : undefined,
+          dueDate: payment.dueDate,
+          billingType: payment.billingType,
+          ciclo: payment.paymentType === "SUBSCRIPTION"
+            ? payment.ciclo || DEFAULT_SUBSCRIPTION_CYCLE
+            : undefined,
+          feeRate: getFeeRate(payment.gateway, payment.paymentType),
+        };
+      }),
+    [payments, gatewayFeesQuery.data, exchangeRatesQuery.data?.rates],
   );
 
   const commissionBreakdown = useMemo(
@@ -177,7 +199,10 @@ const NewSaleFeature = () => {
       return true;
     });
 
-  const canGoStep4 = hasValidPayments;
+  const hasExchangeRatesReady = !needsExchangeRates
+    || Boolean(exchangeRatesQuery.data?.rates);
+
+  const canGoStep4 = hasValidPayments && hasExchangeRatesReady && !(needsExchangeRates && exchangeRatesQuery.isError);
   const canSubmit = canGoStep2 && canGoStep3 && canGoStep4 && Boolean(profile?.sub);
 
   function updateCustomer(index: number, field: keyof CreateSaleCustomer, value: string) {
@@ -221,6 +246,12 @@ const NewSaleFeature = () => {
       if (field === "totalInstallments") {
         return { ...payment, totalInstallments: value };
       }
+      if (field === "inputCurrency") {
+        return {
+          ...payment,
+          inputCurrency: isDisplayCurrency(value) ? value : "BRL",
+        };
+      }
       return { ...payment, [field]: value };
     }));
   }
@@ -251,9 +282,13 @@ const NewSaleFeature = () => {
         throw new Error("Nao e permitido selecionar o mesmo modulo mais de uma vez.");
       }
 
+      if (needsExchangeRates && !exchangeRatesQuery.data?.rates) {
+        throw new Error("Cotação indisponível para converter o pagamento para BRL.");
+      }
+
       await createSale({
         sellerId: profile.sub,
-        currency,
+        currency: "BRL",
         clients: filledCustomers.map((c) => ({
           nameCiphertext: c.name,
           documentCiphertext: c.document ?? "",
@@ -278,7 +313,6 @@ const NewSaleFeature = () => {
       setStep(1);
       setCustomers([{ ...EMPTY_CUSTOMER }]);
       setSaleItemsDraft([{ productId: "", releaseDate: "", notes: "" }]);
-      setCurrency("BRL");
       setPayments([{ ...EMPTY_PAYMENT }]);
     },
     onError: (error) => {
@@ -325,12 +359,15 @@ const NewSaleFeature = () => {
 
           {step === 3 && (
             <PaymentsStep
-              currency={currency}
               payments={payments}
               gatewayFees={gatewayFeesQuery.data ?? []}
               gatewayFeesLoading={gatewayFeesQuery.isLoading}
               canGoNext={canGoStep4}
-              onCurrencyChange={setCurrency}
+              exchangeRates={exchangeRatesQuery.data?.rates}
+              ratesStale={Boolean(exchangeRatesQuery.data?.stale)}
+              rateDate={exchangeRatesQuery.data?.rateDate}
+              ratesLoading={exchangeRatesQuery.isLoading || exchangeRatesQuery.isFetching}
+              ratesError={exchangeRatesQuery.isError}
               onUpdatePayment={updatePayment}
               onAddPayment={addPayment}
               onRemovePayment={removePayment}
@@ -348,7 +385,7 @@ const NewSaleFeature = () => {
               configuredPayments={configuredPayments}
               commissionBreakdown={commissionBreakdown}
               estimatedCommission={estimatedCommission}
-              currency={currency}
+              currency="BRL"
               careerPlanName={profile?.careerPlan?.name}
               canSubmit={canSubmit}
               isSaving={mutation.isPending}
@@ -372,7 +409,7 @@ const NewSaleFeature = () => {
                 configuredPayments={configuredPayments}
                 commissionBreakdown={commissionBreakdown}
                 estimatedCommission={estimatedCommission}
-                currency={currency}
+                currency="BRL"
                 careerPlanName={profile?.careerPlan?.name}
                 showCommissionRateWarning
                 getFeeRate={getFeeRate}
