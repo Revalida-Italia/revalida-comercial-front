@@ -1,9 +1,12 @@
 import type { BillingType, CreateSaleCustomer, SubscriptionCycle } from "@/services/commercialApi";
+import type { DisplayCurrency } from "@/services/exchangeRatesApi";
 
 export type SalePaymentDraft = {
   gateway: string;
   paymentType: string;
   amount: string;
+  /** Moeda em que o valor foi digitado; no envio sempre converte para BRL. */
+  inputCurrency: DisplayCurrency;
   totalInstallments: string;
   dueDate: string;
   billingType: BillingType | "";

@@ -1,10 +1,7 @@
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { useDebounce } from "use-debounce";
-import { AlertCircle } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import DisplayCurrencySelect from "@/components/DisplayCurrencySelect";
 import SaleListCard from "@/features/sales/organisms/SaleListCard";
 import SalesFiltersCard from "@/features/sales/organisms/SalesFiltersCard";
 import SalesSummaryCards from "@/features/sales/organisms/SalesSummaryCards";
@@ -12,6 +9,11 @@ import SalesDashboardFeature from "@/features/sales-dashboard/SalesDashboardFeat
 import { getProfile } from "@/lib/session";
 import { canViewAllSales } from "@/services/usersApi";
 import { listSales } from "@/services/commercialApi";
+import type { DisplayCurrency } from "@/services/exchangeRatesApi";
+import { useQuery } from "@tanstack/react-query";
+import { AlertCircle } from "lucide-react";
+import { useState } from "react";
+import { useDebounce } from "use-debounce";
 
 const Dashboard = () => {
   const profile = getProfile();
@@ -19,14 +21,16 @@ const Dashboard = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [gateway, setGateway] = useState("all");
   const [status, setStatus] = useState("all");
+  const [displayCurrency, setDisplayCurrency] = useState<DisplayCurrency>("BRL");
   const [debouncedSearchTerm] = useDebounce(searchTerm, 300);
 
   const salesQuery = useQuery({
-    queryKey: ["sales", debouncedSearchTerm, gateway, status],
+    queryKey: ["sales", debouncedSearchTerm, gateway, status, displayCurrency],
     queryFn: () => listSales({
       searchTerm: debouncedSearchTerm || undefined,
       gateway: gateway !== "all" ? gateway : undefined,
       status: status !== "all" ? status : undefined,
+      displayCurrency,
     }),
   });
 
@@ -44,17 +48,35 @@ const Dashboard = () => {
     comissionFuture: 0,
     totalFixedCostsThisMonth: 0,
   };
+  const ratesStale = Boolean(summary.ratesStale);
+  const rateDate = summary.rateDate;
 
   return (
     <div className="space-y-3">
-      <div>
-        <h1 className="text-xl font-bold tracking-tight">Dashboard comercial</h1>
-        <p className="mt-0.5 text-xs text-muted-foreground">
-          Resumo, metas e histórico de vendas.
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-bold tracking-tight">Dashboard comercial</h1>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            Resumo, metas e histórico de vendas.
+          </p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <DisplayCurrencySelect
+            value={displayCurrency}
+            onChange={setDisplayCurrency}
+            ratesStale={ratesStale}
+            rateDate={rateDate}
+            label="Moeda do balanço"
+          />
+        </div>
       </div>
 
-      <SalesSummaryCards summary={summary} isAdmin={canSeeGlobalSalesExtras} />
+      <SalesSummaryCards
+        summary={summary}
+        isAdmin={canSeeGlobalSalesExtras}
+        displayCurrency={displayCurrency}
+      />
 
       <div className="space-y-2">
         <SalesFiltersCard
@@ -69,7 +91,7 @@ const Dashboard = () => {
           showStatusFilter={canSeeGlobalSalesExtras}
         />
 
-        <SalesDashboardFeature mode="seller" />
+        <SalesDashboardFeature mode="seller" displayCurrency={displayCurrency} />
       </div>
 
       <Card>

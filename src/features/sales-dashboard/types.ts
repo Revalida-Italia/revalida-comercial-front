@@ -1,4 +1,5 @@
 import type { PaymentGateway, SalesDashboardPeriod } from "@/services/commercialApi";
+import type { DisplayCurrency } from "@/services/exchangeRatesApi";
 
 export type DashboardMode = "seller" | "admin";
 
@@ -17,6 +18,7 @@ export interface DashboardMetricOption {
 
 export interface SalesDashboardFeatureProps {
   mode: DashboardMode;
+  displayCurrency?: DisplayCurrency;
 }
 
 export interface SalesDashboardChartRow extends SalesDashboardPeriod {

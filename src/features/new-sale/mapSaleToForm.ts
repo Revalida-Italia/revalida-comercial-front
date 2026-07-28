@@ -38,6 +38,7 @@ export function mapSaleToForm(sale: SaleRecord): SaleFormState {
         gateway: payment.gateway,
         paymentType: payment.type,
         amount: String(payment.amount),
+        inputCurrency: "BRL" as const,
         totalInstallments: String(payment.totalInstallments ?? 1),
         dueDate: toDateInput(payment.dueDate),
         billingType: (payment.billingType as BillingType) || "",

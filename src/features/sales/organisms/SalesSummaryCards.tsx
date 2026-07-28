@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
 import type { SalesSummary } from "@/services/commercialApi";
+import type { DisplayCurrency } from "@/services/exchangeRatesApi";
 import { Card, CardContent } from "@/components/ui/card";
 import { formatCurrency } from "@/shared/utils/format";
 import { toNumberOrZero } from "@/shared/utils/number";
@@ -10,6 +11,7 @@ import { Calculator, CircleDollarSign, PieChart, ReceiptText, TrendingUp, Wallet
 type SalesSummaryCardsProps = {
   summary: SalesSummary;
   isAdmin?: boolean;
+  displayCurrency?: DisplayCurrency;
 };
 
 type MetricCardProps = {
@@ -46,7 +48,12 @@ const MetricCard = ({ label, value, icon: Icon, valueClass, iconWrapClass, detai
   </Card>
 );
 
-const SalesSummaryCards = ({ summary, isAdmin = false }: SalesSummaryCardsProps) => {
+const SalesSummaryCards = ({
+  summary,
+  isAdmin = false,
+  displayCurrency = "BRL",
+}: SalesSummaryCardsProps) => {
+  const currency = summary.displayCurrency ?? displayCurrency;
   const totalAmount = toNumberOrZero(summary.totalAmount);
   const commission = toNumberOrZero(summary.comission ?? summary.commission);
   const commissionFuture = toNumberOrZero(summary.comissionFuture ?? summary.commissionFuture);
@@ -71,11 +78,11 @@ const SalesSummaryCards = ({ summary, isAdmin = false }: SalesSummaryCardsProps)
         iconWrapClass="bg-primary/15 text-primary"
       />
 
-      <MetricCard label="Valor total do mês" value={formatCurrency(totalAmount, "BRL")} icon={Wallet} />
+      <MetricCard label="Valor total do mês" value={formatCurrency(totalAmount, currency)} icon={Wallet} />
 
       <MetricCard
         label="Comissao desse mês"
-        value={formatCurrency(commission, "BRL")}
+        value={formatCurrency(commission, currency)}
         icon={TrendingUp}
         valueClass="text-primary"
         iconWrapClass="bg-primary/15 text-primary"
@@ -83,7 +90,7 @@ const SalesSummaryCards = ({ summary, isAdmin = false }: SalesSummaryCardsProps)
 
       <MetricCard
         label="Comissao futura"
-        value={formatCurrency(commissionFuture, "BRL")}
+        value={formatCurrency(commissionFuture, currency)}
         icon={Calculator}
         valueClass="text-emerald-700"
         iconWrapClass="bg-emerald-500/15 text-emerald-700"
@@ -93,7 +100,7 @@ const SalesSummaryCards = ({ summary, isAdmin = false }: SalesSummaryCardsProps)
         <>
           <MetricCard
             label="Custos fixos do mês"
-            value={formatCurrency(fixedCosts, "BRL")}
+            value={formatCurrency(fixedCosts, currency)}
             icon={CircleDollarSign}
             valueClass="text-amber-700"
             iconWrapClass="bg-amber-500/15 text-amber-700"
@@ -101,7 +108,7 @@ const SalesSummaryCards = ({ summary, isAdmin = false }: SalesSummaryCardsProps)
 
           <MetricCard
             label="Margem"
-            value={formatCurrency(netMargin, "BRL")}
+            value={formatCurrency(netMargin, currency)}
             icon={PieChart}
             valueClass={isNetMarginPositive ? "text-emerald-700" : "text-destructive"}
             iconWrapClass={
@@ -114,7 +121,7 @@ const SalesSummaryCards = ({ summary, isAdmin = false }: SalesSummaryCardsProps)
                 </p>
                 <p
                   className="truncate"
-                  title={`Comissão ${formatCurrency(commission, "BRL")} · Fixos ${formatCurrency(fixedCosts, "BRL")}`}
+                  title={`Comissão ${formatCurrency(commission, currency)} · Fixos ${formatCurrency(fixedCosts, currency)}`}
                 >
                 </p>
               </div>

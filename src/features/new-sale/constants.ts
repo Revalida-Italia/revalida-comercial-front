@@ -41,6 +41,7 @@ export const EMPTY_PAYMENT: SalePaymentDraft = {
   gateway: "",
   paymentType: "",
   amount: "",
+  inputCurrency: "BRL",
   totalInstallments: "1",
   dueDate: "",
   billingType: "",
