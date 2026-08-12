@@ -339,6 +339,7 @@ const EditSaleFeature = () => {
 
       await updateSale(id, {
         status,
+        saveExchange: needsExchangeRates,
         ...(soldAt ? { soldAt } : {}),
         ...(isAdmin && sellerId && sellerId !== originalSellerId ? { sellerId } : {}),
         clients: filledCustomers.map((c) => ({

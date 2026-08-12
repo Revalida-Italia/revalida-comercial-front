@@ -193,6 +193,8 @@ export interface CreateSalePayment {
 export interface CreateSaleInput {
   sellerId?: string;
   currency?: string;
+  /** true só quando algum pagamento foi informado em moeda ≠ BRL */
+  saveExchange?: boolean;
   status?: string;
   clients: CreateSaleClient[];
   items: CreateSaleItem[];
@@ -234,6 +236,8 @@ export interface UpdateSaleInput {
   status?: SaleStatus;
   soldAt?: string;
   sellerId?: string;
+  /** true só quando algum pagamento foi informado em moeda ≠ BRL */
+  saveExchange?: boolean;
   clients?: UpdateSaleClient[];
   items?: UpdateSaleItem[];
   payments?: UpdateSalePayment[];
