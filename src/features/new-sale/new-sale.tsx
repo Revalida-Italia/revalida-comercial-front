@@ -336,6 +336,7 @@ const NewSaleFeature = () => {
       const createdSale = await createSale({
         sellerId: profile.sub,
         currency: "BRL",
+        saveExchange: needsExchangeRates,
         clients: filledCustomers.map((c) => ({
           nameCiphertext: c.name,
           documentCiphertext: c.document ?? "",
