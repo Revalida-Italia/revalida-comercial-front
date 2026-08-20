@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { ArrowLeft, Eye, Link2, MessageCircle, UserCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -18,6 +19,7 @@ import { saleHasPaymentLink } from "@/features/sales/utils/paymentLink";
 import { getProfile, hasRole } from "@/lib/session";
 import { canMutateSales } from "@/services/usersApi";
 import { getSaleById } from "@/services/commercialApi";
+import { updateSalePaymentStatus } from "@/services/billingCalendarApi";
 import type { DisplayCurrency } from "@/services/exchangeRatesApi";
 import { formatCurrency, formatDateTime } from "@/shared/utils/format";
 import {
@@ -30,19 +32,66 @@ import {
 const SaleDetails = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const profile = getProfile();
   const isAdmin = hasRole("ADMIN");
   const canMutate = canMutateSales(profile?.role);
+  const canManagePaymentStatus = isAdmin || hasRole("FIXED_COSTS_MANAGER");
   const [whatsappOpen, setWhatsappOpen] = useState(false);
   const [createLinkOpen, setCreateLinkOpen] = useState(false);
   const [displayCurrency, setDisplayCurrency] = useState<DisplayCurrency>("BRL");
   const [viewLinkOpen, setViewLinkOpen] = useState(false);
+  const [updatingPaymentId, setUpdatingPaymentId] = useState<string | null>(null);
 
   const saleQuery = useQuery({
     queryKey: ["sale", id],
     queryFn: () => getSaleById(id!),
     enabled: Boolean(id),
   });
+
+  const updatePaymentStatusMutation = useMutation({
+    mutationFn: updateSalePaymentStatus,
+    onSuccess: async (_data, variables) => {
+      toast.success(
+        variables.status === "PAID"
+          ? "Pagamento marcado como pago."
+          : "Pagamento marcado como pendente.",
+      );
+      await queryClient.invalidateQueries({ queryKey: ["sale", id] });
+      setUpdatingPaymentId(null);
+    },
+    onError: (error: unknown) => {
+      setUpdatingPaymentId(null);
+      toast.error(error instanceof Error ? error.message : "Erro ao atualizar status do pagamento.");
+    },
+  });
+
+  const handleMarkPaymentPaid = (paymentId: string) => {
+    if (!id) {
+      return;
+    }
+
+    setUpdatingPaymentId(paymentId);
+    updatePaymentStatusMutation.mutate({
+      saleId: id,
+      paymentId,
+      status: "PAID",
+      paymentDate: new Date().toISOString().slice(0, 10),
+    });
+  };
+
+  const handleMarkPaymentPending = (paymentId: string) => {
+    if (!id) {
+      return;
+    }
+
+    setUpdatingPaymentId(paymentId);
+    updatePaymentStatusMutation.mutate({
+      saleId: id,
+      paymentId,
+      status: "PENDING",
+    });
+  };
 
   const sale = saleQuery.data;
 
@@ -270,7 +319,14 @@ const SaleDetails = () => {
           )}
         </CardHeader>
         <CardContent>
-          <SaleDetailPreview sale={sale} readOnly={!canMutate || isArchived} />
+          <SaleDetailPreview
+            sale={sale}
+            readOnly={!canMutate || isArchived}
+            canManagePaymentStatus={canManagePaymentStatus}
+            updatingPaymentId={updatingPaymentId}
+            onMarkPaymentPaid={handleMarkPaymentPaid}
+            onMarkPaymentPending={handleMarkPaymentPending}
+          />
         </CardContent>
       </Card>
 

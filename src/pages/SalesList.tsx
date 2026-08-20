@@ -43,9 +43,14 @@ const SalesList = () => {
   const summary = salesQuery.data?.summary ?? {
     totalSales: 0,
     totalAmount: 0,
+    grossPaymentsThisMonth: 0,
+    totalGatewayFeesThisMonth: 0,
+    netReceivedThisMonth: 0,
     comission: 0,
     comissionFuture: 0,
     totalFixedCostsThisMonth: 0,
+    netMarginThisMonth: 0,
+    netMarginPercent: 0,
   };
 
   return (
@@ -66,6 +71,7 @@ const SalesList = () => {
 
       <SalesSummaryCards
         summary={summary}
+        sales={sales}
         isAdmin={canSeeGlobalSalesExtras}
         displayCurrency={displayCurrency}
       />
@@ -97,12 +103,13 @@ const SalesList = () => {
               {[1, 2, 3].map((i) => (
                 <Card key={i} className="border-border/70">
                   <CardContent className="p-3.5">
-                    <div className="grid gap-x-3 gap-y-2 md:grid-cols-[1.3fr_repeat(4,minmax(0,1fr))_auto] md:items-start">
+                        <div className="grid gap-x-3 gap-y-2 md:grid-cols-[1.25fr_repeat(5,minmax(0,1fr))_auto] md:items-start">
                       <div className="space-y-2">
                         <Skeleton className="h-4 w-3/4" />
                         <Skeleton className="h-3 w-1/2" />
                         <Skeleton className="h-3 w-2/3" />
                       </div>
+                      <Skeleton className="h-8 w-full" />
                       <Skeleton className="h-8 w-full" />
                       <Skeleton className="h-8 w-full" />
                       <Skeleton className="h-8 w-full" />

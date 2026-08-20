@@ -29,6 +29,9 @@ export type SaleSummaryItem = {
 };
 
 export type ConfiguredSalePayment = {
+  id?: string;
+  status?: string;
+  paymentDate?: string;
   gateway: string;
   paymentType: string;
   amount: number;

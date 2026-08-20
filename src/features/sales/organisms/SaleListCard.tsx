@@ -5,13 +5,15 @@ import { formatCurrency, formatDate } from "@/shared/utils/format";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { CalendarDays, CircleDollarSign, Eye, Link2, MessageCircle, Pencil, Users, UserCircle } from "lucide-react";
+import { CalendarDays, CircleDollarSign, Eye, HandCoins, Link2, MessageCircle, Pencil, Users, UserCircle } from "lucide-react";
 import { hasRole, getProfile } from "@/lib/session";
 import { canMutateSales } from "@/services/usersApi";
 import {
+  formatSalePaymentsProgress,
   getSaleCommissionValue,
   getSaleContractValue,
   getSaleCustomerNames,
+  getSaleNetContractValue,
   getSaleProductName,
   getSaleSellerInfo,
 } from "../utils";
@@ -34,17 +36,20 @@ const SaleListCard = ({ sale }: SaleListCardProps) => {
   const [viewLinkOpen, setViewLinkOpen] = useState(false);
   const customerNames = getSaleCustomerNames(sale);
   const contractValue = getSaleContractValue(sale);
+  const netContractValue = getSaleNetContractValue(sale);
   const commissionValue = getSaleCommissionValue(sale);
+  const paymentsProgress = formatSalePaymentsProgress(sale);
   const sellerInfo = getSaleSellerInfo(sale);
   const hasPaymentLink = saleHasPaymentLink(sale);
   const hasPayments = (sale.payments?.length ?? 0) > 0;
   const isArchived = String(sale.status).toUpperCase() === "ARCHIVED";
+  const subscriptionSummary = sale.financialSummary?.payments;
 
   return (
     <>
       <Card className="border-border/70 transition-all hover:border-primary/40 hover:shadow-md">
         <CardContent className="p-3.5">
-          <div className="grid gap-x-3 gap-y-2 md:grid-cols-[1.3fr_repeat(4,minmax(0,1fr))_auto] md:items-start">
+          <div className="grid gap-x-3 gap-y-2 md:grid-cols-[1.25fr_repeat(5,minmax(0,1fr))_auto] md:items-start">
             <Link
               to={`/vendas/${sale.id}`}
               className="space-y-0.5 min-w-0 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
@@ -59,7 +64,7 @@ const SaleListCard = ({ sale }: SaleListCardProps) => {
                 {sellerInfo}
               </p>
               <p className="text-[11px] text-muted-foreground flex items-center gap-1">
-                <CalendarDays className="h-3 w-3" />
+                <CalendarDays className="h-3.5 w-3.5" />
                 {formatDate(sale.soldAt)}
               </p>
             </Link>
@@ -68,10 +73,25 @@ const SaleListCard = ({ sale }: SaleListCardProps) => {
               <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Clientes</p>
               <p className="text-xs font-medium">{sale.clients?.length ?? 0}</p>
             </div>
+
             <div>
               <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Pagamentos</p>
-              <p className="text-xs font-medium">{sale.payments?.length ?? 0}</p>
+              <p className="text-xs font-medium">{paymentsProgress}</p>
+              {subscriptionSummary && subscriptionSummary.subscriptionTotal > 0 ? (
+                <p className="mt-0.5 text-[10px] leading-tight text-muted-foreground">
+                  {subscriptionSummary.subscriptionPending > 0
+                    ? `${subscriptionSummary.subscriptionPending} parcela(s) pendente(s)`
+                    : "Assinatura quitada"}
+                </p>
+              ) : subscriptionSummary && (subscriptionSummary.installmentTotal ?? 0) > 0 ? (
+                <p className="mt-0.5 text-[10px] leading-tight text-muted-foreground">
+                  {(subscriptionSummary.installmentPending ?? 0) > 0
+                    ? `${subscriptionSummary.installmentPending} parcela(s) pendente(s)`
+                    : "Parcelamento quitado"}
+                </p>
+              ) : null}
             </div>
+
             <div>
               <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Contrato</p>
               <p className="text-xs font-semibold flex items-center gap-1">
@@ -79,8 +99,17 @@ const SaleListCard = ({ sale }: SaleListCardProps) => {
                 {formatCurrency(contractValue, sale.currency || "BRL")}
               </p>
             </div>
+
             <div>
-              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Comissao total</p>
+              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Líquido contrato</p>
+              <p className="text-xs font-semibold flex items-center gap-1 text-sky-700" title="Bruto − taxas gateway (antes da comissão)">
+                <HandCoins className="h-3.5 w-3.5" />
+                {formatCurrency(netContractValue, sale.currency || "BRL")}
+              </p>
+            </div>
+
+            <div>
+              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Comissão total</p>
               <p className="text-xs font-semibold text-primary">{formatCurrency(commissionValue, "BRL")}</p>
             </div>
 

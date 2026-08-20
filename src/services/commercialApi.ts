@@ -93,6 +93,31 @@ export interface SalePayment {
   };
 }
 
+export interface SaleFinancialSummary {
+  grossContractValue: number;
+  totalGatewayFees: number;
+  totalCommission: number;
+  netContractValue: number;
+  payments: {
+    total: number;
+    paid: number;
+    pending: number;
+    subscriptionTotal: number;
+    subscriptionPaid: number;
+    subscriptionPending: number;
+    installmentTotal?: number;
+    installmentPaid?: number;
+    installmentPending?: number;
+  };
+  month: {
+    grossPayments: number;
+    gatewayFees: number;
+    commission: number;
+    netReceived: number;
+    eligiblePayments: number;
+  };
+}
+
 export interface SaleRecord {
   id: string;
   sellerId: string;
@@ -125,16 +150,22 @@ export interface SaleRecord {
   items: SaleItem[];
   payments: SalePayment[];
   commissions: SalePaymentCommission[];
+  financialSummary?: SaleFinancialSummary;
 }
 
 export interface SalesSummary {
   totalSales: number;
   totalAmount: number;
+  grossPaymentsThisMonth?: number;
+  totalGatewayFeesThisMonth?: number;
+  netReceivedThisMonth?: number;
   comission?: number;
   comissionFuture?: number;
   commission?: number;
   commissionFuture?: number;
   totalFixedCostsThisMonth?: number;
+  netMarginThisMonth?: number;
+  netMarginPercent?: number;
   displayCurrency?: DisplayCurrency;
   rates?: ExchangeRates;
   rateDate?: string;
