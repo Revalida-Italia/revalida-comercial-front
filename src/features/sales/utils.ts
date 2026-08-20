@@ -2,6 +2,55 @@ import type { SaleRecord } from "@/services/commercialApi";
 import { toNumberOrZero } from "@/shared/utils/number";
 import { getPaymentGrossValue, toPaymentGrossValueContext } from "@/shared/utils/payment";
 
+export const isPaymentEligibleForMonthBilling = (payment: SaleRecord["payments"][number]): boolean => {
+  if (!payment.commission) {
+    return false;
+  }
+
+  if (String(payment.type).toUpperCase() === "SUBSCRIPTION") {
+    return String(payment.status).toUpperCase() === "PAID";
+  }
+
+  return true;
+};
+
+export const getSaleNetContractValue = (sale: SaleRecord): number => {
+  if (sale.financialSummary?.netContractValue != null) {
+    return toNumberOrZero(sale.financialSummary.netContractValue);
+  }
+
+  const paymentContext = toPaymentGrossValueContext(sale.payments ?? []);
+  let gross = 0;
+  let fees = 0;
+
+  paymentContext.forEach((payment, index) => {
+    const source = sale.payments?.[index];
+    const paymentGross = getPaymentGrossValue(payment, paymentContext);
+    const feeRate = toNumberOrZero(source?.gatewayFeeRateSnapshot ?? source?.gatewayFee?.feeRate);
+    gross += paymentGross;
+    fees += paymentGross * (feeRate / 100);
+  });
+
+  return gross - fees;
+};
+
+export const formatSalePaymentsProgress = (sale: SaleRecord): string => {
+  const summary = sale.financialSummary?.payments;
+  if (!summary) {
+    return String(sale.payments?.length ?? 0);
+  }
+
+  if (summary.installmentTotal && summary.installmentTotal > 0) {
+    return `${summary.installmentPaid ?? 0}/${summary.installmentTotal} parcelas pagas`;
+  }
+
+  if (summary.subscriptionTotal > 0) {
+    return `${summary.subscriptionPaid}/${summary.subscriptionTotal} assin. pagas`;
+  }
+
+  return `${summary.paid} pagos · ${summary.pending} pendentes`;
+};
+
 export const getSaleContractValue = (sale: SaleRecord): number => {
   const contract = toNumberOrZero(sale.contractValue);
   if (contract > 0) {
