@@ -23,7 +23,8 @@ import {
 type SalesSummaryCardsProps = {
   summary: SalesSummary;
   sales?: SaleRecord[];
-  isAdmin?: boolean;
+  /** ADMIN ou FIXED_COSTS_MANAGER: mostra custos fixos e margem. */
+  canViewFixedCosts?: boolean;
   displayCurrency?: DisplayCurrency;
 };
 
@@ -118,7 +119,7 @@ const MetricCard = ({
 const SalesSummaryCards = ({
   summary,
   sales = [],
-  isAdmin = false,
+  canViewFixedCosts = false,
   displayCurrency = "BRL",
 }: SalesSummaryCardsProps) => {
   const [auditOpen, setAuditOpen] = useState(false);
@@ -209,7 +210,7 @@ const SalesSummaryCards = ({
           />
         </div>
 
-        <div className={cn("grid grid-cols-2 gap-2", isAdmin ? "sm:grid-cols-4" : "sm:grid-cols-2")}>
+        <div className={cn("grid grid-cols-2 gap-2", canViewFixedCosts ? "sm:grid-cols-4" : "sm:grid-cols-2")}>
           <MetricCard
             label="Comissão desse mês"
             value={formatCurrency(commission, currency)}
@@ -228,7 +229,7 @@ const SalesSummaryCards = ({
             tooltip="Comissão estimada de assinaturas ainda não pagas, com vencimento hoje ou no futuro, em vendas não arquivadas."
           />
 
-          {isAdmin && (
+          {canViewFixedCosts && (
             <>
               <MetricCard
                 label="Custos fixos do mês"

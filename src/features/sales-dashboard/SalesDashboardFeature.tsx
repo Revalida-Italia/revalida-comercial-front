@@ -9,16 +9,25 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import DisplayCurrencySelect from "@/components/DisplayCurrencySelect";
 import { useToast } from "@/hooks/use-toast";
+import { canViewFixedCosts } from "@/lib/session";
 import {
   fetchSalesDashboard,
+  type PaymentGateway,
   type SalesDashboardCareerPlanSummary,
 } from "@/services/commercialApi";
 import type { DisplayCurrency } from "@/services/exchangeRatesApi";
 import { listUsers, searchUsers, type UserSearchResult } from "@/services/usersApi";
 import UserSearchCard from "@/features/admin-career-plan/organisms/UserSearchCard";
-import { type SalesDashboardFeatureProps } from "./types";
+import { formatCurrency } from "@/shared/utils/format";
+import { toNumberOrZero } from "@/shared/utils/number";
+import {
+  DASHBOARD_METRICS,
+  type DashboardMetricKey,
+  type SalesDashboardFeatureProps,
+} from "./types";
 import { formatDashboardPeriod, toChartRows } from "./utils";
 
 const BAR_SLOT_PX = 56;
@@ -27,6 +36,18 @@ const chartConfig = {
   totalSales: {
     label: "Clientes",
     color: "#0c3559",
+  },
+  grossPayments: {
+    label: "Bruto",
+    color: "#6d28d9",
+  },
+  netReceived: {
+    label: "Líquido",
+    color: "#0369a1",
+  },
+  fixedCosts: {
+    label: "Custos fixos",
+    color: "#b45309",
   },
   minimumMonthlySales: {
     label: "Meta mínima",
@@ -98,9 +119,9 @@ const GoalLineBadge = ({ viewBox, value, bgColor, borderColor, textColor }: Goal
         x={badgeX + badgeWidth / 2}
         y={badgeY + 12.5}
         textAnchor="middle"
-        fontSize={11}
-        fontWeight={700}
         fill={textColor}
+        fontSize={10}
+        fontWeight={600}
       >
         {value}
       </text>
@@ -108,55 +129,16 @@ const GoalLineBadge = ({ viewBox, value, bgColor, borderColor, textColor }: Goal
   );
 };
 
-const SalesCountBadge = ({ x, y, width, value }: SalesCountBadgeProps) => {
-  if (x == null || y == null || width == null || value == null) {
+const SalesCountBadge = ({ x = 0, y = 0, width = 0, value }: SalesCountBadgeProps) => {
+  if (value == null || value === "") {
     return null;
   }
 
   const label = String(value);
-  const badgeRadius = Math.max(12, label.length > 2 ? 14 : 12);
-  const badgeCx = Math.max(badgeRadius, x - badgeRadius - 10);
-  const badgeCy = y + 12;
-
-  return (
-    <g>
-      <circle
-        cx={badgeCx}
-        cy={badgeCy}
-        r={badgeRadius}
-        fill="#e8f1f8"
-        stroke="#4c87b5"
-        strokeWidth={1}
-      />
-      <text
-        x={badgeCx}
-        y={badgeCy + 4}
-        textAnchor="middle"
-        fontSize={11}
-        fontWeight={700}
-        fill="#1d4d73"
-      >
-        {label}
-      </text>
-    </g>
-  );
-};
-
-const StarBadge = ({ x, y, width, value }: StarBadgeProps) => {
-  if (x == null || y == null || width == null || !value) {
-    return null;
-  }
-
-  const starCount = Math.min(Number(value), 5);
-  const starSize = 18;
-  const starSpacing = 2;
-  const padding = 4;
-  const badgeWidth = padding * 2 + starCount * starSize + (starCount - 1) * starSpacing;
-  const badgeHeight = 26;
-
-  const barCenterX = x + width / 2;
-  const badgeX = barCenterX - badgeWidth / 2;
-  const badgeY = Math.max(0, y - badgeHeight - 6);
+  const badgeWidth = Math.max(22, label.length * 7 + 10);
+  const badgeHeight = 18;
+  const badgeX = x + width / 2 - badgeWidth / 2;
+  const badgeY = y - badgeHeight - 4;
 
   return (
     <g>
@@ -165,8 +147,46 @@ const StarBadge = ({ x, y, width, value }: StarBadgeProps) => {
         y={badgeY}
         width={badgeWidth}
         height={badgeHeight}
-        rx={13}
-        fill="#fff7e1"
+        rx={9}
+        fill="#0c3559"
+      />
+      <text
+        x={badgeX + badgeWidth / 2}
+        y={badgeY + 12.5}
+        textAnchor="middle"
+        fill="#ffffff"
+        fontSize={10}
+        fontWeight={700}
+      >
+        {label}
+      </text>
+    </g>
+  );
+};
+
+const StarBadge = ({ x = 0, y = 0, width = 0, value }: StarBadgeProps) => {
+  const starCount = Number(value ?? 0);
+  if (!Number.isFinite(starCount) || starCount <= 0) {
+    return null;
+  }
+
+  const starSize = 10;
+  const starSpacing = 2;
+  const padding = 4;
+  const badgeWidth = padding * 2 + starCount * starSize + Math.max(0, starCount - 1) * starSpacing;
+  const badgeHeight = 18;
+  const badgeX = x + width / 2 - badgeWidth / 2;
+  const badgeY = y + 4;
+
+  return (
+    <g>
+      <rect
+        x={badgeX}
+        y={badgeY}
+        width={badgeWidth}
+        height={badgeHeight}
+        rx={9}
+        fill="#fff8e6"
         stroke="#d49300"
         strokeWidth={1}
       />
@@ -187,6 +207,19 @@ const StarBadge = ({ x, y, width, value }: StarBadgeProps) => {
   );
 };
 
+function getMetricValue(row: ReturnType<typeof toChartRows>[number], metric: DashboardMetricKey) {
+  if (metric === "totalSales") {
+    return toNumberOrZero(row.totalSales);
+  }
+  if (metric === "grossPayments") {
+    return toNumberOrZero(row.grossPayments);
+  }
+  if (metric === "netReceived") {
+    return toNumberOrZero(row.netReceived);
+  }
+  return toNumberOrZero(row.fixedCosts);
+}
+
 const ChartPanel = ({
   isLoading,
   isError,
@@ -199,6 +232,10 @@ const ChartPanel = ({
   monthlyGoalLineValue,
   latestPeriod,
   periodsCount,
+  activeMetric,
+  onMetricChange,
+  availableMetrics,
+  displayCurrency,
 }: {
   isLoading: boolean;
   isError: boolean;
@@ -211,7 +248,16 @@ const ChartPanel = ({
   monthlyGoalLineValue: number;
   latestPeriod?: string;
   periodsCount: number;
+  activeMetric: DashboardMetricKey;
+  onMetricChange: (metric: DashboardMetricKey) => void;
+  availableMetrics: typeof DASHBOARD_METRICS;
+  displayCurrency: DisplayCurrency;
 }) => {
+  const metricOption = availableMetrics.find((item) => item.key === activeMetric) ?? availableMetrics[0];
+  const isClientsMetric = activeMetric === "totalSales";
+  const isCurrencyMetric = Boolean(metricOption?.currency);
+  const metricColorVar = `var(--color-${activeMetric})`;
+
   if (isError) {
     return (
       <Alert variant="destructive">
@@ -242,8 +288,19 @@ const ChartPanel = ({
   if (periodsEmpty) {
     return (
       <Card>
-        <CardContent className="py-8 text-center text-sm text-muted-foreground">
-          Sem dados para os filtros selecionados.
+        <CardContent className="space-y-3 py-6">
+          <Tabs value={activeMetric} onValueChange={(value) => onMetricChange(value as DashboardMetricKey)}>
+            <TabsList className="h-auto flex-wrap justify-start gap-1">
+              {availableMetrics.map((metric) => (
+                <TabsTrigger key={metric.key} value={metric.key} className="text-xs">
+                  {metric.label}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </Tabs>
+          <p className="py-4 text-center text-sm text-muted-foreground">
+            Sem dados para os filtros selecionados.
+          </p>
         </CardContent>
       </Card>
     );
@@ -254,10 +311,10 @@ const ChartPanel = ({
       <CardHeader className="space-y-2 p-3 pb-2">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="min-w-0">
-            <CardTitle className="text-base text-[#0c3559]">Histórico de clientes vs metas</CardTitle>
-            <CardDescription className="text-xs">
-              Clientes no mês, metas e estrelas do período
-            </CardDescription>
+            <CardTitle className="text-base text-[#0c3559]">
+              {isClientsMetric ? "Histórico de clientes vs metas" : `Histórico — ${metricOption.label}`}
+            </CardTitle>
+            <CardDescription className="text-xs">{metricOption.description}</CardDescription>
           </div>
           <div className="flex flex-wrap items-center gap-1.5 text-xs">
             <Badge className="border-[#b4cde0] bg-[#e9f2f9] text-[#0c3559] hover:bg-[#e9f2f9]">
@@ -269,24 +326,43 @@ const ChartPanel = ({
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3 text-[11px] text-[#1d4d73]">
-          <span className="inline-flex items-center gap-1.5 font-medium">
-            <span className="inline-block h-2 w-2 rounded-full bg-[#0c3559]" />
-            Clientes
-          </span>
-          <span className="inline-flex items-center gap-1.5 font-medium">
-            <span className="inline-block h-0.5 w-5 border-t-2 border-dashed border-[#4c87b5]" />
-            Mínima
-          </span>
-          <span className="inline-flex items-center gap-1.5 font-medium">
-            <span className="inline-block h-0.5 w-5 border-t-2 border-dashed border-[#1a6ea8]" />
-            Meta
-          </span>
-          <span className="inline-flex items-center gap-1.5 font-medium">
-            <LucideStar className="h-3 w-3 fill-[#f5b301] text-[#d49300]" />
-            Estrelas
-          </span>
-        </div>
+        <Tabs value={activeMetric} onValueChange={(value) => onMetricChange(value as DashboardMetricKey)}>
+          <TabsList className="h-auto flex-wrap justify-start gap-1">
+            {availableMetrics.map((metric) => (
+              <TabsTrigger key={metric.key} value={metric.key} className="text-xs">
+                {metric.label}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
+
+        {isClientsMetric ? (
+          <div className="flex flex-wrap items-center gap-3 text-[11px] text-[#1d4d73]">
+            <span className="inline-flex items-center gap-1.5 font-medium">
+              <span className="inline-block h-2 w-2 rounded-full bg-[#0c3559]" />
+              Clientes
+            </span>
+            <span className="inline-flex items-center gap-1.5 font-medium">
+              <span className="inline-block h-0.5 w-5 border-t-2 border-dashed border-[#4c87b5]" />
+              Mínima
+            </span>
+            <span className="inline-flex items-center gap-1.5 font-medium">
+              <span className="inline-block h-0.5 w-5 border-t-2 border-dashed border-[#1a6ea8]" />
+              Meta
+            </span>
+            <span className="inline-flex items-center gap-1.5 font-medium">
+              <LucideStar className="h-3 w-3 fill-[#f5b301] text-[#d49300]" />
+              Estrelas
+            </span>
+          </div>
+        ) : (
+          <div className="flex flex-wrap items-center gap-3 text-[11px] text-[#1d4d73]">
+            <span className="inline-flex items-center gap-1.5 font-medium">
+              <span className="inline-block h-2 w-2 rounded-full" style={{ backgroundColor: chartConfig[activeMetric].color }} />
+              {metricOption.label}
+            </span>
+          </div>
+        )}
       </CardHeader>
 
       <CardContent className="p-3 pt-0">
@@ -308,19 +384,28 @@ const ChartPanel = ({
               <YAxis
                 tickLine={false}
                 axisLine={false}
-                width={40}
+                width={isCurrencyMetric ? 72 : 40}
                 domain={[0, chartMaxY]}
-                allowDecimals={false}
+                allowDecimals={isCurrencyMetric}
+                tickFormatter={(value) =>
+                  isCurrencyMetric
+                    ? formatCurrency(Number(value), displayCurrency).replace(/\s/g, "\u00a0")
+                    : String(value)
+                }
               />
               <ChartTooltip
                 content={
                   <ChartTooltipContent
-                    formatter={(value) => Number(value).toLocaleString("pt-BR")}
+                    formatter={(value) =>
+                      isCurrencyMetric
+                        ? formatCurrency(Number(value), displayCurrency)
+                        : Number(value).toLocaleString("pt-BR")
+                    }
                   />
                 }
               />
 
-              {minimumGoalLineValue > 0 && (
+              {isClientsMetric && minimumGoalLineValue > 0 && (
                 <ReferenceLine
                   y={minimumGoalLineValue}
                   stroke="var(--color-minimumMonthlySales)"
@@ -337,7 +422,7 @@ const ChartPanel = ({
                 />
               )}
 
-              {monthlyGoalLineValue > 0 && (
+              {isClientsMetric && monthlyGoalLineValue > 0 && (
                 <ReferenceLine
                   y={monthlyGoalLineValue}
                   stroke="var(--color-monthlyGoalSales)"
@@ -355,35 +440,39 @@ const ChartPanel = ({
               )}
 
               <Bar
-                dataKey="totalSales"
-                name="Clientes"
-                fill="var(--color-totalSales)"
+                dataKey={activeMetric}
+                name={metricOption.label}
+                fill={metricColorVar}
                 radius={[6, 6, 2, 2]}
                 barSize={28}
                 maxBarSize={30}
               >
-                <LabelList
-                  dataKey="totalSales"
-                  content={(props) => (
-                    <SalesCountBadge
-                      x={Number(props.x)}
-                      y={Number(props.y)}
-                      width={Number(props.width)}
-                      value={props.value}
+                {isClientsMetric ? (
+                  <>
+                    <LabelList
+                      dataKey="totalSales"
+                      content={(props) => (
+                        <SalesCountBadge
+                          x={Number(props.x)}
+                          y={Number(props.y)}
+                          width={Number(props.width)}
+                          value={props.value}
+                        />
+                      )}
                     />
-                  )}
-                />
-                <LabelList
-                  dataKey="starsInPeriod"
-                  content={(props) => (
-                    <StarBadge
-                      x={Number(props.x)}
-                      y={Number(props.y)}
-                      width={Number(props.width)}
-                      value={props.value}
+                    <LabelList
+                      dataKey="starsInPeriod"
+                      content={(props) => (
+                        <StarBadge
+                          x={Number(props.x)}
+                          y={Number(props.y)}
+                          width={Number(props.width)}
+                          value={props.value}
+                        />
+                      )}
                     />
-                  )}
-                />
+                  </>
+                ) : null}
               </Bar>
             </ComposedChart>
           </ChartContainer>
@@ -393,16 +482,35 @@ const ChartPanel = ({
   );
 };
 
-const SalesDashboardFeature = ({ mode, displayCurrency: displayCurrencyProp }: SalesDashboardFeatureProps) => {
+const SalesDashboardFeature = ({
+  mode,
+  displayCurrency: displayCurrencyProp,
+  searchTerm,
+  gateway,
+  status,
+}: SalesDashboardFeatureProps) => {
   const isAdminMode = mode === "admin";
+  const canSeeFixedCostsMetric = canViewFixedCosts();
   const { toast } = useToast();
 
   const [sellerId, setSellerId] = useState("all");
   const [sellerSearchTerm, setSellerSearchTerm] = useState("");
   const [debouncedSellerSearchTerm] = useDebounce(sellerSearchTerm, 300);
   const [internalDisplayCurrency, setInternalDisplayCurrency] = useState<DisplayCurrency>("BRL");
+  const [activeMetric, setActiveMetric] = useState<DashboardMetricKey>("totalSales");
   const displayCurrency = displayCurrencyProp ?? internalDisplayCurrency;
   const showCurrencySelect = displayCurrencyProp == null;
+
+  const availableMetrics = useMemo(
+    () => DASHBOARD_METRICS.filter((metric) => !metric.costsManagersOnly || canSeeFixedCostsMetric),
+    [canSeeFixedCostsMetric],
+  );
+
+  useEffect(() => {
+    if (!availableMetrics.some((metric) => metric.key === activeMetric)) {
+      setActiveMetric("totalSales");
+    }
+  }, [activeMetric, availableMetrics]);
 
   const usersQuery = useQuery({
     queryKey: ["dashboard-users", debouncedSellerSearchTerm],
@@ -437,12 +545,27 @@ const SalesDashboardFeature = ({ mode, displayCurrency: displayCurrencyProp }: S
     return sellerOptions.find((item) => (item.externalId || item.id) === sellerId) ?? null;
   }, [isAdminMode, sellerId, sellerOptions]);
 
+  const normalizedGateway = gateway && gateway !== "all" ? (gateway as PaymentGateway) : undefined;
+  const normalizedStatus = status && status !== "all" ? status : undefined;
+  const normalizedSearchTerm = searchTerm?.trim() || undefined;
+
   const dashboardQuery = useQuery({
-    queryKey: ["sales-dashboard", mode, sellerId, displayCurrency],
+    queryKey: [
+      "sales-dashboard",
+      mode,
+      sellerId,
+      displayCurrency,
+      normalizedSearchTerm ?? "",
+      normalizedGateway ?? "",
+      normalizedStatus ?? "",
+    ],
     queryFn: () =>
       fetchSalesDashboard({
         sellerId: isAdminMode ? sellerId : undefined,
         displayCurrency,
+        searchTerm: isAdminMode ? undefined : normalizedSearchTerm,
+        gateway: isAdminMode ? undefined : normalizedGateway,
+        status: isAdminMode ? undefined : normalizedStatus,
       }),
     enabled: !isAdminMode || sellerId !== "all",
   });
@@ -470,15 +593,24 @@ const SalesDashboardFeature = ({ mode, displayCurrency: displayCurrencyProp }: S
       return 5;
     }
 
-    const maxValue = Math.max(
-      ...chartRows.map((item) => item.totalSales),
-      careerPlanSummary.minimumMonthlySales,
-      careerPlanSummary.monthlyGoalSales,
-      1,
-    );
+    if (activeMetric === "totalSales") {
+      const maxValue = Math.max(
+        ...chartRows.map((item) => item.totalSales),
+        careerPlanSummary.minimumMonthlySales,
+        careerPlanSummary.monthlyGoalSales,
+        1,
+      );
+      return Math.ceil(maxValue * 1.35);
+    }
 
-    return Math.ceil(maxValue * 1.35);
-  }, [careerPlanSummary.minimumMonthlySales, careerPlanSummary.monthlyGoalSales, chartRows]);
+    const maxValue = Math.max(...chartRows.map((item) => getMetricValue(item, activeMetric)), 1);
+    return Math.ceil(maxValue * 1.2);
+  }, [
+    activeMetric,
+    careerPlanSummary.minimumMonthlySales,
+    careerPlanSummary.monthlyGoalSales,
+    chartRows,
+  ]);
 
   const chartMinWidthPx = useMemo(
     () => Math.max(chartRows.length * BAR_SLOT_PX, BAR_SLOT_PX),
@@ -578,6 +710,10 @@ const SalesDashboardFeature = ({ mode, displayCurrency: displayCurrencyProp }: S
           monthlyGoalLineValue={monthlyGoalLineValue}
           latestPeriod={latestPeriod}
           periodsCount={periods.length}
+          activeMetric={activeMetric}
+          onMetricChange={setActiveMetric}
+          availableMetrics={availableMetrics}
+          displayCurrency={displayCurrency}
         />
       )}
     </div>

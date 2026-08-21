@@ -342,6 +342,7 @@ export type PaymentGateway = "NUBANK" | "HOTMART" | "PAYPAL" | "ASAAS" | "WISE";
 export interface SalesDashboardRequest {
   sellerId?: string;
   gateway?: PaymentGateway;
+  status?: string;
   searchTerm?: string;
   displayCurrency?: DisplayCurrency;
 }
@@ -352,6 +353,12 @@ export interface SalesDashboardPeriod {
   totalSales: number;
   totalSalesAmount: number;
   totalComission: number;
+  /** Pagamentos elegíveis do período (assinaturas só se pagas). */
+  grossPayments?: number;
+  /** Bruto − taxa gateway − comissão. */
+  netReceived?: number;
+  /** Custos fixos do calendário no período (ADMIN / FIXED_COSTS_MANAGER). */
+  fixedCosts?: number;
   careerPlanInPeriod: string | null;
   starsInPeriod: number;
   minimumMonthlySales: number;
@@ -709,8 +716,20 @@ export async function fetchSalesDashboard(payload: SalesDashboardRequest): Promi
     body: payload,
   });
 
+  const periods = (response.data?.data ?? []).map((period) => ({
+    ...period,
+    totalSales: Number(period.totalSales ?? 0),
+    totalSalesAmount: Number(period.totalSalesAmount ?? 0),
+    totalComission: Number(period.totalComission ?? 0),
+    grossPayments: Number(period.grossPayments ?? 0),
+    netReceived: Number(period.netReceived ?? 0),
+    fixedCosts: Number(period.fixedCosts ?? 0),
+    starsInPeriod: Number(period.starsInPeriod ?? 0),
+    minimumMonthlySales: Number(period.minimumMonthlySales ?? 0),
+  }));
+
   return {
-    periods: response.data?.data ?? [],
+    periods,
     summary: {
       careerPlan: {
         minimumMonthlySales: Number(response.data?.summary?.careerPlan?.minimumMonthlySales ?? 0),

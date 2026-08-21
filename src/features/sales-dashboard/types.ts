@@ -5,20 +5,25 @@ export type DashboardMode = "seller" | "admin";
 
 export type DashboardMetricKey =
   | "totalSales"
-  | "totalSalesAmount"
-  | "totalComission"
-  | "starsInPeriod"
-  | "minimumMonthlySales";
+  | "grossPayments"
+  | "netReceived"
+  | "fixedCosts";
 
 export interface DashboardMetricOption {
   key: DashboardMetricKey;
   label: string;
   description: string;
+  currency?: boolean;
+  /** Visível para ADMIN e FIXED_COSTS_MANAGER. */
+  costsManagersOnly?: boolean;
 }
 
 export interface SalesDashboardFeatureProps {
   mode: DashboardMode;
   displayCurrency?: DisplayCurrency;
+  searchTerm?: string;
+  gateway?: string;
+  status?: string;
 }
 
 export interface SalesDashboardChartRow extends SalesDashboardPeriod {
@@ -30,27 +35,26 @@ export const PAYMENT_GATEWAYS: PaymentGateway[] = ["NUBANK", "HOTMART", "PAYPAL"
 export const DASHBOARD_METRICS: DashboardMetricOption[] = [
   {
     key: "totalSales",
-    label: "Quantidade de clientes",
-    description: "Total de clientes nas vendas do periodo",
+    label: "Clientes",
+    description: "Clientes no mês, metas e estrelas do período",
   },
   {
-    key: "totalSalesAmount",
-    label: "Valor vendido",
-    description: "Soma do valor de contrato no periodo",
+    key: "grossPayments",
+    label: "Bruto",
+    description: "Pagamentos elegíveis do mês (assinaturas só quando pagas)",
+    currency: true,
   },
   {
-    key: "totalComission",
-    label: "Comissao",
-    description: "Comissao total valida no periodo",
+    key: "netReceived",
+    label: "Líquido",
+    description: "Bruto − taxa gateway − comissão do vendedor",
+    currency: true,
   },
   {
-    key: "starsInPeriod",
-    label: "Estrelas",
-    description: "Estrelas conquistadas no periodo",
-  },
-  {
-    key: "minimumMonthlySales",
-    label: "Meta minima",
-    description: "Meta minima mensal do plano vigente",
+    key: "fixedCosts",
+    label: "Custos fixos",
+    description: "Total de custos fixos do calendário no mês",
+    currency: true,
+    costsManagersOnly: true,
   },
 ];

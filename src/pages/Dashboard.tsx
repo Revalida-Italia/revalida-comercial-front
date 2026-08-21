@@ -6,8 +6,7 @@ import SaleListCard from "@/features/sales/organisms/SaleListCard";
 import SalesFiltersCard from "@/features/sales/organisms/SalesFiltersCard";
 import SalesSummaryCards from "@/features/sales/organisms/SalesSummaryCards";
 import SalesDashboardFeature from "@/features/sales-dashboard/SalesDashboardFeature";
-import { getProfile } from "@/lib/session";
-import { canViewAllSales } from "@/services/usersApi";
+import { canViewGlobalSalesExtras } from "@/lib/session";
 import { listSales } from "@/services/commercialApi";
 import type { DisplayCurrency } from "@/services/exchangeRatesApi";
 import { useQuery } from "@tanstack/react-query";
@@ -16,8 +15,7 @@ import { useState } from "react";
 import { useDebounce } from "use-debounce";
 
 const Dashboard = () => {
-  const profile = getProfile();
-  const canSeeGlobalSalesExtras = canViewAllSales(profile?.role);
+  const canSeeGlobalSalesExtras = canViewGlobalSalesExtras();
   const [searchTerm, setSearchTerm] = useState("");
   const [gateway, setGateway] = useState("all");
   const [status, setStatus] = useState("all");
@@ -80,7 +78,7 @@ const Dashboard = () => {
       <SalesSummaryCards
         summary={summary}
         sales={sales}
-        isAdmin={canSeeGlobalSalesExtras}
+        canViewFixedCosts={canSeeGlobalSalesExtras}
         displayCurrency={displayCurrency}
       />
 
@@ -97,7 +95,13 @@ const Dashboard = () => {
           showStatusFilter={canSeeGlobalSalesExtras}
         />
 
-        <SalesDashboardFeature mode="seller" displayCurrency={displayCurrency} />
+        <SalesDashboardFeature
+          mode="seller"
+          displayCurrency={displayCurrency}
+          searchTerm={debouncedSearchTerm}
+          gateway={gateway !== "all" ? gateway : undefined}
+          status={status !== "all" ? status : undefined}
+        />
       </div>
 
       <Card>

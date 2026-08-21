@@ -125,3 +125,22 @@ export function hasRole(role: UserRole): boolean {
 
   return primary === target || roles.includes(target);
 }
+
+export function hasAnyRole(...roles: UserRole[]): boolean {
+  return roles.some((role) => hasRole(role));
+}
+
+/** ADMIN ou FIXED_COSTS_MANAGER: custos fixos, margem e visão global de vendas. */
+export function canViewFixedCosts(): boolean {
+  return hasAnyRole("ADMIN", "FIXED_COSTS_MANAGER");
+}
+
+/** Alias da mesma regra de negócio (visão global de vendas / extras financeiros). */
+export function canViewGlobalSalesExtras(): boolean {
+  return canViewFixedCosts();
+}
+
+/** Marcar pagamento como pago/pendente no calendário e detalhe da venda. */
+export function canManagePaymentStatus(): boolean {
+  return canViewFixedCosts();
+}

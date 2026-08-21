@@ -1,5 +1,12 @@
 import { Navigate, Outlet, useLocation } from "react-router-dom";
-import { getSession, hasRole, getProfile } from "@/lib/session";
+import {
+  canManagePaymentStatus,
+  canViewFixedCosts,
+  getSession,
+  hasAnyRole,
+  hasRole,
+  getProfile,
+} from "@/lib/session";
 import { homePathForRole } from "@/services/usersApi";
 
 export const RequireAuth = () => {
@@ -23,7 +30,7 @@ export const RequireAdmin = () => {
 };
 
 export const RequireCostsCalendarAccess = () => {
-  if (hasRole("ADMIN") || hasRole("FIXED_COSTS_MANAGER")) {
+  if (canViewFixedCosts()) {
     return <Outlet />;
   }
 
@@ -33,7 +40,7 @@ export const RequireCostsCalendarAccess = () => {
 
 /** Calendário de cobranças: admin e gestor de custos. */
 export const RequireBillingCalendarAccess = () => {
-  if (hasRole("ADMIN") || hasRole("FIXED_COSTS_MANAGER")) {
+  if (canManagePaymentStatus()) {
     return <Outlet />;
   }
 
@@ -43,7 +50,7 @@ export const RequireBillingCalendarAccess = () => {
 
 /** Dashboard + detalhe de vendas: seller, admin e gestor de custos. */
 export const RequireSalesViewAccess = () => {
-  if (hasRole("ADMIN") || hasRole("SELLER") || hasRole("FIXED_COSTS_MANAGER")) {
+  if (hasAnyRole("ADMIN", "SELLER", "FIXED_COSTS_MANAGER")) {
     return <Outlet />;
   }
 
@@ -51,9 +58,9 @@ export const RequireSalesViewAccess = () => {
   return <Navigate to={homePathForRole(profile?.role)} replace />;
 };
 
-/** Criar/editar vendas e templates: sem gestor de custos. */
+/** Criar/editar vendas e templates: admin e vendedor. */
 export const RequireSalesMutationAccess = () => {
-  if (hasRole("FIXED_COSTS_MANAGER") && !hasRole("ADMIN")) {
+  if (!hasAnyRole("ADMIN", "SELLER")) {
     return <Navigate to="/dashboard" replace />;
   }
 
@@ -62,7 +69,7 @@ export const RequireSalesMutationAccess = () => {
 
 /** @deprecated Prefer RequireSalesViewAccess / RequireSalesMutationAccess */
 export const RequireCommercialAccess = () => {
-  if (hasRole("FIXED_COSTS_MANAGER") && !hasRole("ADMIN")) {
+  if (!hasAnyRole("ADMIN", "SELLER")) {
     return <Navigate to="/dashboard" replace />;
   }
 

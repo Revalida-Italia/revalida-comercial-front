@@ -16,7 +16,7 @@ import SaleArchiveDeleteActions from "@/features/sales/organisms/SaleArchiveDele
 import ViewPaymentLinkDialog from "@/features/sales/organisms/ViewPaymentLinkDialog";
 import { getSaleCommissionValue, getSaleContractValue, getSaleSellerInfo } from "@/features/sales/utils";
 import { saleHasPaymentLink } from "@/features/sales/utils/paymentLink";
-import { getProfile, hasRole } from "@/lib/session";
+import { canManagePaymentStatus, getProfile, hasRole } from "@/lib/session";
 import { canMutateSales } from "@/services/usersApi";
 import { getSaleById } from "@/services/commercialApi";
 import { updateSalePaymentStatus } from "@/services/billingCalendarApi";
@@ -36,7 +36,7 @@ const SaleDetails = () => {
   const profile = getProfile();
   const isAdmin = hasRole("ADMIN");
   const canMutate = canMutateSales(profile?.role);
-  const canManagePaymentStatus = isAdmin || hasRole("FIXED_COSTS_MANAGER");
+  const canUpdatePaymentStatus = canManagePaymentStatus();
   const [whatsappOpen, setWhatsappOpen] = useState(false);
   const [createLinkOpen, setCreateLinkOpen] = useState(false);
   const [displayCurrency, setDisplayCurrency] = useState<DisplayCurrency>("BRL");
@@ -322,7 +322,7 @@ const SaleDetails = () => {
           <SaleDetailPreview
             sale={sale}
             readOnly={!canMutate || isArchived}
-            canManagePaymentStatus={canManagePaymentStatus}
+            canManagePaymentStatus={canUpdatePaymentStatus}
             updatingPaymentId={updatingPaymentId}
             onMarkPaymentPaid={handleMarkPaymentPaid}
             onMarkPaymentPending={handleMarkPaymentPending}
