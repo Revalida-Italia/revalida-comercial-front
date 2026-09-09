@@ -14,6 +14,7 @@ import CreatePaymentLinkDialog from "@/features/sales/organisms/CreatePaymentLin
 import SendPaymentLinkDialog from "@/features/sales/organisms/SendPaymentLinkDialog";
 import SaleArchiveDeleteActions from "@/features/sales/organisms/SaleArchiveDeleteActions";
 import ViewPaymentLinkDialog from "@/features/sales/organisms/ViewPaymentLinkDialog";
+import SaleContractsPanel from "@/features/contracts/SaleContractsPanel";
 import { getSaleCommissionValue, getSaleContractValue, getSaleSellerInfo } from "@/features/sales/utils";
 import { saleHasPaymentLink } from "@/features/sales/utils/paymentLink";
 import { canManagePaymentStatus, getProfile, hasRole } from "@/lib/session";
@@ -329,6 +330,8 @@ const SaleDetails = () => {
           />
         </CardContent>
       </Card>
+
+      {isAdmin && <SaleContractsPanel saleId={sale.id} />}
 
       <CreatePaymentLinkDialog sale={sale} open={createLinkOpen} onOpenChange={setCreateLinkOpen} />
       <ViewPaymentLinkDialog sale={sale} open={viewLinkOpen} onOpenChange={setViewLinkOpen} />

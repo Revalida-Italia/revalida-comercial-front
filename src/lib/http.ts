@@ -123,10 +123,23 @@ export async function apiRequest<T>(baseUrl: string, path: string, options: Requ
     let message = `Erro HTTP ${response.status}`;
 
     try {
-      const payload = (await response.json()) as { message?: string; error?: string };
-      const apiError = payload?.error ?? payload?.message;
-      if (apiError) {
-        message = apiError;
+      const payload = (await response.json()) as {
+        message?: string
+        error?: string
+        code?: string
+        errors?: Array<{ field?: string; message?: string; code?: string }>
+      }
+      if (payload?.errors?.length) {
+        const details = payload.errors
+          .map((item) => item.message || item.field || item.code)
+          .filter(Boolean)
+          .join('; ')
+        message = details || payload.code || payload.message || message
+      } else {
+        const apiError = payload?.message ?? payload?.code ?? payload?.error
+        if (apiError) {
+          message = apiError
+        }
       }
     } catch {
       // Intentionally ignore payload parse errors and keep default message.

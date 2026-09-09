@@ -284,9 +284,10 @@ const NewSaleFeature = () => {
         return { ...payment, totalInstallments: String(value) };
       }
       if (field === "inputCurrency") {
+        const currency = String(value);
         return {
           ...payment,
-          inputCurrency: isDisplayCurrency(value) ? value : "BRL",
+          inputCurrency: isDisplayCurrency(currency) ? currency : "BRL",
         };
       }
       return { ...payment, [field]: value };
@@ -337,6 +338,12 @@ const NewSaleFeature = () => {
         sellerId: profile.sub,
         currency: "BRL",
         saveExchange: needsExchangeRates,
+        ...(needsExchangeRates
+          ? {
+              originalCurrency: (payments.find((p) => p.inputCurrency && p.inputCurrency !== "BRL")
+                ?.inputCurrency ?? "USD") as "USD" | "EUR",
+            }
+          : {}),
         clients: filledCustomers.map((c) => ({
           nameCiphertext: c.name,
           documentCiphertext: c.document ?? "",

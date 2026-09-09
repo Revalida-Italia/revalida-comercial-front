@@ -7,7 +7,7 @@ import SalesFiltersCard from "@/features/sales/organisms/SalesFiltersCard";
 import SalesSummaryCards from "@/features/sales/organisms/SalesSummaryCards";
 import SalesDashboardFeature from "@/features/sales-dashboard/SalesDashboardFeature";
 import { canViewGlobalSalesExtras } from "@/lib/session";
-import { listSales } from "@/services/commercialApi";
+import { listSales, type ExchangeScope } from "@/services/commercialApi";
 import type { DisplayCurrency } from "@/services/exchangeRatesApi";
 import { useQuery } from "@tanstack/react-query";
 import { AlertCircle } from "lucide-react";
@@ -19,15 +19,17 @@ const Dashboard = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [gateway, setGateway] = useState("all");
   const [status, setStatus] = useState("all");
+  const [exchangeScope, setExchangeScope] = useState<ExchangeScope>("all");
   const [displayCurrency, setDisplayCurrency] = useState<DisplayCurrency>("BRL");
   const [debouncedSearchTerm] = useDebounce(searchTerm, 300);
 
   const salesQuery = useQuery({
-    queryKey: ["sales", debouncedSearchTerm, gateway, status, displayCurrency],
+    queryKey: ["sales", debouncedSearchTerm, gateway, status, exchangeScope, displayCurrency],
     queryFn: () => listSales({
       searchTerm: debouncedSearchTerm || undefined,
       gateway: gateway !== "all" ? gateway : undefined,
       status: status !== "all" ? status : undefined,
+      exchangeScope: exchangeScope !== "all" ? exchangeScope : undefined,
       displayCurrency,
     }),
   });
@@ -36,6 +38,7 @@ const Dashboard = () => {
     setSearchTerm("");
     setGateway("all");
     setStatus("all");
+    setExchangeScope("all");
   };
 
   const sales = salesQuery.data?.sales ?? [];
@@ -55,8 +58,8 @@ const Dashboard = () => {
   const rateDate = summary.rateDate;
 
   return (
-    <div className="space-y-3">
-      <div className="flex flex-wrap items-start justify-between gap-3">
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-border/60 bg-gradient-to-br from-background to-muted/30 px-4 py-4">
         <div>
           <h1 className="text-xl font-bold tracking-tight">Dashboard comercial</h1>
           <p className="mt-0.5 text-xs text-muted-foreground">
@@ -87,9 +90,11 @@ const Dashboard = () => {
           searchTerm={searchTerm}
           gateway={gateway}
           status={status}
+          exchangeScope={exchangeScope}
           onSearchTermChange={setSearchTerm}
           onGatewayChange={setGateway}
           onStatusChange={setStatus}
+          onExchangeScopeChange={(value) => setExchangeScope(value as ExchangeScope)}
           onClearFilters={handleClearFilters}
           compact
           showStatusFilter={canSeeGlobalSalesExtras}
@@ -101,6 +106,7 @@ const Dashboard = () => {
           searchTerm={debouncedSearchTerm}
           gateway={gateway !== "all" ? gateway : undefined}
           status={status !== "all" ? status : undefined}
+          exchangeScope={exchangeScope !== "all" ? exchangeScope : undefined}
         />
       </div>
 

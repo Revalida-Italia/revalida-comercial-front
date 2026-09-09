@@ -202,6 +202,8 @@ const NetReceivedMonthAuditDialog = ({
       value: toNumberOrZero(summary.comission ?? summary.commission),
       accent: "text-primary",
     },
+    { label: "Entradas manuais", value: toNumberOrZero(summary.cashManualInThisMonth), accent: "text-emerald-700" },
+    { label: "Estornos", value: toNumberOrZero(summary.cashRefundThisMonth), accent: "text-rose-700" },
     { label: "Recebido líquido", value: toNumberOrZero(summary.netReceivedThisMonth), accent: "text-sky-700" },
   ];
 
@@ -214,10 +216,11 @@ const NetReceivedMonthAuditDialog = ({
           </DialogTitle>
           <DialogDescription className="text-xs leading-relaxed">
             Uma linha por venda: bruto − taxa gateway − comissão = líquido. Assinaturas só entram quando pagas.
+            Entradas manuais e estornos pagos no mês também entram no recebido líquido.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid shrink-0 grid-cols-2 gap-2 border-b px-4 py-3 sm:grid-cols-4 sm:gap-3 sm:px-5">
+        <div className="grid shrink-0 grid-cols-2 gap-2 border-b px-4 py-3 sm:grid-cols-3 lg:grid-cols-6 sm:gap-3 sm:px-5">
           {statCards.map((item) => (
             <div
               key={item.label}

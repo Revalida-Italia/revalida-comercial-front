@@ -12,6 +12,7 @@ import {
   CalendarDays,
   Check,
   ChevronDown,
+  Landmark,
   LayoutDashboard,
   LogOut,
   MessageSquare,
@@ -46,7 +47,8 @@ function buildNavItems(input: {
   if (input.isFixedCostsManager) {
     return [
       { label: "Dashboard", icon: LayoutDashboard, path: "/dashboard" },
-      { label: "Calendário de Custos", icon: CalendarDays, path: "/admin/costs-calendar" },
+      { label: "Finanças", icon: Landmark, path: "/admin/financas" },
+      { label: "Calendário de Movimentações", icon: CalendarDays, path: "/admin/costs-calendar" },
       { label: "Cobranças", icon: CalendarDays, path: "/calendario-cobrancas" },
     ];
   }
@@ -67,7 +69,8 @@ function buildNavItems(input: {
         { label: "Usuarios", path: "/admin/users" },
         { label: "Editar Taxas", path: "/admin/payment-gateways" },
         { label: "Produtos", path: "/admin/products" },
-        { label: "Calendario de Custos", path: "/admin/costs-calendar" },
+        { label: "Finanças", path: "/admin/financas" },
+        { label: "Calendário de Movimentações", path: "/admin/costs-calendar" },
         { label: "Calendario de Cobrancas", path: "/calendario-cobrancas" },
       ],
     });

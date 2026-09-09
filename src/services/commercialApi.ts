@@ -122,6 +122,8 @@ export interface SaleRecord {
   id: string;
   sellerId: string;
   currency: string;
+  /** Moeda digitada na venda quando houve FX (null = histórico sem classificação). */
+  originalCurrency?: DisplayCurrency | string | null;
   contractValue?: string | number;
   /** Snapshot: BRL por 1 USD no momento da criação da venda. */
   usdRateBrl?: string | number | null;
@@ -159,6 +161,8 @@ export interface SalesSummary {
   grossPaymentsThisMonth?: number;
   totalGatewayFeesThisMonth?: number;
   netReceivedThisMonth?: number;
+  cashManualInThisMonth?: number;
+  cashRefundThisMonth?: number;
   comission?: number;
   comissionFuture?: number;
   commission?: number;
@@ -228,6 +232,8 @@ export interface CreateSaleInput {
   currency?: string;
   /** true só quando algum pagamento foi informado em moeda ≠ BRL */
   saveExchange?: boolean;
+  /** Moeda digitada (USD/EUR) quando saveExchange */
+  originalCurrency?: DisplayCurrency;
   status?: string;
   clients: CreateSaleClient[];
   items: CreateSaleItem[];
@@ -273,6 +279,7 @@ export interface UpdateSaleInput {
   sellerId?: string;
   /** true só quando algum pagamento foi informado em moeda ≠ BRL */
   saveExchange?: boolean;
+  originalCurrency?: DisplayCurrency;
   clients?: UpdateSaleClient[];
   items?: UpdateSaleItem[];
   payments?: UpdateSalePayment[];
@@ -314,11 +321,15 @@ export async function updateGatewayFees(input: GatewayFees[]): Promise<void> {
   });
 }
 
+export type ExchangeScope = "all" | "with_fx" | "without_fx";
+
 export interface ListSalesOptions {
   searchTerm?: string;
   gateway?: string;
   status?: SaleStatus | string;
   displayCurrency?: DisplayCurrency;
+  exchangeScope?: ExchangeScope;
+  originalCurrency?: DisplayCurrency;
 }
 
 export type ArchiveSaleResult = {
@@ -345,6 +356,8 @@ export interface SalesDashboardRequest {
   status?: string;
   searchTerm?: string;
   displayCurrency?: DisplayCurrency;
+  exchangeScope?: ExchangeScope;
+  originalCurrency?: DisplayCurrency;
 }
 
 export interface SalesDashboardPeriod {
@@ -427,6 +440,10 @@ export async function listSales(options?: ListSalesOptions): Promise<SalesListRe
   if (options?.gateway) params.set("gateway", options.gateway);
   if (options?.status) params.set("status", options.status);
   if (options?.displayCurrency) params.set("displayCurrency", options.displayCurrency);
+  if (options?.exchangeScope && options.exchangeScope !== "all") {
+    params.set("exchangeScope", options.exchangeScope);
+  }
+  if (options?.originalCurrency) params.set("originalCurrency", options.originalCurrency);
 
   const queryString = params.toString();
   const url = `/sales${queryString ? `?${queryString}` : ""}`;

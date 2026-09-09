@@ -8,6 +8,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import type { CostsCalendarEvent } from "@/features/costs-calendar/types";
+import { formatSaleExchangeRateLabel } from "@/shared/utils/exchange";
 import { formatCurrency } from "@/shared/utils/format";
 import { CalendarDays, Pencil, Repeat2, Tag } from "lucide-react";
 
@@ -30,11 +31,18 @@ function formatEventDate(dateIso: string): string {
 }
 
 const EventDetailsDialog = ({ open, event, onOpenChange, onEdit }: EventDetailsDialogProps) => {
+  const fxLabel = event ? formatSaleExchangeRateLabel(event) : null;
+  const originalCurrency = event?.originalCurrency && event.originalCurrency !== "BRL"
+    ? event.originalCurrency
+    : null;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Detalhes do custo</DialogTitle>
+          <DialogTitle>
+            {event?.source === "CASH_MOVEMENT" ? "Detalhes da movimentação" : "Detalhes do custo"}
+          </DialogTitle>
           <DialogDescription>Visualize os dados do evento selecionado.</DialogDescription>
         </DialogHeader>
 
@@ -57,6 +65,12 @@ const EventDetailsDialog = ({ open, event, onOpenChange, onEdit }: EventDetailsD
                   Valor
                 </div>
                 <p className="mt-1 text-base font-semibold">{formatCurrency(event.amount)}</p>
+                {event.source === "CASH_MOVEMENT" && originalCurrency && event.originalAmount != null && (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Digitado: {formatCurrency(event.originalAmount, originalCurrency)}
+                    {fxLabel ? ` · ${fxLabel}` : ""}
+                  </p>
+                )}
               </div>
 
               <div className="rounded-lg border border-border/80 p-3">
@@ -87,10 +101,12 @@ const EventDetailsDialog = ({ open, event, onOpenChange, onEdit }: EventDetailsD
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Fechar
           </Button>
-          <Button onClick={() => event && onEdit(event)} disabled={!event} className="gap-2">
-            <Pencil className="h-4 w-4" />
-            Editar custo
-          </Button>
+          {event && event.source !== "CASH_MOVEMENT" ? (
+            <Button className="gap-2" onClick={() => onEdit(event)}>
+              <Pencil className="h-4 w-4" />
+              Editar custo
+            </Button>
+          ) : null}
         </DialogFooter>
       </DialogContent>
     </Dialog>

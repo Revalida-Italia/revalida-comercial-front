@@ -113,6 +113,14 @@ const BillingEventDetailsDialog = ({
                   Valor
                 </div>
                 <p className="mt-1 text-base font-semibold">{formatCurrency(event.amount)}</p>
+                {event.source === "CASH_MOVEMENT"
+                  && event.originalCurrency
+                  && event.originalCurrency !== "BRL"
+                  && event.originalAmount != null && (
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Digitado: {formatCurrency(event.originalAmount, event.originalCurrency)}
+                    </p>
+                  )}
               </div>
 
               <div className="rounded-lg border border-border/80 p-3">

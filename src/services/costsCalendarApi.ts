@@ -75,6 +75,8 @@ type GetMonthlyCostsInput = {
   month: number;
   year: number;
   categoryId?: string;
+  bankAccountId?: string;
+  costCenterId?: string;
 };
 
 interface MonthlyResponseWrapper {
@@ -106,6 +108,12 @@ export async function getMonthlyCosts(input: GetMonthlyCostsInput): Promise<Mont
 
   if (input.categoryId) {
     params.set("categoryId", input.categoryId);
+  }
+  if (input.bankAccountId) {
+    params.set("bankAccountId", input.bankAccountId);
+  }
+  if (input.costCenterId) {
+    params.set("costCenterId", input.costCenterId);
   }
 
   const payload = await apiRequest<MonthlyCostsResponse | MonthlyResponseWrapper | Partial<MonthlyCostsResponse>>(

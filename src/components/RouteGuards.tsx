@@ -66,12 +66,3 @@ export const RequireSalesMutationAccess = () => {
 
   return <Outlet />;
 };
-
-/** @deprecated Prefer RequireSalesViewAccess / RequireSalesMutationAccess */
-export const RequireCommercialAccess = () => {
-  if (!hasAnyRole("ADMIN", "SELLER")) {
-    return <Navigate to="/dashboard" replace />;
-  }
-
-  return <Outlet />;
-};

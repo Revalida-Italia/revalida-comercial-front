@@ -331,9 +331,10 @@ const EditSaleFeature = () => {
       }
       if (field === "totalInstallments") return { ...payment, totalInstallments: String(value) };
       if (field === "inputCurrency") {
+        const currency = String(value);
         return {
           ...payment,
-          inputCurrency: isDisplayCurrency(value) ? value : "BRL",
+          inputCurrency: isDisplayCurrency(currency) ? currency : "BRL",
         };
       }
       return { ...payment, [field]: value };
@@ -364,6 +365,12 @@ const EditSaleFeature = () => {
       await updateSale(id, {
         status,
         saveExchange: needsExchangeRates,
+        ...(needsExchangeRates
+          ? {
+              originalCurrency: (payments.find((p) => p.inputCurrency && p.inputCurrency !== "BRL")
+                ?.inputCurrency ?? "USD") as "USD" | "EUR",
+            }
+          : {}),
         ...(soldAt ? { soldAt } : {}),
         ...(isAdmin && sellerId && sellerId !== originalSellerId ? { sellerId } : {}),
         clients: filledCustomers.map((c) => ({

@@ -29,8 +29,10 @@ export type BillingCommissionRef = {
 
 export type BillingCalendarEvent = {
   instanceId: string;
-  paymentId: string;
-  saleId: string;
+  source?: "PAYMENT" | "CASH_MOVEMENT";
+  cashMovementId?: string | null;
+  paymentId: string | null;
+  saleId: string | null;
   title: string;
   description?: string | null;
   amount: number;
@@ -48,6 +50,17 @@ export type BillingCalendarEvent = {
   clients?: BillingClientRef[];
   product?: BillingProductRef | null;
   commission?: BillingCommissionRef | null;
+  bankAccount?: { id: string; name: string; institution: string } | null;
+  costCenter?: { id: string; name: string; code: string | null } | null;
+  kind?: string | null;
+  direction?: string | null;
+  currency?: string | null;
+  originalCurrency?: string | null;
+  originalAmount?: number | null;
+  usdRateBrl?: number | null;
+  eurRateBrl?: number | null;
+  exchangeRateDate?: string | null;
+  exchangeRateSource?: string | null;
 };
 
 export type BillingDailyTotal = {
