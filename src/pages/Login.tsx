@@ -15,6 +15,7 @@ import loginBg from "@/assets/login-bg.jpg";
 const SESSION_EXPIRED_REASON = "session-expired";
 const SESSION_EXPIRED_MESSAGE = "Sessao encerrada. Faca login novamente.";
 const ACCOUNT_DELETED_MESSAGE = "Conta excluída com sucesso.";
+const PASSWORD_RESET_SUCCESS_MESSAGE = "Senha redefinida com sucesso. Faca login para continuar.";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -35,7 +36,7 @@ const Login = () => {
     const message = notice ?? SESSION_EXPIRED_MESSAGE;
     setAuthMessage(message);
 
-    if (notice === ACCOUNT_DELETED_MESSAGE) {
+    if (notice === ACCOUNT_DELETED_MESSAGE || notice === PASSWORD_RESET_SUCCESS_MESSAGE) {
       toast.success(message);
       return;
     }
@@ -195,7 +196,15 @@ const Login = () => {
             </div>
 
             <div className="text-right">
-              <button type="button" className="text-sm text-primary hover:underline">
+              <button
+                type="button"
+                className="text-sm text-primary hover:underline"
+                onClick={() =>
+                  navigate("/recuperar-senha", {
+                    state: email.trim() ? { email: email.trim() } : undefined,
+                  })
+                }
+              >
                 Esqueci minha senha?
               </button>
             </div>

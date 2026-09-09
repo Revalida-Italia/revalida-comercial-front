@@ -16,6 +16,8 @@ import AdminSalesDashboard from "@/pages/AdminSalesDashboard";
 import AdminCostsCalendar from "@/pages/AdminCostsCalendar";
 import BillingCalendar from "@/pages/BillingCalendar";
 import FirstAccess from "@/pages/FirstAccess";
+import ForgotPassword from "@/pages/ForgotPassword";
+import ResetPassword from "@/pages/ResetPassword";
 import SaleDetails from "./pages/SaleDetails";
 import EditSale from "./pages/EditSale";
 import AppLayout from "./components/AppLayout";
@@ -42,6 +44,8 @@ const App = () => (
         <Routes>
           <Route path="/" element={<Login />} />
           <Route path="/primeiro-acesso" element={<FirstAccess />} />
+          <Route path="/recuperar-senha" element={<ForgotPassword />} />
+          <Route path="/redefinir-senha" element={<ResetPassword />} />
           <Route element={<RequireAuth />}>
             <Route element={<AppLayout />}>
               <Route element={<RequireSalesViewAccess />}>
