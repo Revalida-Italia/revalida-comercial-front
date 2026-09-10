@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Download, FilePlus2, FileText, Loader2, Plus, Trash2, UserPlus } from "lucide-react";
+import { Download, FilePlus2, FileText, Loader2, Plus, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,8 +21,6 @@ import {
   listContractModules,
   listSaleContracts,
   prefillContract,
-  provisionCoreStudent,
-  sendContractAdobeSign,
   type ContractFormPayload,
   type ContractProductType,
   type RevalidaContractPayload,
@@ -825,7 +823,6 @@ function SchoolForm({
 
 function ContractRow({
   contract,
-  onChanged,
 }: {
   contract: SaleContract;
   onChanged: () => void;
@@ -833,19 +830,6 @@ function ContractRow({
   const downloadMutation = useMutation({
     mutationFn: () => downloadContractPdf(contract.id),
     onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Download falhou"),
-  });
-  const adobeMutation = useMutation({
-    mutationFn: () => sendContractAdobeSign(contract.id),
-    onSuccess: () => {
-      toast.success("Enviado ao Adobe Sign.");
-      onChanged();
-    },
-    onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Adobe Sign falhou"),
-  });
-  const provisionMutation = useMutation({
-    mutationFn: () => provisionCoreStudent(contract.id),
-    onSuccess: (r) => toast.success(`Conta portal: ${r.coreUser.email}`),
-    onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Provisionamento falhou"),
   });
 
   return (
@@ -872,26 +856,6 @@ function ContractRow({
         >
           <Download className="h-3.5 w-3.5" />
           PDF
-        </Button>
-        {contract.status === "GENERATED" && (
-          <Button
-            size="sm"
-            variant="secondary"
-            disabled={adobeMutation.isPending}
-            onClick={() => adobeMutation.mutate()}
-          >
-            Adobe Sign
-          </Button>
-        )}
-        <Button
-          size="sm"
-          variant="outline"
-          className="gap-1"
-          disabled={provisionMutation.isPending || !contract.signerEmail}
-          onClick={() => provisionMutation.mutate()}
-        >
-          <UserPlus className="h-3.5 w-3.5" />
-          Conta portal
         </Button>
       </div>
     </div>

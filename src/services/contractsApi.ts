@@ -24,9 +24,9 @@ export interface SaleContract {
   s3Bucket?: string | null;
   s3Key?: string | null;
   fileName?: string | null;
-  adobeAgreementId?: string | null;
   signedAt?: string | null;
   signerEmail?: string | null;
+  coreUserId?: string | null;
 }
 
 export interface RevalidaContractPayload {
@@ -149,10 +149,6 @@ export async function generateContract(
     method: "POST",
     body: { productType, payload },
   });
-}
-
-export async function sendContractAdobeSign(contractId: string): Promise<SaleContract> {
-  return apiRequest(CORE_API_URL, `/contracts/${contractId}/adobe-sign`, { method: "POST" });
 }
 
 export async function provisionCoreStudent(
