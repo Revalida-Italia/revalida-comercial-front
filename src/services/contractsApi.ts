@@ -4,7 +4,7 @@ import { getSession } from "@/lib/session";
 const CORE_API_URL = import.meta.env.VITE_CORE_API_URL as string;
 
 export type ContractProductType = "PROGRAMA_REVALIDA_ITALIA" | "ESCOLA_DE_ITALIANO";
-export type ContractStatus = "GENERATED" | "SIGNED";
+export type ContractStatus = "GENERATED" | "SENT" | "SIGNED" | "DECLINED" | "VOIDED";
 
 export interface ContractModule {
   code: string;
@@ -25,8 +25,19 @@ export interface SaleContract {
   s3Key?: string | null;
   fileName?: string | null;
   signedAt?: string | null;
+  sentAt?: string | null;
+  docusignEnvelopeId?: string | null;
+  docusignUpdatedAt?: string | null;
   signerEmail?: string | null;
   coreUserId?: string | null;
+  signers?: Array<{
+    id: string;
+    nameCiphertext: string;
+    email: string;
+    recipientId: number;
+    docusignStatus?: string | null;
+    signedAt?: string | null;
+  }>;
 }
 
 export interface RevalidaContractPayload {
@@ -148,6 +159,18 @@ export async function generateContract(
   return apiRequest(CORE_API_URL, `/sales/${saleId}/contracts/generate`, {
     method: "POST",
     body: { productType, payload },
+  });
+}
+
+export async function sendContractForSignature(contractId: string): Promise<SaleContract> {
+  return apiRequest(CORE_API_URL, `/contracts/${contractId}/send-for-signature`, {
+    method: "POST",
+  });
+}
+
+export async function refreshContractSignatureStatus(contractId: string): Promise<SaleContract> {
+  return apiRequest(CORE_API_URL, `/contracts/${contractId}/refresh-signature-status`, {
+    method: "POST",
   });
 }
 

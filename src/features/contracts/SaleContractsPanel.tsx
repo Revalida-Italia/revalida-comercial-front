@@ -1,7 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Download, FilePlus2, FileText, Loader2, Plus, Trash2 } from "lucide-react";
+import {
+  Download,
+  FilePlus2,
+  FileText,
+  Loader2,
+  Plus,
+  RefreshCw,
+  Send,
+  Trash2,
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,6 +30,8 @@ import {
   listContractModules,
   listSaleContracts,
   prefillContract,
+  refreshContractSignatureStatus,
+  sendContractForSignature,
   type ContractFormPayload,
   type ContractProductType,
   type RevalidaContractPayload,
@@ -46,6 +57,17 @@ function isRevalida(payload: ContractFormPayload): payload is RevalidaContractPa
 
 function isSchool(payload: ContractFormPayload): payload is SchoolContractPayload {
   return payload.productType === "ESCOLA_DE_ITALIANO";
+}
+
+function contractStatusLabel(status: SaleContract["status"]): string {
+  const labels: Record<SaleContract["status"], string> = {
+    GENERATED: "Gerado",
+    SENT: "Enviado",
+    SIGNED: "Assinado",
+    DECLINED: "Recusado",
+    VOIDED: "Cancelado",
+  };
+  return labels[status];
 }
 
 function syncFinancialResponsibles(payload: RevalidaContractPayload): RevalidaContractPayload {
@@ -823,6 +845,7 @@ function SchoolForm({
 
 function ContractRow({
   contract,
+  onChanged,
 }: {
   contract: SaleContract;
   onChanged: () => void;
@@ -832,6 +855,32 @@ function ContractRow({
     onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Download falhou"),
   });
 
+  const sendMutation = useMutation({
+    mutationFn: () => sendContractForSignature(contract.id),
+    onSuccess: () => {
+      toast.success("Contrato enviado para assinatura pelo DocuSign.");
+      onChanged();
+    },
+    onError: (e: unknown) => {
+      toast.error(e instanceof Error ? e.message : "Envio pelo DocuSign falhou");
+    },
+  });
+
+  const refreshMutation = useMutation({
+    mutationFn: () => refreshContractSignatureStatus(contract.id),
+    onSuccess: (updated) => {
+      toast.success(
+        updated.status === "SIGNED"
+          ? "Contrato assinado."
+          : "Status do DocuSign atualizado.",
+      );
+      onChanged();
+    },
+    onError: (e: unknown) => {
+      toast.error(e instanceof Error ? e.message : "Não foi possível atualizar o status");
+    },
+  });
+
   return (
     <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border p-3 text-sm">
       <div>
@@ -839,7 +888,7 @@ function ContractRow({
           <span className="font-medium">
             {contract.productType === "PROGRAMA_REVALIDA_ITALIA" ? "Revalida" : "Escola"}
           </span>
-          <Badge variant="outline">{contract.status}</Badge>
+          <Badge variant="outline">{contractStatusLabel(contract.status)}</Badge>
         </div>
         <p className="text-xs text-muted-foreground">
           {contract.fileName ?? contract.id}
@@ -857,6 +906,41 @@ function ContractRow({
           <Download className="h-3.5 w-3.5" />
           PDF
         </Button>
+        {contract.status === "GENERATED" && (
+          <Button
+            size="sm"
+            className="gap-1"
+            disabled={sendMutation.isPending}
+            onClick={() => {
+              const recipients = contract.signers?.map((signer) => signer.email).join(", ");
+              const confirmed = window.confirm(
+                `Enviar este contrato para assinatura${recipients ? ` a ${recipients}` : ""}?`,
+              );
+              if (confirmed) sendMutation.mutate();
+            }}
+          >
+            {sendMutation.isPending ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Send className="h-3.5 w-3.5" />
+            )}
+            Enviar via DocuSign
+          </Button>
+        )}
+        {contract.docusignEnvelopeId && contract.status !== "SIGNED" && (
+          <Button
+            size="sm"
+            variant="outline"
+            className="gap-1"
+            disabled={refreshMutation.isPending}
+            onClick={() => refreshMutation.mutate()}
+          >
+            <RefreshCw
+              className={`h-3.5 w-3.5 ${refreshMutation.isPending ? "animate-spin" : ""}`}
+            />
+            Atualizar status
+          </Button>
+        )}
       </div>
     </div>
   );
