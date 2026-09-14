@@ -41,6 +41,9 @@ import {
 
 type Props = { saleId: string };
 
+const DOCUSIGN_BUTTON_ENABLED =
+  import.meta.env.VITE_DOCUSIGN_BUTTON_FLAG === "true";
+
 const PROFESSION_OPTIONS = [
   "Médico",
   "Enfermeiro(a)",
@@ -906,7 +909,7 @@ function ContractRow({
           <Download className="h-3.5 w-3.5" />
           PDF
         </Button>
-        {contract.status === "GENERATED" && (
+        {DOCUSIGN_BUTTON_ENABLED && contract.status === "GENERATED" && (
           <Button
             size="sm"
             className="gap-1"
