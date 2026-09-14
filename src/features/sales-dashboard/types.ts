@@ -24,6 +24,8 @@ export interface SalesDashboardFeatureProps {
   searchTerm?: string;
   gateway?: string;
   status?: string;
+  exchangeScope?: "all" | "with_fx" | "without_fx";
+  originalCurrency?: DisplayCurrency;
 }
 
 export interface SalesDashboardChartRow extends SalesDashboardPeriod {

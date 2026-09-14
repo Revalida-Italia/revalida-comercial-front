@@ -41,22 +41,27 @@ type CostEventDialogProps = {
   open: boolean;
   mode: "create" | "edit";
   categories: CostCategory[];
+  bankAccounts?: Array<{ id: string; name: string; institution: string }>;
+  costCenters?: Array<{ id: string; name: string; code: string | null }>;
   initialDate?: string;
   event?: CostsCalendarEvent | null;
   isSubmitting: boolean;
   isDeleting: boolean;
   onOpenChange: (open: boolean) => void;
-  onCreate: (payload: CreateCostEventInput) => void;
+  onCreate?: (payload: CreateCostEventInput) => void;
   onUpdate: (costId: string, payload: UpdateCostEventInput) => void;
   onDelete: (costId: string) => void;
 };
 
 const DEFAULT_RECURRENCE_TYPE: RecurrenceType = "MONTHLY";
+const NONE_VALUE = "__none__";
 
 const CostEventDialog = ({
   open,
   mode,
   categories,
+  bankAccounts = [],
+  costCenters = [],
   initialDate,
   event,
   isSubmitting,
@@ -67,6 +72,8 @@ const CostEventDialog = ({
   onDelete,
 }: CostEventDialogProps) => {
   const [categoryId, setCategoryId] = useState("");
+  const [bankAccountId, setBankAccountId] = useState(NONE_VALUE);
+  const [costCenterId, setCostCenterId] = useState(NONE_VALUE);
   const [title, setTitle] = useState("");
   const [amount, setAmount] = useState("");
   const [description, setDescription] = useState("");
@@ -84,6 +91,8 @@ const CostEventDialog = ({
 
     if (mode === "edit" && event) {
       setCategoryId(event.category.id);
+      setBankAccountId(event.bankAccount?.id ?? NONE_VALUE);
+      setCostCenterId(event.costCenter?.id ?? NONE_VALUE);
       setTitle(event.title);
       setAmount(String(event.amount));
       setDescription(event.description ?? "");
@@ -96,6 +105,8 @@ const CostEventDialog = ({
     }
 
     setCategoryId(categories[0]?.id ?? "");
+    setBankAccountId(NONE_VALUE);
+    setCostCenterId(NONE_VALUE);
     setTitle("");
     setAmount("");
     setDescription("");
@@ -130,6 +141,8 @@ const CostEventDialog = ({
 
     const payload: UpdateCostEventInput = {
       categoryId,
+      bankAccountId: bankAccountId === NONE_VALUE ? null : bankAccountId,
+      costCenterId: costCenterId === NONE_VALUE ? null : costCenterId,
       title: title.trim(),
       amount: numericAmount,
       startDate,
@@ -145,7 +158,7 @@ const CostEventDialog = ({
       return;
     }
 
-    onCreate(payload as CreateCostEventInput);
+    onCreate?.(payload as CreateCostEventInput);
   };
 
   const handleDelete = () => {
@@ -192,6 +205,42 @@ const CostEventDialog = ({
                 ))}
               </SelectContent>
             </Select>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-2">
+              <Label htmlFor="cost-bank">Conta bancária (opcional)</Label>
+              <Select value={bankAccountId} onValueChange={setBankAccountId}>
+                <SelectTrigger id="cost-bank">
+                  <SelectValue placeholder="Nenhuma" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NONE_VALUE}>Nenhuma</SelectItem>
+                  {bankAccounts.map((account) => (
+                    <SelectItem key={account.id} value={account.id}>
+                      {account.name} · {account.institution}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="cost-center">Centro de custo (opcional)</Label>
+              <Select value={costCenterId} onValueChange={setCostCenterId}>
+                <SelectTrigger id="cost-center">
+                  <SelectValue placeholder="Nenhum" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NONE_VALUE}>Nenhum</SelectItem>
+                  {costCenters.map((center) => (
+                    <SelectItem key={center.id} value={center.id}>
+                      {center.name}
+                      {center.code ? ` (${center.code})` : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           <div className="grid gap-2">

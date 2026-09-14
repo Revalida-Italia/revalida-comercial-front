@@ -488,6 +488,8 @@ const SalesDashboardFeature = ({
   searchTerm,
   gateway,
   status,
+  exchangeScope,
+  originalCurrency,
 }: SalesDashboardFeatureProps) => {
   const isAdminMode = mode === "admin";
   const canSeeFixedCostsMetric = canViewFixedCosts();
@@ -548,6 +550,7 @@ const SalesDashboardFeature = ({
   const normalizedGateway = gateway && gateway !== "all" ? (gateway as PaymentGateway) : undefined;
   const normalizedStatus = status && status !== "all" ? status : undefined;
   const normalizedSearchTerm = searchTerm?.trim() || undefined;
+  const normalizedExchangeScope = exchangeScope && exchangeScope !== "all" ? exchangeScope : undefined;
 
   const dashboardQuery = useQuery({
     queryKey: [
@@ -558,6 +561,8 @@ const SalesDashboardFeature = ({
       normalizedSearchTerm ?? "",
       normalizedGateway ?? "",
       normalizedStatus ?? "",
+      normalizedExchangeScope ?? "",
+      originalCurrency ?? "",
     ],
     queryFn: () =>
       fetchSalesDashboard({
@@ -566,6 +571,8 @@ const SalesDashboardFeature = ({
         searchTerm: isAdminMode ? undefined : normalizedSearchTerm,
         gateway: isAdminMode ? undefined : normalizedGateway,
         status: isAdminMode ? undefined : normalizedStatus,
+        exchangeScope: isAdminMode ? undefined : normalizedExchangeScope,
+        originalCurrency: isAdminMode ? undefined : originalCurrency,
       }),
     enabled: !isAdminMode || sellerId !== "all",
   });

@@ -3,7 +3,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   createCostCategory,
-  createCostEvent,
   deleteCostCategory,
   deleteCostEvent,
   getMonthlyCosts,
@@ -11,25 +10,23 @@ import {
   updateCostCategory,
   updateCostEvent,
 } from "@/services/costsCalendarApi";
+import { listBankAccounts, listCostCenters, createCashMovement } from "@/services/treasuryApi";
 import type {
-  CostCategory,
   CostsCalendarEvent,
   CreateCostCategoryInput,
-  CreateCostEventInput,
   UpdateCostCategoryInput,
   UpdateCostEventInput,
 } from "./types";
-import { formatMonthLabel, groupEventsByDate, mapDailyTotals } from "./utils";
+import { formatMonthLabel, groupEventsByDate } from "./utils";
 import CostsCalendarHeader from "./organisms/CostsCalendarHeader";
 import CostsMonthlyGrid from "./organisms/CostsMonthlyGrid";
 import CostEventDialog from "./organisms/CostEventDialog";
+import CashMovementDialog from "./organisms/CashMovementDialog";
 import CostCategoriesDialog from "./organisms/CostCategoriesDialog";
 import EventDetailsDialog from "./organisms/EventDetailsDialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatCurrency } from "@/shared/utils/format";
 import { CalendarFold, CircleDollarSign } from "lucide-react";
-
-type EventDialogMode = "create" | "edit";
 
 const CostsCalendarFeature = () => {
   const queryClient = useQueryClient();
@@ -38,12 +35,14 @@ const CostsCalendarFeature = () => {
     return new Date(now.getFullYear(), now.getMonth(), 1);
   });
   const [selectedCategoryId, setSelectedCategoryId] = useState("all");
+  const [selectedBankAccountId, setSelectedBankAccountId] = useState("all");
+  const [selectedCostCenterId, setSelectedCostCenterId] = useState("all");
   const [eventDialogOpen, setEventDialogOpen] = useState(false);
-  const [eventDialogMode, setEventDialogMode] = useState<EventDialogMode>("create");
-  const [selectedDateForCreate, setSelectedDateForCreate] = useState<string | undefined>(undefined);
   const [selectedEvent, setSelectedEvent] = useState<CostsCalendarEvent | null>(null);
   const [eventDetailsOpen, setEventDetailsOpen] = useState(false);
   const [categoriesDialogOpen, setCategoriesDialogOpen] = useState(false);
+  const [movementDialogOpen, setMovementDialogOpen] = useState(false);
+  const [movementInitialDate, setMovementInitialDate] = useState<string | undefined>(undefined);
 
   const month = currentMonthDate.getMonth() + 1;
   const year = currentMonthDate.getFullYear();
@@ -53,13 +52,33 @@ const CostsCalendarFeature = () => {
     queryFn: listCostCategories,
   });
 
+  const banksQuery = useQuery({
+    queryKey: ["treasury-bank-accounts"],
+    queryFn: listBankAccounts,
+  });
+
+  const centersQuery = useQuery({
+    queryKey: ["treasury-cost-centers"],
+    queryFn: listCostCenters,
+  });
+
   const monthlyQuery = useQuery({
-    queryKey: ["costsCalendar", "monthly", month, year, selectedCategoryId],
+    queryKey: [
+      "costsCalendar",
+      "monthly",
+      month,
+      year,
+      selectedCategoryId,
+      selectedBankAccountId,
+      selectedCostCenterId,
+    ],
     queryFn: () =>
       getMonthlyCosts({
         month,
         year,
         categoryId: selectedCategoryId === "all" ? undefined : selectedCategoryId,
+        bankAccountId: selectedBankAccountId === "all" ? undefined : selectedBankAccountId,
+        costCenterId: selectedCostCenterId === "all" ? undefined : selectedCostCenterId,
       }),
   });
 
@@ -70,18 +89,6 @@ const CostsCalendarFeature = () => {
   const refetchCategoriesData = async () => {
     await queryClient.invalidateQueries({ queryKey: ["costsCalendar", "categories"] });
   };
-
-  const createEventMutation = useMutation({
-    mutationFn: (payload: CreateCostEventInput) => createCostEvent(payload),
-    onSuccess: async () => {
-      toast.success("Custo criado com sucesso.");
-      setEventDialogOpen(false);
-      await refetchMonthlyData();
-    },
-    onError: (error: unknown) => {
-      toast.error(error instanceof Error ? error.message : "Erro ao criar custo.");
-    },
-  });
 
   const updateEventMutation = useMutation({
     mutationFn: ({ id, payload }: { id: string; payload: UpdateCostEventInput }) => updateCostEvent(id, payload),
@@ -149,7 +156,32 @@ const CostsCalendarFeature = () => {
     },
   });
 
+  const createMovementMutation = useMutation({
+    mutationFn: createCashMovement,
+    onSuccess: async () => {
+      toast.success("Movimentação lançada.");
+      setMovementDialogOpen(false);
+      await Promise.all([
+        refetchMonthlyData(),
+        queryClient.invalidateQueries({ queryKey: ["treasury-bank-balances"] }),
+        queryClient.invalidateQueries({ queryKey: ["treasury-cash-movements"] }),
+        queryClient.invalidateQueries({ queryKey: ["billingCalendar"] }),
+        queryClient.invalidateQueries({ queryKey: ["sales"] }),
+      ]);
+    },
+    onError: (error: unknown) => {
+      const message = error instanceof Error ? error.message : "Erro ao lançar movimentação.";
+      toast.error(
+        message === "EXCHANGE_RATE_UNAVAILABLE"
+          ? "Cotação indisponível para converter o valor para BRL."
+          : message,
+      );
+    },
+  });
+
   const categories = categoriesQuery.data ?? [];
+  const bankAccounts = banksQuery.data ?? [];
+  const costCenters = centersQuery.data ?? [];
   const monthlyData = monthlyQuery.data;
 
   const monthLabel = formatMonthLabel(currentMonthDate);
@@ -159,28 +191,30 @@ const CostsCalendarFeature = () => {
     [monthlyData?.events],
   );
 
-  const dailyTotalsByDate = useMemo(
-    () => mapDailyTotals(monthlyData?.dailyTotals ?? []),
-    [monthlyData?.dailyTotals],
-  );
+  const dailyTotalsByDate = useMemo(() => {
+    return Object.fromEntries(
+      Object.entries(eventsByDate).map(([date, events]) => [
+        date,
+        {
+          date,
+          totalAmount: events.reduce((sum, event) => sum + event.amount, 0),
+          count: events.length,
+        },
+      ]),
+    );
+  }, [eventsByDate]);
 
   const totalEvents = monthlyData?.events?.length ?? 0;
-  const monthlyTotal = monthlyData?.totalAmount ?? 0;
+  const monthlyTotal = (monthlyData?.events ?? []).reduce((sum, event) => sum + event.amount, 0);
 
-  const isSubmittingEvent = createEventMutation.isPending || updateEventMutation.isPending;
-
-  const handleOpenCreateFromTop = () => {
-    setEventDialogMode("create");
-    setSelectedDateForCreate(undefined);
-    setSelectedEvent(null);
-    setEventDialogOpen(true);
+  const handleOpenCreateMovement = () => {
+    setMovementInitialDate(undefined);
+    setMovementDialogOpen(true);
   };
 
   const handleOpenCreateFromDay = (dateKey: string) => {
-    setEventDialogMode("create");
-    setSelectedDateForCreate(dateKey);
-    setSelectedEvent(null);
-    setEventDialogOpen(true);
+    setMovementInitialDate(dateKey);
+    setMovementDialogOpen(true);
   };
 
   const handleOpenEventDetails = (event: CostsCalendarEvent) => {
@@ -189,8 +223,11 @@ const CostsCalendarFeature = () => {
   };
 
   const handleOpenEditEvent = (event: CostsCalendarEvent) => {
+    if (event.source === "CASH_MOVEMENT") {
+      toast.message("Movimentações de caixa são lançadas pelo botão Nova movimentação.");
+      return;
+    }
     setEventDetailsOpen(false);
-    setEventDialogMode("edit");
     setSelectedEvent(event);
     setEventDialogOpen(true);
   };
@@ -208,19 +245,25 @@ const CostsCalendarFeature = () => {
       <CostsCalendarHeader
         monthLabel={monthLabel}
         categories={categories}
+        bankAccounts={bankAccounts}
+        costCenters={costCenters}
         selectedCategoryId={selectedCategoryId}
+        selectedBankAccountId={selectedBankAccountId}
+        selectedCostCenterId={selectedCostCenterId}
         isMonthlyLoading={monthlyQuery.isLoading || monthlyQuery.isFetching}
         onPreviousMonth={handlePreviousMonth}
         onNextMonth={handleNextMonth}
         onCategoryChange={setSelectedCategoryId}
-        onOpenCreateEvent={handleOpenCreateFromTop}
+        onBankAccountChange={setSelectedBankAccountId}
+        onCostCenterChange={setSelectedCostCenterId}
+        onOpenCreateMovement={handleOpenCreateMovement}
         onOpenCategories={() => setCategoriesDialogOpen(true)}
       />
 
       <div className="grid gap-3 sm:grid-cols-2">
         <Card className="border-border/80 bg-card/70 shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm">Total do mes</CardTitle>
+            <CardTitle className="text-sm">Total do mês</CardTitle>
             <CircleDollarSign className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
@@ -230,7 +273,7 @@ const CostsCalendarFeature = () => {
 
         <Card className="border-border/80 bg-card/70 shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm">Quantidade de custos</CardTitle>
+            <CardTitle className="text-sm">Eventos no calendário</CardTitle>
             <CalendarFold className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
@@ -253,7 +296,7 @@ const CostsCalendarFeature = () => {
 
       {!monthlyQuery.isLoading && !monthlyQuery.isError && totalEvents === 0 && (
         <div className="rounded-xl border border-dashed border-border/80 bg-card/60 p-8 text-center text-sm text-muted-foreground">
-          Nenhum custo encontrado para este mes.
+          Nenhum evento encontrado para este mes.
         </div>
       )}
 
@@ -277,16 +320,26 @@ const CostsCalendarFeature = () => {
 
       <CostEventDialog
         open={eventDialogOpen}
-        mode={eventDialogMode}
+        mode="edit"
         categories={categories}
-        initialDate={selectedDateForCreate}
+        bankAccounts={bankAccounts}
+        costCenters={costCenters}
         event={selectedEvent}
-        isSubmitting={isSubmittingEvent}
+        isSubmitting={updateEventMutation.isPending}
         isDeleting={deleteEventMutation.isPending}
         onOpenChange={setEventDialogOpen}
-        onCreate={(payload) => createEventMutation.mutate(payload)}
         onUpdate={(id, payload) => updateEventMutation.mutate({ id, payload })}
         onDelete={(id) => deleteEventMutation.mutate(id)}
+      />
+
+      <CashMovementDialog
+        open={movementDialogOpen}
+        bankAccounts={bankAccounts}
+        costCenters={costCenters}
+        initialDate={movementInitialDate}
+        isSubmitting={createMovementMutation.isPending}
+        onOpenChange={setMovementDialogOpen}
+        onSubmit={(payload) => createMovementMutation.mutate(payload)}
       />
 
       <CostCategoriesDialog
