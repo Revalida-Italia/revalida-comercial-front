@@ -6,24 +6,36 @@ import { ChevronLeft, ChevronRight, FolderCog, Plus } from "lucide-react";
 type CostsCalendarHeaderProps = {
   monthLabel: string;
   categories: CostCategory[];
+  bankAccounts: Array<{ id: string; name: string }>;
+  costCenters: Array<{ id: string; name: string }>;
   selectedCategoryId: string;
+  selectedBankAccountId: string;
+  selectedCostCenterId: string;
   isMonthlyLoading: boolean;
   onPreviousMonth: () => void;
   onNextMonth: () => void;
   onCategoryChange: (value: string) => void;
-  onOpenCreateEvent: () => void;
+  onBankAccountChange: (value: string) => void;
+  onCostCenterChange: (value: string) => void;
+  onOpenCreateMovement: () => void;
   onOpenCategories: () => void;
 };
 
 const CostsCalendarHeader = ({
   monthLabel,
   categories,
+  bankAccounts,
+  costCenters,
   selectedCategoryId,
+  selectedBankAccountId,
+  selectedCostCenterId,
   isMonthlyLoading,
   onPreviousMonth,
   onNextMonth,
   onCategoryChange,
-  onOpenCreateEvent,
+  onBankAccountChange,
+  onCostCenterChange,
+  onOpenCreateMovement,
   onOpenCategories,
 }: CostsCalendarHeaderProps) => {
   return (
@@ -44,14 +56,14 @@ const CostsCalendarHeader = ({
             <FolderCog className="h-4 w-4" />
             Categorias
           </Button>
-          <Button className="gap-2" onClick={onOpenCreateEvent}>
+          <Button className="gap-2" onClick={onOpenCreateMovement}>
             <Plus className="h-4 w-4" />
-            Criar custo
+            Nova movimentação
           </Button>
         </div>
       </div>
 
-      <div className="max-w-xs">
+      <div className="grid gap-2 sm:grid-cols-3">
         <Select value={selectedCategoryId} onValueChange={onCategoryChange}>
           <SelectTrigger>
             <SelectValue placeholder="Filtrar categoria" />
@@ -61,6 +73,34 @@ const CostsCalendarHeader = ({
             {categories.map((category) => (
               <SelectItem key={category.id} value={category.id}>
                 {category.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <Select value={selectedBankAccountId} onValueChange={onBankAccountChange}>
+          <SelectTrigger>
+            <SelectValue placeholder="Conta bancária" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todas as contas</SelectItem>
+            {bankAccounts.map((account) => (
+              <SelectItem key={account.id} value={account.id}>
+                {account.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <Select value={selectedCostCenterId} onValueChange={onCostCenterChange}>
+          <SelectTrigger>
+            <SelectValue placeholder="Centro de custo" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos os centros</SelectItem>
+            {costCenters.map((center) => (
+              <SelectItem key={center.id} value={center.id}>
+                {center.name}
               </SelectItem>
             ))}
           </SelectContent>

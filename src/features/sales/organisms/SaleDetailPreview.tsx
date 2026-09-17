@@ -10,9 +10,21 @@ import { useMemo } from "react";
 
 type SaleDetailPreviewProps = {
   sale: SaleRecord;
+  readOnly?: boolean;
+  canManagePaymentStatus?: boolean;
+  updatingPaymentId?: string | null;
+  onMarkPaymentPaid?: (paymentId: string) => void;
+  onMarkPaymentPending?: (paymentId: string) => void;
 };
 
-const SaleDetailPreview = ({ sale }: SaleDetailPreviewProps) => {
+const SaleDetailPreview = ({
+  sale,
+  readOnly = false,
+  canManagePaymentStatus = false,
+  updatingPaymentId = null,
+  onMarkPaymentPaid,
+  onMarkPaymentPending,
+}: SaleDetailPreviewProps) => {
   const filledCustomers: FilledSaleCustomer[] = sale.clients.map((client) => ({
     name: client.nameCiphertext || "Sem nome",
     document: client.documentCiphertext || undefined,
@@ -26,6 +38,9 @@ const SaleDetailPreview = ({ sale }: SaleDetailPreviewProps) => {
   }));
 
   const configuredPayments: ConfiguredSalePayment[] = sale.payments.map((payment) => ({
+    id: payment.id,
+    status: payment.status,
+    paymentDate: payment.paymentDate?.slice(0, 10) ?? undefined,
     gateway: payment.gateway,
     paymentType: payment.type,
     amount: toNumberOrZero(payment.amount),
@@ -93,7 +108,11 @@ const SaleDetailPreview = ({ sale }: SaleDetailPreviewProps) => {
       showCommissionRateWarning
       getFeeRate={getFeeRate}
       paymentGrossValue={paymentGrossValue}
-      saleId={sale.id}
+      saleId={readOnly ? undefined : sale.id}
+      canManagePaymentStatus={canManagePaymentStatus}
+      updatingPaymentId={updatingPaymentId}
+      onMarkPaymentPaid={onMarkPaymentPaid}
+      onMarkPaymentPending={onMarkPaymentPending}
     />
   );
 };

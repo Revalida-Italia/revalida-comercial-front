@@ -5,10 +5,13 @@ import { Separator } from "@/components/ui/separator";
 import {
   Award,
   Banknote,
+  CircleCheck,
+  Clock3,
   Copy,
   CreditCard,
   ExternalLink,
   Landmark,
+  Loader2,
   MinusCircle,
   Package,
   TrendingDown,
@@ -17,8 +20,10 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { BILLING_TYPE_LABELS, PAYMENT_TYPE_LABELS, SUBSCRIPTION_CYCLE_LABELS } from "../constants";
-import type { ConfiguredSalePayment, FilledSaleCustomer, SalePaymentDraft, SaleSummaryItem } from "../types";
+import type { ConfiguredSalePayment, FilledSaleCustomer, SaleSummaryItem } from "../types";
 import EditableSection from "@/features/sales/organisms/EditableSection";
+import { billingStatusLabel, normalizeBillingStatus } from "@/features/billing-calendar/utils";
+import { Badge } from "@/components/ui/badge";
 import { formatInstallmentLabel, getPaymentGrossValue } from "@/shared/utils/payment";
 
 type PaymentValueLike = {
@@ -40,6 +45,10 @@ type SaleSummaryProps = {
   paymentGrossValue: (payment: PaymentValueLike) => number;
   subscriptionMonthLabelMode?: "long" | "compact";
   saleId?: string;
+  canManagePaymentStatus?: boolean;
+  updatingPaymentId?: string | null;
+  onMarkPaymentPaid?: (paymentId: string) => void;
+  onMarkPaymentPending?: (paymentId: string) => void;
 };
 
 function getSubscriptionMonthLabel(
@@ -79,6 +88,10 @@ const SaleSummary = ({
   paymentGrossValue,
   subscriptionMonthLabelMode = "long",
   saleId,
+  canManagePaymentStatus = false,
+  updatingPaymentId = null,
+  onMarkPaymentPaid,
+  onMarkPaymentPending,
 }: SaleSummaryProps) => {
   const editStep = (step: number) => (saleId ? `/vendas/${saleId}/editar?step=${step}` : "");
 
@@ -156,10 +169,26 @@ const SaleSummary = ({
                   allPayments: configuredPayments,
                   index,
                 });
+                const normalizedStatus = normalizeBillingStatus(payment.status);
+                const isPaid = normalizedStatus === "PAID";
+                const isUpdating = Boolean(payment.id && updatingPaymentId === payment.id);
+                const canManageThisPayment = canManagePaymentStatus && Boolean(payment.id);
 
                 return (
-                <li key={index} className="rounded-md border p-2">
-                  <p className="font-medium">{payment.gateway}</p>
+                <li key={payment.id ?? index} className="rounded-md border p-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="font-medium">{payment.gateway}</p>
+                    {payment.status && (
+                      <Badge
+                        variant="outline"
+                        className={`h-5 px-1.5 text-[10px] ${isPaid ? "border-emerald-500/40 text-emerald-700" : ""}`}
+                      >
+                        {billingStatusLabel(payment.status)}
+                      </Badge>
+                    )}
+                  </div>
                   <p className="text-muted-foreground">
                     {PAYMENT_TYPE_LABELS[payment.paymentType] ?? payment.paymentType}
                     {(() => {
@@ -180,6 +209,9 @@ const SaleSummary = ({
                     <p className="text-xs text-muted-foreground">{installmentLabel}</p>
                   )}
                   {payment.dueDate && <p className="text-xs text-muted-foreground">Vencimento: {payment.dueDate}</p>}
+                  {payment.paymentDate && (
+                    <p className="text-xs text-muted-foreground">Pago em: {payment.paymentDate}</p>
+                  )}
                   {payment.linkPagamento && (
                     <div className="mt-2 space-y-1.5 rounded-md border border-dashed border-primary/30 bg-primary/5 p-2">
                       <p className="text-xs font-medium text-muted-foreground">Link de pagamento</p>
@@ -207,6 +239,45 @@ const SaleSummary = ({
                       </div>
                     </div>
                   )}
+                    </div>
+
+                    {canManageThisPayment && (
+                      <div className="shrink-0">
+                        {!isPaid ? (
+                          <Button
+                            type="button"
+                            size="sm"
+                            className="h-7 gap-1 px-2 text-[11px]"
+                            disabled={isUpdating}
+                            onClick={() => onMarkPaymentPaid?.(payment.id!)}
+                          >
+                            {isUpdating ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <CircleCheck className="h-3.5 w-3.5" />
+                            )}
+                            Marcar como pago
+                          </Button>
+                        ) : (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="h-7 gap-1 px-2 text-[11px]"
+                            disabled={isUpdating}
+                            onClick={() => onMarkPaymentPending?.(payment.id!)}
+                          >
+                            {isUpdating ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <Clock3 className="h-3.5 w-3.5" />
+                            )}
+                            Marcar como pendente
+                          </Button>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </li>
                 );
               })}

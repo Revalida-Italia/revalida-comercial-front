@@ -1,15 +1,27 @@
+import { useState } from "react";
 import type { GatewayFees } from "@/services/commercialApi";
 import type { DisplayCurrency, ExchangeRates } from "@/services/exchangeRatesApi";
 import DisplayCurrencySelect from "@/components/DisplayCurrencySelect";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { formatCurrency } from "@/shared/utils/format";
 import { convertToBrl, formatRateDateLabel } from "@/shared/utils/exchange";
-import { Plus, Trash2 } from "lucide-react";
+import { Link2, Plus, Trash2 } from "lucide-react";
 import {
   BILLING_TYPE_OPTIONS,
   MAX_INSTALLMENTS,
@@ -30,7 +42,9 @@ type PaymentsStepProps = {
   rateDate?: string | null;
   ratesLoading?: boolean;
   ratesError?: boolean;
-  onUpdatePayment: (index: number, field: keyof SalePaymentDraft, value: string) => void;
+  customerHasDocument?: boolean;
+  onUpdatePayment: (index: number, field: keyof SalePaymentDraft, value: string | boolean) => void;
+  onSetPaymentGateway: (index: number, gateway: string, generatePaymentLink: boolean) => void;
   onAddPayment: () => void;
   onRemovePayment: (index: number) => void;
   onBack: () => void;
@@ -38,6 +52,11 @@ type PaymentsStepProps = {
   getFeeRate: (gateway: string, paymentType: string) => number;
   paymentGrossValue: (payment: SalePaymentDraft) => number;
 };
+
+type AsaasPromptState = {
+  index: number;
+  gateway: string;
+} | null;
 
 const PaymentsStep = ({
   payments,
@@ -50,7 +69,9 @@ const PaymentsStep = ({
   rateDate = null,
   ratesLoading = false,
   ratesError = false,
+  customerHasDocument = true,
   onUpdatePayment,
+  onSetPaymentGateway,
   onAddPayment,
   onRemovePayment,
   onBack,
@@ -58,215 +79,165 @@ const PaymentsStep = ({
   getFeeRate,
   paymentGrossValue,
 }: PaymentsStepProps) => {
+  const [asaasPrompt, setAsaasPrompt] = useState<AsaasPromptState>(null);
   const usesForeignCurrency = payments.some((payment) => payment.inputCurrency !== "BRL");
 
+  function applyGatewayChange(index: number, gateway: string, generatePaymentLink: boolean) {
+    onSetPaymentGateway(index, gateway, generatePaymentLink);
+  }
+
+  function handleGatewayChange(index: number, value: string) {
+    const currentGateway = payments[index]?.gateway;
+
+    if (!isEditMode && value === "ASAAS" && currentGateway !== "ASAAS") {
+      setAsaasPrompt({ index, gateway: value });
+      return;
+    }
+
+    applyGatewayChange(index, value, value === "ASAAS" ? payments[index]?.generatePaymentLink ?? false : false);
+  }
+
+  function confirmAsaasPrompt(generatePaymentLink: boolean) {
+    if (!asaasPrompt) return;
+    applyGatewayChange(asaasPrompt.index, asaasPrompt.gateway, generatePaymentLink);
+    setAsaasPrompt(null);
+  }
+
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Pagamentos</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="space-y-1 rounded-md border border-dashed border-border/70 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-          <p>
-            Cada pagamento pode ter moeda própria (ex.: entrada Wise em USD e parcelas em BRL).
-            A venda é sempre salva em BRL; valores em USD/EUR são convertidos com a cotação do dia.
-          </p>
-          {usesForeignCurrency && ratesLoading && (
-            <p>Carregando cotação...</p>
-          )}
-          {usesForeignCurrency && ratesError && (
-            <p className="text-destructive">
-              Não foi possível carregar a cotação. Use BRL nos pagamentos afetados ou tente novamente.
-            </p>
-          )}
-          {usesForeignCurrency && exchangeRates && (
+    <>
+      <Card>
+        <CardHeader>
+          <CardTitle>Pagamentos</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-1 rounded-md border border-dashed border-border/70 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
             <p>
-              1 USD = {formatCurrency(exchangeRates.USD, "BRL")}
-              {" · "}
-              1 EUR = {formatCurrency(exchangeRates.EUR, "BRL")}
-              {rateDate ? ` · ${formatRateDateLabel(rateDate)}` : ""}
-              {ratesStale ? " · cotação do dia anterior" : ""}
+              Cada pagamento pode ter moeda própria (ex.: entrada Wise em USD e parcelas em BRL).
+              A venda é sempre salva em BRL; valores em USD/EUR são convertidos com a cotação do dia.
             </p>
-          )}
-        </div>
+            {usesForeignCurrency && ratesLoading && <p>Carregando cotação...</p>}
+            {usesForeignCurrency && ratesError && (
+              <p className="text-destructive">
+                Não foi possível carregar a cotação. Use BRL nos pagamentos afetados ou tente novamente.
+              </p>
+            )}
+            {usesForeignCurrency && exchangeRates && (
+              <p>
+                1 USD = {formatCurrency(exchangeRates.USD, "BRL")}
+                {" · "}
+                1 EUR = {formatCurrency(exchangeRates.EUR, "BRL")}
+                {rateDate ? ` · ${formatRateDateLabel(rateDate)}` : ""}
+                {ratesStale ? " · cotação do dia anterior" : ""}
+              </p>
+            )}
+          </div>
 
-        {payments.map((payment, index) => {
-          const gatewayConfig = gatewayFees.find((item) => item.gateway === payment.gateway);
-          const feeRate = getFeeRate(payment.gateway, payment.paymentType);
-          const amount = Number(payment.amount);
-          const installments = Number(payment.totalInstallments) || 1;
-          const paymentValue = paymentGrossValue(payment);
-          const inputCurrency = payment.inputCurrency || "BRL";
-          const isSplitOrSubscription = ["INSTALLMENT", "SUBSCRIPTION"].includes(payment.paymentType);
-          const isSubscription = payment.paymentType === "SUBSCRIPTION";
-          const brlEquivalent = inputCurrency === "BRL" || !exchangeRates
-            ? null
-            : convertToBrl(paymentValue, inputCurrency, exchangeRates);
+          {payments.map((payment, index) => {
+            const gatewayConfig = gatewayFees.find((item) => item.gateway === payment.gateway);
+            const feeRate = getFeeRate(payment.gateway, payment.paymentType);
+            const amount = Number(payment.amount);
+            const installments = Number(payment.totalInstallments) || 1;
+            const paymentValue = paymentGrossValue(payment);
+            const inputCurrency = payment.inputCurrency || "BRL";
+            const isSplitOrSubscription = ["INSTALLMENT", "SUBSCRIPTION"].includes(payment.paymentType);
+            const isSubscription = payment.paymentType === "SUBSCRIPTION";
+            const isAsaas = payment.gateway === "ASAAS";
+            const brlEquivalent = inputCurrency === "BRL" || !exchangeRates
+              ? null
+              : convertToBrl(paymentValue, inputCurrency, exchangeRates);
 
-          return (
-            <div key={index} className="space-y-3 rounded-lg border p-4">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-muted-foreground">Pagamento {index + 1}</span>
-                {payments.length > 1 && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
-                    onClick={() => onRemovePayment(index)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                )}
-              </div>
-
-              <div className="grid gap-3 md:grid-cols-2">
-                <div className="space-y-1.5">
-                  <Label>Gateway *</Label>
-                  <Select value={payment.gateway} onValueChange={(value) => onUpdatePayment(index, "gateway", value)}>
-                    <SelectTrigger>
-                      <SelectValue placeholder={gatewayFeesLoading ? "Carregando..." : "Selecione"} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {gatewayFees.map((gatewayItem) => (
-                        <SelectItem key={gatewayItem.gateway} value={gatewayItem.gateway}>
-                          {gatewayItem.gateway}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+            return (
+              <div key={index} className="space-y-3 rounded-lg border p-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-muted-foreground">Pagamento {index + 1}</span>
+                  {payments.length > 1 && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+                      onClick={() => onRemovePayment(index)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  )}
                 </div>
 
-                <div className="space-y-1.5">
-                  <Label>Forma de pagamento *</Label>
-                  <Select
-                    value={payment.paymentType}
-                    onValueChange={(value) => onUpdatePayment(index, "paymentType", value)}
-                    disabled={!payment.gateway}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {(gatewayConfig?.paymentOptions ?? []).map((option) => (
-                        <SelectItem key={option.paymentType} value={option.paymentType}>
-                          {PAYMENT_TYPE_LABELS[option.paymentType] ?? option.paymentType} - taxa {option.feeRate}%
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <div className="grid gap-3 md:grid-cols-2">
-                <div className="space-y-1.5">
-                  <Label>Meio de cobrança *</Label>
-                  <Select
-                    value={payment.billingType}
-                    onValueChange={(value) => onUpdatePayment(index, "billingType", value)}
-                    disabled={!payment.paymentType}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione PIX, boleto, etc..." className="text-muted-foreground/70" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {BILLING_TYPE_OPTIONS.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {isSubscription && (
+                <div className="grid gap-3 md:grid-cols-2">
                   <div className="space-y-1.5">
-                    <Label>Ciclo da assinatura *</Label>
-                    <Select value={payment.ciclo} onValueChange={(value) => onUpdatePayment(index, "ciclo", value)}>
+                    <Label>Gateway *</Label>
+                    <Select value={payment.gateway} onValueChange={(value) => handleGatewayChange(index, value)}>
                       <SelectTrigger>
-                        <SelectValue placeholder="Selecione o ciclo" />
+                        <SelectValue placeholder={gatewayFeesLoading ? "Carregando..." : "Selecione"} />
                       </SelectTrigger>
                       <SelectContent>
-                        {SUBSCRIPTION_CYCLE_OPTIONS.map((option) => (
-                          <SelectItem key={option.value} value={option.value}>
-                            {option.label}
+                        {gatewayFees.map((gatewayItem) => (
+                          <SelectItem key={gatewayItem.gateway} value={gatewayItem.gateway}>
+                            {gatewayItem.gateway}
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                   </div>
-                )}
-              </div>
-
-              <div className="grid gap-3 md:grid-cols-4">
-                <DisplayCurrencySelect
-                  label="Moeda do valor"
-                  value={inputCurrency}
-                  onChange={(value: DisplayCurrency) => onUpdatePayment(index, "inputCurrency", value)}
-                  ratesStale={ratesStale && inputCurrency !== "BRL"}
-                  rateDate={rateDate}
-                  disabled={ratesLoading && inputCurrency !== "BRL"}
-                  triggerClassName="w-full"
-                />
-
-                <div className="space-y-1.5 md:col-span-1">
-                  <Label>
-                    Valor{["INSTALLMENT", "SUBSCRIPTION"].includes(payment.paymentType) ? " por parcela/mês" : ""} *
-                  </Label>
-                  <Input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={payment.amount}
-                    onChange={(event) => onUpdatePayment(index, "amount", event.target.value)}
-                    placeholder="0,00"
-                  />
-                </div>
-
-                {isSplitOrSubscription && (
-                  <div className="space-y-1.5">
-                    <Label>{isSubscription ? "Meses *" : "Parcelas *"}</Label>
-                    <Input
-                      type="number"
-                      min="1"
-                      max={MAX_INSTALLMENTS}
-                      step="1"
-                      inputMode="numeric"
-                      value={payment.totalInstallments}
-                      onChange={(event) => onUpdatePayment(index, "totalInstallments", event.target.value)}
-                      onWheel={(event) => event.currentTarget.blur()}
-                    />
-                  </div>
-                )}
-
-                <div className="space-y-1.5">
-                  <Label>{isSubscription ? "Início da cobrança *" : "Data de pagamento *"}</Label>
-                  <DatePicker value={payment.dueDate} onChange={(value) => onUpdatePayment(index, "dueDate", value)} />
-                  {isSubscription && (
-                    <p className="-mt-0.5 rounded-sm bg-amber-50/45 px-2 py-1 text-[11px] leading-tight text-amber-900/60">
-                      Esta data define o início da cobrança (primeiro pagamento).
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              {isEditMode && (
-                <div className="grid gap-3 md:grid-cols-3">
-                  <div className="space-y-1.5">
-                    <Label>Data de pagamento efetivo</Label>
-                    <DatePicker
-                      value={payment.paymentDate}
-                      onChange={(value) => onUpdatePayment(index, "paymentDate", value)}
-                    />
-                  </div>
 
                   <div className="space-y-1.5">
-                    <Label>Status do pagamento</Label>
-                    <Select value={payment.status} onValueChange={(value) => onUpdatePayment(index, "status", value)}>
+                    <Label>Forma de pagamento *</Label>
+                    <Select
+                      value={payment.paymentType}
+                      onValueChange={(value) => onUpdatePayment(index, "paymentType", value)}
+                      disabled={!payment.gateway}
+                    >
                       <SelectTrigger>
                         <SelectValue placeholder="Selecione" />
                       </SelectTrigger>
                       <SelectContent>
-                        {PAYMENT_STATUS_OPTIONS.map((option) => (
+                        {(gatewayConfig?.paymentOptions ?? []).map((option) => (
+                          <SelectItem key={option.paymentType} value={option.paymentType}>
+                            {PAYMENT_TYPE_LABELS[option.paymentType] ?? option.paymentType} - taxa {option.feeRate}%
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                {!isEditMode && isAsaas && (
+                  <div className="space-y-2 rounded-md border border-primary/20 bg-primary/5 p-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-start gap-2">
+                        <Link2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                        <div>
+                          <p className="text-sm font-medium">Gerar link de pagamento</p>
+                          <p className="text-xs text-muted-foreground">
+                            O link Asaas será criado automaticamente ao finalizar a venda.
+                          </p>
+                        </div>
+                      </div>
+                      <Switch
+                        checked={payment.generatePaymentLink}
+                        onCheckedChange={(checked) => onUpdatePayment(index, "generatePaymentLink", checked)}
+                      />
+                    </div>
+                    {payment.generatePaymentLink && !customerHasDocument && (
+                      <p className="text-xs text-amber-800">
+                        Informe o CPF do cliente no passo 1 para gerar o link.
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                <div className="grid gap-3 md:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <Label>Meio de cobrança *</Label>
+                    <Select
+                      value={payment.billingType}
+                      onValueChange={(value) => onUpdatePayment(index, "billingType", value)}
+                      disabled={!payment.paymentType}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione PIX, boleto, etc..." className="text-muted-foreground/70" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {BILLING_TYPE_OPTIONS.map((option) => (
                           <SelectItem key={option.value} value={option.value}>
                             {option.label}
                           </SelectItem>
@@ -275,84 +246,204 @@ const PaymentsStep = ({
                     </Select>
                   </div>
 
-                  <div className="space-y-1.5">
-                    <Label>Notas</Label>
+                  {isSubscription && (
+                    <div className="space-y-1.5">
+                      <Label>Ciclo da assinatura *</Label>
+                      <Select value={payment.ciclo} onValueChange={(value) => onUpdatePayment(index, "ciclo", value)}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione o ciclo" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {SUBSCRIPTION_CYCLE_OPTIONS.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                </div>
+
+                <div className="grid gap-3 md:grid-cols-4">
+                  <DisplayCurrencySelect
+                    label="Moeda do valor"
+                    value={inputCurrency}
+                    onChange={(value: DisplayCurrency) => onUpdatePayment(index, "inputCurrency", value)}
+                    ratesStale={ratesStale && inputCurrency !== "BRL"}
+                    rateDate={rateDate}
+                    disabled={ratesLoading && inputCurrency !== "BRL"}
+                    triggerClassName="w-full"
+                  />
+
+                  <div className="space-y-1.5 md:col-span-1">
+                    <Label>
+                      Valor{["INSTALLMENT", "SUBSCRIPTION"].includes(payment.paymentType) ? " por parcela/mês" : ""} *
+                    </Label>
                     <Input
-                      value={payment.notes}
-                      onChange={(event) => onUpdatePayment(index, "notes", event.target.value)}
-                      placeholder="Notas opcionais"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={payment.amount}
+                      onChange={(event) => onUpdatePayment(index, "amount", event.target.value)}
+                      placeholder="0,00"
                     />
                   </div>
-                </div>
-              )}
 
-              <div className="rounded-md bg-muted/40 p-3 text-xs text-muted-foreground">
-                {amount > 0 ? (
-                  <div className="space-y-1">
-                    <p>
-                      Taxa do gateway: <strong>{feeRate}%</strong>
-                    </p>
-                    <p>
-                      Valor deste pagamento:{" "}
-                      <strong>
-                        {paymentValue.toLocaleString("pt-BR", { style: "currency", currency: inputCurrency })}
-                      </strong>
-                    </p>
-                    {inputCurrency !== "BRL" && brlEquivalent != null && (
-                      <p>
-                        Equivalente em BRL: <strong>{formatCurrency(brlEquivalent, "BRL")}</strong>
-                      </p>
-                    )}
-                    <p>
-                      Data de pagamento: <strong>{payment.dueDate || "Não definida"}</strong>
-                    </p>
-                    {["INSTALLMENT", "SUBSCRIPTION"].includes(payment.paymentType) && (
-                      <p>
-                        {payment.paymentType === "SUBSCRIPTION" ? "Meses" : "Parcelas"}: <strong>{installments}</strong>
-                      </p>
-                    )}
-                    {payment.billingType && (
-                      <p>
-                        Meio de cobrança:{" "}
-                        <strong>
-                          {BILLING_TYPE_OPTIONS.find((item) => item.value === payment.billingType)?.label
-                            ?? payment.billingType}
-                        </strong>
-                      </p>
-                    )}
-                    {isSubscription && payment.ciclo && (
-                      <p>
-                        Ciclo:{" "}
-                        <strong>
-                          {SUBSCRIPTION_CYCLE_OPTIONS.find((item) => item.value === payment.ciclo)?.label
-                            ?? payment.ciclo}
-                        </strong>
+                  {isSplitOrSubscription && (
+                    <div className="space-y-1.5">
+                      <Label>{isSubscription ? "Meses *" : "Parcelas *"}</Label>
+                      <Input
+                        type="number"
+                        min="1"
+                        max={MAX_INSTALLMENTS}
+                        step="1"
+                        inputMode="numeric"
+                        value={payment.totalInstallments}
+                        onChange={(event) => onUpdatePayment(index, "totalInstallments", event.target.value)}
+                        onWheel={(event) => event.currentTarget.blur()}
+                      />
+                    </div>
+                  )}
+
+                  <div className="space-y-1.5">
+                    <Label>{isSubscription ? "Início da cobrança *" : "Data de pagamento *"}</Label>
+                    <DatePicker value={payment.dueDate} onChange={(value) => onUpdatePayment(index, "dueDate", value)} />
+                    {isSubscription && (
+                      <p className="-mt-0.5 rounded-sm bg-amber-50/45 px-2 py-1 text-[11px] leading-tight text-amber-900/60">
+                        Esta data define o início da cobrança (primeiro pagamento).
                       </p>
                     )}
                   </div>
-                ) : (
-                  <p>Preencha o valor para visualizar os totais.</p>
+                </div>
+
+                {isEditMode && (
+                  <div className="grid gap-3 md:grid-cols-3">
+                    <div className="space-y-1.5">
+                      <Label>Data de pagamento efetivo</Label>
+                      <DatePicker
+                        value={payment.paymentDate}
+                        onChange={(value) => onUpdatePayment(index, "paymentDate", value)}
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label>Status do pagamento</Label>
+                      <Select value={payment.status} onValueChange={(value) => onUpdatePayment(index, "status", value)}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {PAYMENT_STATUS_OPTIONS.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label>Notas</Label>
+                      <Input
+                        value={payment.notes}
+                        onChange={(event) => onUpdatePayment(index, "notes", event.target.value)}
+                        placeholder="Notas opcionais"
+                      />
+                    </div>
+                  </div>
                 )}
+
+                <div className="rounded-md bg-muted/40 p-3 text-xs text-muted-foreground">
+                  {amount > 0 ? (
+                    <div className="space-y-1">
+                      <p>
+                        Taxa do gateway: <strong>{feeRate}%</strong>
+                      </p>
+                      <p>
+                        Valor deste pagamento:{" "}
+                        <strong>
+                          {paymentValue.toLocaleString("pt-BR", { style: "currency", currency: inputCurrency })}
+                        </strong>
+                      </p>
+                      {inputCurrency !== "BRL" && brlEquivalent != null && (
+                        <p>
+                          Equivalente em BRL: <strong>{formatCurrency(brlEquivalent, "BRL")}</strong>
+                        </p>
+                      )}
+                      <p>
+                        Data de pagamento: <strong>{payment.dueDate || "Não definida"}</strong>
+                      </p>
+                      {["INSTALLMENT", "SUBSCRIPTION"].includes(payment.paymentType) && (
+                        <p>
+                          {payment.paymentType === "SUBSCRIPTION" ? "Meses" : "Parcelas"}: <strong>{installments}</strong>
+                        </p>
+                      )}
+                      {payment.billingType && (
+                        <p>
+                          Meio de cobrança:{" "}
+                          <strong>
+                            {BILLING_TYPE_OPTIONS.find((item) => item.value === payment.billingType)?.label ?? payment.billingType}
+                          </strong>
+                        </p>
+                      )}
+                      {isSubscription && payment.ciclo && (
+                        <p>
+                          Ciclo:{" "}
+                          <strong>
+                            {SUBSCRIPTION_CYCLE_OPTIONS.find((item) => item.value === payment.ciclo)?.label ?? payment.ciclo}
+                          </strong>
+                        </p>
+                      )}
+                      {!isEditMode && isAsaas && payment.generatePaymentLink && (
+                        <p>
+                          Link de pagamento: <strong>será gerado ao criar a venda</strong>
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    <p>Preencha o valor para visualizar os totais.</p>
+                  )}
+                </div>
               </div>
-            </div>
-          );
-        })}
+            );
+          })}
 
-        <Button variant="outline" size="sm" className="w-full gap-2" onClick={onAddPayment}>
-          <Plus className="h-4 w-4" />
-          Adicionar pagamento
-        </Button>
+          <Button variant="outline" size="sm" className="w-full gap-2" onClick={onAddPayment}>
+            <Plus className="h-4 w-4" />
+            Adicionar pagamento
+          </Button>
 
-        <div className="md:col-span-2 flex justify-between">
-          <Button variant="outline" onClick={onBack}>
-            Voltar
-          </Button>
-          <Button onClick={onNext} disabled={!canGoNext}>
-            Próximo
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
+          <div className="md:col-span-2 flex justify-between">
+            <Button variant="outline" onClick={onBack}>
+              Voltar
+            </Button>
+            <Button onClick={onNext} disabled={!canGoNext}>
+              Próximo
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <AlertDialog open={asaasPrompt !== null} onOpenChange={(open) => !open && setAsaasPrompt(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Gerar link de pagamento?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Você selecionou o gateway Asaas. Deseja gerar o link de pagamento automaticamente ao criar esta venda?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => confirmAsaasPrompt(false)}>
+              Não, só registrar
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={() => confirmAsaasPrompt(true)}>
+              Sim, gerar link
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 };
 

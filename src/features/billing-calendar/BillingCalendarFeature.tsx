@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { AlertCircle, CalendarFold, CircleCheck, CircleDollarSign, Clock3 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { hasRole } from "@/lib/session";
+import { canManagePaymentStatus } from "@/lib/session";
 import { getMonthlyBilling, updateSalePaymentStatus } from "@/services/billingCalendarApi";
 import { listUsers } from "@/services/usersApi";
 import { formatCurrency } from "@/shared/utils/format";
@@ -20,8 +20,8 @@ import BillingEventDetailsDialog from "./organisms/BillingEventDetailsDialog";
 
 const BillingCalendarFeature = () => {
   const queryClient = useQueryClient();
-  const canManagePaymentStatus = hasRole("ADMIN") || hasRole("FIXED_COSTS_MANAGER");
-  const canFilterBySeller = canManagePaymentStatus;
+  const canUpdatePaymentStatus = canManagePaymentStatus();
+  const canFilterBySeller = canUpdatePaymentStatus;
   const [currentMonthDate, setCurrentMonthDate] = useState(() => {
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), 1);
@@ -259,7 +259,7 @@ const BillingCalendarFeature = () => {
       <BillingEventDetailsDialog
         open={eventDetailsOpen}
         event={selectedEvent}
-        canManageStatus={canManagePaymentStatus}
+        canManageStatus={canUpdatePaymentStatus}
         isUpdatingStatus={updateStatusMutation.isPending}
         onOpenChange={setEventDetailsOpen}
         onMarkPaid={handleMarkPaid}

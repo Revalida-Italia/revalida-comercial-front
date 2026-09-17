@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Copy, ExternalLink, Link2 } from "lucide-react";
 import { toast } from "sonner";
@@ -11,19 +11,63 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { createPaymentLinkForSale, getSaleById, type SaleRecord } from "@/services/commercialApi";
 import {
-  getSuggestedHotmartLinkForSale,
-  HOTMART_FIXED_LINKS,
+  DEFAULT_SUBSCRIPTION_CYCLE,
+  MAX_INSTALLMENTS,
+} from "@/features/new-sale/constants";
+import type { SalePaymentDraft } from "@/features/new-sale/types";
+import type { AssinaturaClientDraft } from "@/features/sales/utils/paymentLink";
+import AsaasPaymentConfigForm from "@/features/sales/molecules/AsaasPaymentConfigForm";
+import AssinaturaClientFields from "@/features/sales/molecules/AssinaturaClientFields";
+import {
+  createEmptyAsaasPaymentDraft,
+  createEmptyAssinaturaClientDraft,
+  getDefaultPaymentWithoutLink,
+  isValidAssinaturaClientDraft,
+  saleClientToDraft,
+  salePaymentToDraft,
 } from "@/features/sales/utils/paymentLink";
+import {
+  createAsaasPaymentLinkForSale,
+  getSaleById,
+  listGatewayFees,
+  type BillingType,
+  type SaleRecord,
+} from "@/services/commercialApi";
 
 type CreatePaymentLinkDialogProps = {
   sale: SaleRecord;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 };
+
+function parsePaymentAmount(value: string): number {
+  const normalized = value.trim().replace(",", ".");
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function isValidAsaasPaymentDraft(payment: SalePaymentDraft): payment is SalePaymentDraft & { billingType: BillingType } {
+  const amountOk = parsePaymentAmount(payment.amount) > 0;
+  const baseOk = Boolean(
+    payment.gateway === "ASAAS"
+    && payment.paymentType
+    && payment.dueDate
+    && payment.billingType
+    && amountOk,
+  );
+
+  if (!baseOk) {
+    return false;
+  }
+
+  if (["INSTALLMENT", "SUBSCRIPTION"].includes(payment.paymentType)) {
+    const installments = Number(payment.totalInstallments);
+    return Number.isInteger(installments) && installments >= 1 && installments <= MAX_INSTALLMENTS;
+  }
+
+  return true;
+}
 
 const CreatePaymentLinkDialog = ({ sale, open, onOpenChange }: CreatePaymentLinkDialogProps) => {
   const queryClient = useQueryClient();
@@ -34,103 +78,199 @@ const CreatePaymentLinkDialog = ({ sale, open, onOpenChange }: CreatePaymentLink
     enabled: open,
   });
 
-  const saleData = saleQuery.data ?? sale;
-  const suggestedLink = useMemo(() => getSuggestedHotmartLinkForSale(saleData), [saleData]);
+  const gatewayFeesQuery = useQuery({
+    queryKey: ["gateway-fees"],
+    queryFn: listGatewayFees,
+    enabled: open,
+  });
 
-  const [selectedLinkUrl, setSelectedLinkUrl] = useState(HOTMART_FIXED_LINKS[0]?.url ?? "");
+  const saleData = saleQuery.data ?? sale;
+  const targetPayment = getDefaultPaymentWithoutLink(saleData.payments ?? []);
+
+  const [paymentDraft, setPaymentDraft] = useState<SalePaymentDraft>(createEmptyAsaasPaymentDraft());
+  const [clientDraft, setClientDraft] = useState<AssinaturaClientDraft>(createEmptyAssinaturaClientDraft());
   const [generatedLink, setGeneratedLink] = useState<string | null>(null);
+  const initializedForOpenRef = useRef(false);
 
   useEffect(() => {
     if (!open) {
       setGeneratedLink(null);
+      initializedForOpenRef.current = false;
       return;
     }
 
-    setSelectedLinkUrl(suggestedLink?.url ?? HOTMART_FIXED_LINKS[0]?.url ?? "");
-  }, [open, suggestedLink?.url]);
+    if (initializedForOpenRef.current || saleQuery.isLoading) {
+      return;
+    }
 
-  const selectedLink = HOTMART_FIXED_LINKS.find((option) => option.url === selectedLinkUrl);
-  const targetPayment = (saleData.payments ?? []).find((payment) => !payment.linkPagamento)
-    ?? saleData.payments?.[0];
+    const currentSale = saleQuery.data ?? sale;
+    const payment = getDefaultPaymentWithoutLink(currentSale.payments ?? []);
+
+    if (payment) {
+      const draft = salePaymentToDraft(payment);
+      setPaymentDraft({
+        ...draft,
+        gateway: "ASAAS",
+        paymentType: draft.paymentType || "FULL_PAYMENT",
+      });
+    } else {
+      setPaymentDraft({
+        ...createEmptyAsaasPaymentDraft(),
+        paymentType: "FULL_PAYMENT",
+        billingType: "PIX",
+      });
+    }
+
+    setClientDraft(saleClientToDraft(currentSale));
+
+    initializedForOpenRef.current = true;
+  }, [open, sale, saleQuery.data, saleQuery.isLoading]);
+  const gatewayFees = gatewayFeesQuery.data ?? [];
+
+  function getFeeRate(gateway: string, paymentType: string): number {
+    const gatewayConfig = gatewayFees.find((item) => item.gateway === gateway);
+    const option = gatewayConfig?.paymentOptions.find((item) => item.paymentType === paymentType);
+    const feeRate = option?.feeRate;
+    return feeRate !== undefined ? Number(feeRate) : 0;
+  }
+
+  function updatePaymentDraft(field: keyof SalePaymentDraft, value: string) {
+    setPaymentDraft((prev) => {
+      if (field === "paymentType") {
+        const wasPerUnit = ["INSTALLMENT", "SUBSCRIPTION"].includes(prev.paymentType);
+        const isPerUnit = ["INSTALLMENT", "SUBSCRIPTION"].includes(value);
+        const wasFullLike = ["FULL_PAYMENT", "ENTRY"].includes(prev.paymentType);
+        const isFullLike = ["FULL_PAYMENT", "ENTRY"].includes(value);
+
+        let nextAmount = prev.amount;
+
+        if (wasPerUnit && isFullLike) {
+          const unit = parsePaymentAmount(prev.amount);
+          const count = Number(prev.totalInstallments) || 1;
+          if (unit > 0) {
+            nextAmount = String(unit * count);
+          }
+        } else if (wasFullLike && isPerUnit) {
+          const total = parsePaymentAmount(prev.amount);
+          const count = Number(prev.totalInstallments) || 1;
+          if (total > 0 && count > 0) {
+            nextAmount = String(Number((total / count).toFixed(2)));
+          }
+        }
+
+        return {
+          ...prev,
+          paymentType: value,
+          amount: nextAmount,
+          totalInstallments: isPerUnit ? (prev.totalInstallments || "1") : "1",
+          ciclo: value === "SUBSCRIPTION" ? prev.ciclo || DEFAULT_SUBSCRIPTION_CYCLE : DEFAULT_SUBSCRIPTION_CYCLE,
+        };
+      }
+
+      if (field === "totalInstallments") {
+        return { ...prev, totalInstallments: value };
+      }
+
+      if (field === "amount") {
+        return { ...prev, amount: value };
+      }
+
+      return { ...prev, [field]: value };
+    });
+  }
+
+  function updateClientDraft(field: keyof AssinaturaClientDraft, value: string) {
+    setClientDraft((prev) => ({ ...prev, [field]: value }));
+  }
 
   const createLinkMutation = useMutation({
     mutationFn: async () => {
-      if (!selectedLinkUrl) {
-        throw new Error("Selecione um link Hotmart.");
+      if (!targetPayment?.id) {
+        throw new Error("Venda sem pagamento disponível para gerar link.");
       }
 
-      if (!targetPayment?.id) {
-        throw new Error("Venda sem pagamento para aplicar o link.");
+      if (!isValidAsaasPaymentDraft(paymentDraft)) {
+        throw new Error("Preencha todos os campos do pagamento Asaas.");
       }
 
       if (targetPayment.linkPagamento) {
         throw new Error("Esta venda já possui link de pagamento.");
       }
 
-      return createPaymentLinkForSale(sale.id, targetPayment.id, selectedLinkUrl);
+      return createAsaasPaymentLinkForSale(sale.id, targetPayment.id, {
+        type: paymentDraft.paymentType,
+        amount: parsePaymentAmount(paymentDraft.amount),
+        billingType: paymentDraft.billingType,
+        dueDate: paymentDraft.dueDate,
+        client: {
+          nome: clientDraft.nome.trim(),
+          cpf: clientDraft.cpf.trim(),
+          telefone: clientDraft.telefone.trim(),
+          ...(clientDraft.email.trim() ? { email: clientDraft.email.trim() } : {}),
+        },
+        ...(paymentDraft.paymentType === "SUBSCRIPTION"
+          ? { ciclo: paymentDraft.ciclo || DEFAULT_SUBSCRIPTION_CYCLE }
+          : {}),
+        ...(["INSTALLMENT", "SUBSCRIPTION"].includes(paymentDraft.paymentType)
+          ? { totalInstallments: Number(paymentDraft.totalInstallments || "1") }
+          : {}),
+      });
     },
-    onSuccess: async (updatedSale) => {
+    onSuccess: async (result) => {
       await queryClient.invalidateQueries({ queryKey: ["sales"] });
       await queryClient.invalidateQueries({ queryKey: ["sale", sale.id] });
 
-      const updatedPayment = updatedSale.payments.find((payment) => payment.id === targetPayment?.id);
-      const link = updatedPayment?.linkPagamento ?? selectedLinkUrl;
-      setGeneratedLink(link);
-      toast.success("Link Hotmart aplicado na venda.");
+      setGeneratedLink(result.linkPagamento);
+      toast.success("Link de pagamento vinculado à venda com sucesso.");
     },
     onError: (error: unknown) => {
-      toast.error(error instanceof Error ? error.message : "Erro ao aplicar link Hotmart.");
+      toast.error(error instanceof Error ? error.message : "Erro ao criar link de pagamento.");
     },
   });
 
-  const previewLink = generatedLink ?? selectedLinkUrl;
-  const canApply = Boolean(selectedLinkUrl && targetPayment && !targetPayment.linkPagamento);
+  const feeRate = getFeeRate("ASAAS", paymentDraft.paymentType);
+  const canSubmit = Boolean(
+    targetPayment?.id
+    && isValidAsaasPaymentDraft(paymentDraft)
+    && isValidAssinaturaClientDraft(clientDraft)
+    && !targetPayment.linkPagamento,
+  );
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Link2 className="h-5 w-5" />
-            Link Hotmart
+            Criar link de pagamento
           </DialogTitle>
           <DialogDescription>
-            Escolha o link fixo do produto Hotmart. O pagamento da venda será atualizado com esse link.
+            Gere o link no Asaas para pagamento à vista, parcelado no cartão ou assinatura.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
-          <div className="space-y-1.5">
-            <Label>Produto Hotmart *</Label>
-            <Select value={selectedLinkUrl} onValueChange={setSelectedLinkUrl}>
-              <SelectTrigger>
-                <SelectValue placeholder="Selecione o produto" />
-              </SelectTrigger>
-              <SelectContent>
-                {HOTMART_FIXED_LINKS.map((option) => (
-                  <SelectItem key={option.url} value={option.url}>
-                    {option.productName}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {suggestedLink && suggestedLink.url === selectedLinkUrl && (
-              <p className="text-xs text-muted-foreground">
-                Sugestão baseada no produto da venda.
-              </p>
-            )}
-          </div>
+          <AssinaturaClientFields
+            client={clientDraft}
+            onUpdateClient={updateClientDraft}
+          />
 
-          {selectedLink && (
+          <AsaasPaymentConfigForm
+            payment={paymentDraft}
+            currency={saleData.currency || "BRL"}
+            gatewayFees={gatewayFees}
+            gatewayFeesLoading={gatewayFeesQuery.isLoading}
+            feeRate={feeRate}
+            onUpdatePayment={updatePaymentDraft}
+          />
+
+          {generatedLink && (
             <div className="space-y-2 rounded-md border border-primary/30 bg-primary/5 p-3">
-              <p className="text-xs font-medium text-muted-foreground">
-                {generatedLink ? "Link aplicado" : "Link selecionado"}
-              </p>
-              <p className="text-sm font-medium">{selectedLink.productName}</p>
-              <p className="break-all text-sm">{previewLink}</p>
+              <p className="text-xs font-medium text-muted-foreground">Link gerado</p>
+              <p className="break-all text-sm">{generatedLink}</p>
               <div className="flex flex-wrap gap-2">
                 <Button variant="outline" size="sm" className="h-7 gap-1 text-xs" asChild>
-                  <a href={previewLink} target="_blank" rel="noopener noreferrer">
+                  <a href={generatedLink} target="_blank" rel="noopener noreferrer">
                     <ExternalLink className="h-3 w-3" />
                     Abrir
                   </a>
@@ -141,7 +281,7 @@ const CreatePaymentLinkDialog = ({ sale, open, onOpenChange }: CreatePaymentLink
                   size="sm"
                   className="h-7 gap-1 text-xs"
                   onClick={() => {
-                    void navigator.clipboard.writeText(previewLink);
+                    void navigator.clipboard.writeText(generatedLink);
                     toast.success("Link copiado.");
                   }}
                 >
@@ -160,9 +300,9 @@ const CreatePaymentLinkDialog = ({ sale, open, onOpenChange }: CreatePaymentLink
           {!generatedLink && (
             <Button
               onClick={() => createLinkMutation.mutate()}
-              disabled={createLinkMutation.isPending || !canApply}
+              disabled={createLinkMutation.isPending || !canSubmit}
             >
-              {createLinkMutation.isPending ? "Aplicando..." : "Aplicar link Hotmart"}
+              {createLinkMutation.isPending ? "Gerando..." : "Gerar link de pagamento"}
             </Button>
           )}
         </DialogFooter>

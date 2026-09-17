@@ -19,9 +19,11 @@ const SalesFiltersCard = ({
   searchTerm,
   gateway,
   status = "all",
+  exchangeScope = "all",
   onSearchTermChange,
   onGatewayChange,
   onStatusChange,
+  onExchangeScopeChange,
   onClearFilters,
   compact = false,
   showStatusFilter = false,
@@ -31,7 +33,30 @@ const SalesFiltersCard = ({
     queryFn: () => listGatewayFees({ includeInactive: false }),
   });
 
-  const hasActiveFilters = Boolean(searchTerm) || gateway !== "all" || (showStatusFilter && status !== "all");
+  const hasActiveFilters =
+    Boolean(searchTerm)
+    || gateway !== "all"
+    || (showStatusFilter && status !== "all")
+    || exchangeScope !== "all";
+
+  const exchangeSelect = onExchangeScopeChange ? (
+    <Select value={exchangeScope} onValueChange={onExchangeScopeChange}>
+      <SelectTrigger
+        id="exchangeScope"
+        className={cn(
+          compact
+            && "h-10 w-full shrink-0 border-border/80 shadow-sm outline-none focus:ring-0 focus:ring-offset-0 focus-visible:ring-0 sm:w-[180px]",
+        )}
+      >
+        <SelectValue placeholder="Câmbio" />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="all">Todas as moedas</SelectItem>
+        <SelectItem value="with_fx">Com cotação (FX)</SelectItem>
+        <SelectItem value="without_fx">Só BRL sem cotação</SelectItem>
+      </SelectContent>
+    </Select>
+  ) : null;
 
   const statusSelect = showStatusFilter && onStatusChange ? (
     <Select value={status} onValueChange={onStatusChange}>
@@ -55,8 +80,8 @@ const SalesFiltersCard = ({
 
   if (compact) {
     return (
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-        <div className="relative min-w-0 flex-[1_1_55%] bg-muted-foreground/10 rounded-md p-2">
+      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+        <div className="relative min-w-0 flex-[1_1_40%] rounded-md bg-muted-foreground/10 p-2">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             id="search"
@@ -67,7 +92,7 @@ const SalesFiltersCard = ({
           />
         </div>
 
-        <div className="bg-muted-foreground/10 rounded-md p-2">
+        <div className="rounded-md bg-muted-foreground/10 p-2">
           <Select value={gateway} onValueChange={onGatewayChange}>
             <SelectTrigger
               id="gateway"
@@ -86,14 +111,11 @@ const SalesFiltersCard = ({
           </Select>
         </div>
 
-        {statusSelect ? (
-          <div className="bg-muted-foreground/10 rounded-md p-2">
-            {statusSelect}
-          </div>
-        ) : null}
+        {exchangeSelect ? <div className="rounded-md bg-muted-foreground/10 p-2">{exchangeSelect}</div> : null}
+        {statusSelect ? <div className="rounded-md bg-muted-foreground/10 p-2">{statusSelect}</div> : null}
 
         {hasActiveFilters && (
-          <div className="bg-muted-foreground/10 rounded-md p-2">
+          <div className="rounded-md bg-muted-foreground/10 p-2">
             <Button variant="ghost" size="sm" onClick={onClearFilters} className="h-10 shrink-0 px-2">
               <X className="mr-1 h-4 w-4" />
               Limpar

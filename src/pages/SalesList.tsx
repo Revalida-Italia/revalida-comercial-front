@@ -5,7 +5,7 @@ import DisplayCurrencySelect from "@/components/DisplayCurrencySelect";
 import SaleListCard from "@/features/sales/organisms/SaleListCard";
 import SalesFiltersCard from "@/features/sales/organisms/SalesFiltersCard";
 import SalesSummaryCards from "@/features/sales/organisms/SalesSummaryCards";
-import { hasRole } from "@/lib/session";
+import { canViewGlobalSalesExtras } from "@/lib/session";
 import { listSales } from "@/services/commercialApi";
 import type { DisplayCurrency } from "@/services/exchangeRatesApi";
 import { useQuery } from "@tanstack/react-query";
@@ -14,7 +14,7 @@ import { useState } from "react";
 import { useDebounce } from "use-debounce";
 
 const SalesList = () => {
-  const isAdmin = hasRole("ADMIN");
+  const canSeeGlobalSalesExtras = canViewGlobalSalesExtras();
   const [searchTerm, setSearchTerm] = useState("");
   const [gateway, setGateway] = useState("all");
   const [status, setStatus] = useState("all");
@@ -41,9 +41,14 @@ const SalesList = () => {
   const summary = salesQuery.data?.summary ?? {
     totalSales: 0,
     totalAmount: 0,
+    grossPaymentsThisMonth: 0,
+    totalGatewayFeesThisMonth: 0,
+    netReceivedThisMonth: 0,
     comission: 0,
     comissionFuture: 0,
     totalFixedCostsThisMonth: 0,
+    netMarginThisMonth: 0,
+    netMarginPercent: 0,
   };
 
   return (
@@ -62,7 +67,12 @@ const SalesList = () => {
         />
       </div>
 
-      <SalesSummaryCards summary={summary} isAdmin={isAdmin} displayCurrency={displayCurrency} />
+      <SalesSummaryCards
+        summary={summary}
+        sales={sales}
+        canViewFixedCosts={canSeeGlobalSalesExtras}
+        displayCurrency={displayCurrency}
+      />
 
       <SalesFiltersCard
         searchTerm={searchTerm}
@@ -72,7 +82,7 @@ const SalesList = () => {
         onGatewayChange={setGateway}
         onStatusChange={setStatus}
         onClearFilters={handleClearFilters}
-        showStatusFilter={isAdmin}
+        showStatusFilter={canSeeGlobalSalesExtras}
       />
 
       <Card>
@@ -91,12 +101,13 @@ const SalesList = () => {
               {[1, 2, 3].map((i) => (
                 <Card key={i} className="border-border/70">
                   <CardContent className="p-3.5">
-                    <div className="grid gap-x-3 gap-y-2 md:grid-cols-[1.3fr_repeat(4,minmax(0,1fr))_auto] md:items-start">
+                        <div className="grid gap-x-3 gap-y-2 md:grid-cols-[1.25fr_repeat(5,minmax(0,1fr))_auto] md:items-start">
                       <div className="space-y-2">
                         <Skeleton className="h-4 w-3/4" />
                         <Skeleton className="h-3 w-1/2" />
                         <Skeleton className="h-3 w-2/3" />
                       </div>
+                      <Skeleton className="h-8 w-full" />
                       <Skeleton className="h-8 w-full" />
                       <Skeleton className="h-8 w-full" />
                       <Skeleton className="h-8 w-full" />
@@ -111,7 +122,7 @@ const SalesList = () => {
             <p className="text-sm text-muted-foreground">Nenhuma venda encontrada.</p>
           ) : (
             sales.map((sale) => (
-              <SaleListCard key={sale.id} sale={sale} displayCurrency={displayCurrency} />
+              <SaleListCard key={sale.id} sale={sale} />
             ))
           )}
         </CardContent>

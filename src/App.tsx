@@ -14,6 +14,7 @@ import AdminCreateUser from "@/pages/AdminCreateUser";
 import AdminUsers from "@/pages/AdminUsers";
 import AdminSalesDashboard from "@/pages/AdminSalesDashboard";
 import AdminCostsCalendar from "@/pages/AdminCostsCalendar";
+import AdminTreasury from "@/pages/AdminTreasury";
 import BillingCalendar from "@/pages/BillingCalendar";
 import FirstAccess from "@/pages/FirstAccess";
 import SaleDetails from "./pages/SaleDetails";
@@ -69,6 +70,7 @@ const App = () => (
 
               <Route element={<RequireCostsCalendarAccess />}>
                 <Route path="/admin/costs-calendar" element={<AdminCostsCalendar />} />
+                <Route path="/admin/financas" element={<AdminTreasury />} />
               </Route>
 
               <Route element={<RequireBillingCalendarAccess />}>

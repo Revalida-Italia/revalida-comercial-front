@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Link2, MessageCircle, UserCircle } from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { ArrowLeft, Eye, Link2, MessageCircle, UserCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Notranslate } from "@/components/Notranslate";
@@ -12,10 +13,14 @@ import EditableSection from "@/features/sales/organisms/EditableSection";
 import CreatePaymentLinkDialog from "@/features/sales/organisms/CreatePaymentLinkDialog";
 import SendPaymentLinkDialog from "@/features/sales/organisms/SendPaymentLinkDialog";
 import SaleArchiveDeleteActions from "@/features/sales/organisms/SaleArchiveDeleteActions";
+import ViewPaymentLinkDialog from "@/features/sales/organisms/ViewPaymentLinkDialog";
+import SaleContractsPanel from "@/features/contracts/SaleContractsPanel";
 import { getSaleCommissionValue, getSaleContractValue, getSaleSellerInfo } from "@/features/sales/utils";
 import { saleHasPaymentLink } from "@/features/sales/utils/paymentLink";
-import { hasRole } from "@/lib/session";
+import { canManagePaymentStatus, getProfile, hasRole } from "@/lib/session";
+import { canMutateSales } from "@/services/usersApi";
 import { getSaleById } from "@/services/commercialApi";
+import { updateSalePaymentStatus } from "@/services/billingCalendarApi";
 import type { DisplayCurrency } from "@/services/exchangeRatesApi";
 import { formatCurrency, formatDateTime } from "@/shared/utils/format";
 import {
@@ -28,16 +33,66 @@ import {
 const SaleDetails = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const profile = getProfile();
   const isAdmin = hasRole("ADMIN");
+  const canMutate = canMutateSales(profile?.role);
+  const canUpdatePaymentStatus = canManagePaymentStatus();
   const [whatsappOpen, setWhatsappOpen] = useState(false);
   const [createLinkOpen, setCreateLinkOpen] = useState(false);
   const [displayCurrency, setDisplayCurrency] = useState<DisplayCurrency>("BRL");
+  const [viewLinkOpen, setViewLinkOpen] = useState(false);
+  const [updatingPaymentId, setUpdatingPaymentId] = useState<string | null>(null);
 
   const saleQuery = useQuery({
     queryKey: ["sale", id],
     queryFn: () => getSaleById(id!),
     enabled: Boolean(id),
   });
+
+  const updatePaymentStatusMutation = useMutation({
+    mutationFn: updateSalePaymentStatus,
+    onSuccess: async (_data, variables) => {
+      toast.success(
+        variables.status === "PAID"
+          ? "Pagamento marcado como pago."
+          : "Pagamento marcado como pendente.",
+      );
+      await queryClient.invalidateQueries({ queryKey: ["sale", id] });
+      setUpdatingPaymentId(null);
+    },
+    onError: (error: unknown) => {
+      setUpdatingPaymentId(null);
+      toast.error(error instanceof Error ? error.message : "Erro ao atualizar status do pagamento.");
+    },
+  });
+
+  const handleMarkPaymentPaid = (paymentId: string) => {
+    if (!id) {
+      return;
+    }
+
+    setUpdatingPaymentId(paymentId);
+    updatePaymentStatusMutation.mutate({
+      saleId: id,
+      paymentId,
+      status: "PAID",
+      paymentDate: new Date().toISOString().slice(0, 10),
+    });
+  };
+
+  const handleMarkPaymentPending = (paymentId: string) => {
+    if (!id) {
+      return;
+    }
+
+    setUpdatingPaymentId(paymentId);
+    updatePaymentStatusMutation.mutate({
+      saleId: id,
+      paymentId,
+      status: "PENDING",
+    });
+  };
 
   const sale = saleQuery.data;
 
@@ -63,6 +118,27 @@ const SaleDetails = () => {
       </div>
     );
   }
+
+  const sellerCard = (
+    <Card className="h-full">
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm text-muted-foreground">Vendedor</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="flex items-start gap-2">
+          <UserCircle className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-medium break-words">{getSaleSellerInfo(sale)}</p>
+            {sale.seller?.careerPlan?.name && (
+              <p className="text-xs text-muted-foreground mt-1">
+                <Notranslate>{sale.seller.careerPlan.name}</Notranslate>
+              </p>
+            )}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
 
   const contractBrl = getSaleContractValue(sale);
   const commissionBrl = getSaleCommissionValue(sale);
@@ -92,7 +168,19 @@ const SaleDetails = () => {
             onChange={setDisplayCurrency}
             label="Moeda de exibição"
           />
-          {!hasPaymentLink && !isArchived && (
+          {hasPaymentLink && (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="gap-1.5"
+              onClick={() => setViewLinkOpen(true)}
+            >
+              <Eye className="h-4 w-4" />
+              Ver link
+            </Button>
+          )}
+          {canMutate && !hasPaymentLink && !isArchived && (
             <Button
               type="button"
               size="sm"
@@ -101,10 +189,10 @@ const SaleDetails = () => {
               onClick={() => setCreateLinkOpen(true)}
             >
               <Link2 className="h-4 w-4" />
-              Link Hotmart
+              Link de pagamento
             </Button>
           )}
-          {!isArchived && (
+          {canMutate && !isArchived && (
             <Button
               type="button"
               size="sm"
@@ -131,26 +219,13 @@ const SaleDetails = () => {
       </div>
 
       <div className="grid gap-4 md:grid-cols-4">
-        <EditableSection editTo={`/vendas/${sale.id}/editar?step=4`} label="Editar vendedor e status" className="h-full">
-        <Card className="h-full">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-muted-foreground">Vendedor</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-start gap-2">
-              <UserCircle className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium break-words">{getSaleSellerInfo(sale)}</p>
-                {sale.seller?.careerPlan?.name && (
-                  <p className="text-xs text-muted-foreground mt-1">
-                    <Notranslate>{sale.seller.careerPlan.name}</Notranslate>
-                  </p>
-                )}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        </EditableSection>
+        {canMutate && !isArchived ? (
+          <EditableSection editTo={`/vendas/${sale.id}/editar?step=4`} label="Editar vendedor e status" className="h-full">
+            {sellerCard}
+          </EditableSection>
+        ) : (
+          sellerCard
+        )}
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm text-muted-foreground">Criada em</CardTitle>
@@ -234,14 +309,32 @@ const SaleDetails = () => {
       <Card>
         <CardHeader>
           <CardTitle>Preview completo</CardTitle>
-          <p className="text-xs text-muted-foreground">Passe o mouse sobre cada seção para editar. Valores do preview permanecem em BRL.</p>
+          {canMutate && !isArchived ? (
+            <p className="text-xs text-muted-foreground">
+              Passe o mouse sobre cada seção para editar. Valores do preview permanecem em BRL.
+            </p>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              Visualização somente leitura. Valores do preview permanecem em BRL.
+            </p>
+          )}
         </CardHeader>
         <CardContent>
-          <SaleDetailPreview sale={sale} />
+          <SaleDetailPreview
+            sale={sale}
+            readOnly={!canMutate || isArchived}
+            canManagePaymentStatus={canUpdatePaymentStatus}
+            updatingPaymentId={updatingPaymentId}
+            onMarkPaymentPaid={handleMarkPaymentPaid}
+            onMarkPaymentPending={handleMarkPaymentPending}
+          />
         </CardContent>
       </Card>
 
+      {isAdmin && <SaleContractsPanel saleId={sale.id} />}
+
       <CreatePaymentLinkDialog sale={sale} open={createLinkOpen} onOpenChange={setCreateLinkOpen} />
+      <ViewPaymentLinkDialog sale={sale} open={viewLinkOpen} onOpenChange={setViewLinkOpen} />
       <SendPaymentLinkDialog sale={sale} open={whatsappOpen} onOpenChange={setWhatsappOpen} />
     </div>
   );

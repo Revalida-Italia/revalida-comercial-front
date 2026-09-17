@@ -16,6 +16,10 @@ export interface CostCategory {
 export interface CostsCalendarEvent {
   instanceId: string;
   costId: string;
+  source?: "FIXED_COST" | "CASH_MOVEMENT";
+  cashMovementId?: string | null;
+  kind?: string | null;
+  direction?: string | null;
   title: string;
   description?: string | null;
   amount: number;
@@ -23,6 +27,15 @@ export interface CostsCalendarEvent {
   isRecurring: boolean;
   recurrenceType?: RecurrenceType | null;
   category: CostCategory;
+  bankAccount?: { id: string; name: string; institution: string } | null;
+  costCenter?: { id: string; name: string; code: string | null } | null;
+  currency?: string | null;
+  originalCurrency?: string | null;
+  originalAmount?: number | null;
+  usdRateBrl?: number | null;
+  eurRateBrl?: number | null;
+  exchangeRateDate?: string | null;
+  exchangeRateSource?: string | null;
 }
 
 export interface DailyTotal {
@@ -35,6 +48,7 @@ export interface MonthlyCostsResponse {
   month: number;
   year: number;
   totalAmount: number;
+  fixedCostTotal?: number;
   events: CostsCalendarEvent[];
   dailyTotals: DailyTotal[];
 }
@@ -51,6 +65,8 @@ export interface UpdateCostCategoryInput {
 
 export interface CreateCostEventInput {
   categoryId: string;
+  bankAccountId?: string | null;
+  costCenterId?: string | null;
   title: string;
   amount: number;
   startDate: string;
@@ -63,6 +79,8 @@ export interface CreateCostEventInput {
 
 export interface UpdateCostEventInput {
   categoryId?: string;
+  bankAccountId?: string | null;
+  costCenterId?: string | null;
   title?: string;
   amount?: number;
   startDate?: string;

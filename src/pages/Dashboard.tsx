@@ -6,8 +6,8 @@ import SaleListCard from "@/features/sales/organisms/SaleListCard";
 import SalesFiltersCard from "@/features/sales/organisms/SalesFiltersCard";
 import SalesSummaryCards from "@/features/sales/organisms/SalesSummaryCards";
 import SalesDashboardFeature from "@/features/sales-dashboard/SalesDashboardFeature";
-import { hasRole } from "@/lib/session";
-import { listSales } from "@/services/commercialApi";
+import { canViewGlobalSalesExtras } from "@/lib/session";
+import { listSales, type ExchangeScope } from "@/services/commercialApi";
 import type { DisplayCurrency } from "@/services/exchangeRatesApi";
 import { useQuery } from "@tanstack/react-query";
 import { AlertCircle } from "lucide-react";
@@ -15,19 +15,21 @@ import { useState } from "react";
 import { useDebounce } from "use-debounce";
 
 const Dashboard = () => {
-  const isAdmin = hasRole("ADMIN");
+  const canSeeGlobalSalesExtras = canViewGlobalSalesExtras();
   const [searchTerm, setSearchTerm] = useState("");
   const [gateway, setGateway] = useState("all");
   const [status, setStatus] = useState("all");
+  const [exchangeScope, setExchangeScope] = useState<ExchangeScope>("all");
   const [displayCurrency, setDisplayCurrency] = useState<DisplayCurrency>("BRL");
   const [debouncedSearchTerm] = useDebounce(searchTerm, 300);
 
   const salesQuery = useQuery({
-    queryKey: ["sales", debouncedSearchTerm, gateway, status, displayCurrency],
+    queryKey: ["sales", debouncedSearchTerm, gateway, status, exchangeScope, displayCurrency],
     queryFn: () => listSales({
       searchTerm: debouncedSearchTerm || undefined,
       gateway: gateway !== "all" ? gateway : undefined,
       status: status !== "all" ? status : undefined,
+      exchangeScope: exchangeScope !== "all" ? exchangeScope : undefined,
       displayCurrency,
     }),
   });
@@ -36,22 +38,28 @@ const Dashboard = () => {
     setSearchTerm("");
     setGateway("all");
     setStatus("all");
+    setExchangeScope("all");
   };
 
   const sales = salesQuery.data?.sales ?? [];
   const summary = salesQuery.data?.summary ?? {
     totalSales: 0,
     totalAmount: 0,
+    grossPaymentsThisMonth: 0,
+    totalGatewayFeesThisMonth: 0,
+    netReceivedThisMonth: 0,
     comission: 0,
     comissionFuture: 0,
     totalFixedCostsThisMonth: 0,
+    netMarginThisMonth: 0,
+    netMarginPercent: 0,
   };
   const ratesStale = Boolean(summary.ratesStale);
   const rateDate = summary.rateDate;
 
   return (
-    <div className="space-y-3">
-      <div className="flex flex-wrap items-start justify-between gap-3">
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-border/60 bg-gradient-to-br from-background to-muted/30 px-4 py-4">
         <div>
           <h1 className="text-xl font-bold tracking-tight">Dashboard comercial</h1>
           <p className="mt-0.5 text-xs text-muted-foreground">
@@ -70,22 +78,36 @@ const Dashboard = () => {
         </div>
       </div>
 
-      <SalesSummaryCards summary={summary} isAdmin={isAdmin} displayCurrency={displayCurrency} />
+      <SalesSummaryCards
+        summary={summary}
+        sales={sales}
+        canViewFixedCosts={canSeeGlobalSalesExtras}
+        displayCurrency={displayCurrency}
+      />
 
       <div className="space-y-2">
         <SalesFiltersCard
           searchTerm={searchTerm}
           gateway={gateway}
           status={status}
+          exchangeScope={exchangeScope}
           onSearchTermChange={setSearchTerm}
           onGatewayChange={setGateway}
           onStatusChange={setStatus}
+          onExchangeScopeChange={(value) => setExchangeScope(value as ExchangeScope)}
           onClearFilters={handleClearFilters}
           compact
-          showStatusFilter={isAdmin}
+          showStatusFilter={canSeeGlobalSalesExtras}
         />
 
-        <SalesDashboardFeature mode="seller" displayCurrency={displayCurrency} />
+        <SalesDashboardFeature
+          mode="seller"
+          displayCurrency={displayCurrency}
+          searchTerm={debouncedSearchTerm}
+          gateway={gateway !== "all" ? gateway : undefined}
+          status={status !== "all" ? status : undefined}
+          exchangeScope={exchangeScope !== "all" ? exchangeScope : undefined}
+        />
       </div>
 
       <Card>
@@ -107,12 +129,13 @@ const Dashboard = () => {
               {[1, 2, 3].map((i) => (
                 <Card key={i} className="border-border/70">
                   <CardContent className="p-3.5">
-                    <div className="grid gap-x-3 gap-y-2 md:grid-cols-[1.3fr_repeat(4,minmax(0,1fr))_auto] md:items-start">
+                    <div className="grid gap-x-3 gap-y-2 md:grid-cols-[1.25fr_repeat(5,minmax(0,1fr))_auto] md:items-start">
                       <div className="space-y-2">
                         <Skeleton className="h-4 w-3/4" />
                         <Skeleton className="h-3 w-1/2" />
                         <Skeleton className="h-3 w-2/3" />
                       </div>
+                      <Skeleton className="h-8 w-full" />
                       <Skeleton className="h-8 w-full" />
                       <Skeleton className="h-8 w-full" />
                       <Skeleton className="h-8 w-full" />
@@ -127,7 +150,7 @@ const Dashboard = () => {
             <p className="text-sm text-muted-foreground">Nenhuma venda encontrada.</p>
           ) : (
             sales.map((sale) => (
-              <SaleListCard key={sale.id} sale={sale} displayCurrency={displayCurrency} />
+              <SaleListCard key={sale.id} sale={sale} />
             ))
           )}
         </CardContent>

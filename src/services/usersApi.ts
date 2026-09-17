@@ -109,8 +109,30 @@ export function homePathForRole(role?: string): string {
   }
 
   if (role === "FIXED_COSTS_MANAGER") {
-    return "/admin/costs-calendar";
+    return "/dashboard";
   }
 
   return "/dashboard";
+}
+
+/** Admin ou gestor de custos: visão global de vendas (somente leitura para o gestor). */
+export function canViewAllSales(role?: string): boolean {
+  const normalized = String(role ?? "").toUpperCase();
+  return normalized === "ADMIN" || normalized === "FIXED_COSTS_MANAGER";
+}
+
+/** Mesma regra: custos fixos, margem líquida e calendário de custos. */
+export function canViewFixedCosts(role?: string): boolean {
+  return canViewAllSales(role);
+}
+
+/** Mesma regra: alterar status de pagamento. */
+export function canManagePaymentStatus(role?: string): boolean {
+  return canViewAllSales(role);
+}
+
+/** Pode criar/editar/arquivar/excluir vendas. */
+export function canMutateSales(role?: string): boolean {
+  const normalized = String(role ?? "").toUpperCase();
+  return normalized === "ADMIN" || normalized === "SELLER";
 }
