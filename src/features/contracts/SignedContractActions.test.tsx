@@ -69,7 +69,7 @@ describe("SignedContractActions", () => {
     renderActions(signedContract());
     expect(screen.getByRole("button", { name: "Baixar contrato" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Criar alunos no portal" })).toBeInTheDocument();
-    expect(screen.getByText(/PRIMEIRONOME@/)).toBeInTheDocument();
+    expect(screen.getByText(/Primeironome@/)).toBeInTheDocument();
   });
 
   it("downloads the signed PDF", async () => {

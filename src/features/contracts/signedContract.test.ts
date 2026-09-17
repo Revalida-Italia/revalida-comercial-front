@@ -30,8 +30,8 @@ describe("isSignedContract", () => {
 });
 
 describe("portal password helpers", () => {
-  it("uses PRIMEIRONOME@YEAR as the ops hint", () => {
-    expect(defaultPortalPasswordHint(2026)).toBe("PRIMEIRONOME@2026");
+  it("uses Primeironome@YEAR as the ops hint", () => {
+    expect(defaultPortalPasswordHint(2026)).toBe("Primeironome@2026");
   });
 });
 

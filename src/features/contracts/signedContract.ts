@@ -36,7 +36,7 @@ export function isSignedContract(contract: Pick<SaleContract, "status"> & {
 }
 
 export function defaultPortalPasswordHint(year = new Date().getFullYear()): string {
-  return `PRIMEIRONOME@${year}`;
+  return `Primeironome@${year}`;
 }
 
 export function portalStudentStatusLabel(status: PortalStudentResultStatus): string {
