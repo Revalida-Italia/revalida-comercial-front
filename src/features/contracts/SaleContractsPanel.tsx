@@ -24,6 +24,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import SignedContractActions from "@/features/contracts/SignedContractActions";
+import { isSignedContract } from "@/features/contracts/signedContract";
 import {
   downloadContractPdf,
   generateContract,
@@ -884,67 +886,74 @@ function ContractRow({
     },
   });
 
+  const signed = isSignedContract(contract);
+
   return (
-    <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border p-3 text-sm">
-      <div>
-        <div className="flex items-center gap-2">
-          <span className="font-medium">
-            {contract.productType === "PROGRAMA_REVALIDA_ITALIA" ? "Revalida" : "Escola"}
-          </span>
-          <Badge variant="outline">{contractStatusLabel(contract.status)}</Badge>
+    <div className="space-y-2 rounded-md border p-3 text-sm">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <div className="flex items-center gap-2">
+            <span className="font-medium">
+              {contract.productType === "PROGRAMA_REVALIDA_ITALIA" ? "Revalida" : "Escola"}
+            </span>
+            <Badge variant="outline">{contractStatusLabel(contract.status)}</Badge>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            {contract.fileName ?? contract.id}
+            {contract.signerEmail ? ` · ${contract.signerEmail}` : ""}
+          </p>
         </div>
-        <p className="text-xs text-muted-foreground">
-          {contract.fileName ?? contract.id}
-          {contract.signerEmail ? ` · ${contract.signerEmail}` : ""}
-        </p>
+        <div className="flex flex-wrap gap-2">
+          {!signed && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="gap-1"
+              disabled={downloadMutation.isPending}
+              onClick={() => downloadMutation.mutate()}
+            >
+              <Download className="h-3.5 w-3.5" />
+              PDF
+            </Button>
+          )}
+          {DOCUSIGN_BUTTON_ENABLED && contract.status === "GENERATED" && (
+            <Button
+              size="sm"
+              className="gap-1"
+              disabled={sendMutation.isPending}
+              onClick={() => {
+                const recipients = contract.signers?.map((signer) => signer.email).join(", ");
+                const confirmed = window.confirm(
+                  `Enviar este contrato para assinatura${recipients ? ` a ${recipients}` : ""}?`,
+                );
+                if (confirmed) sendMutation.mutate();
+              }}
+            >
+              {sendMutation.isPending ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Send className="h-3.5 w-3.5" />
+              )}
+              Enviar via DocuSign
+            </Button>
+          )}
+          {contract.docusignEnvelopeId && !signed && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="gap-1"
+              disabled={refreshMutation.isPending}
+              onClick={() => refreshMutation.mutate()}
+            >
+              <RefreshCw
+                className={`h-3.5 w-3.5 ${refreshMutation.isPending ? "animate-spin" : ""}`}
+              />
+              Atualizar status
+            </Button>
+          )}
+        </div>
       </div>
-      <div className="flex flex-wrap gap-2">
-        <Button
-          size="sm"
-          variant="outline"
-          className="gap-1"
-          disabled={downloadMutation.isPending}
-          onClick={() => downloadMutation.mutate()}
-        >
-          <Download className="h-3.5 w-3.5" />
-          PDF
-        </Button>
-        {DOCUSIGN_BUTTON_ENABLED && contract.status === "GENERATED" && (
-          <Button
-            size="sm"
-            className="gap-1"
-            disabled={sendMutation.isPending}
-            onClick={() => {
-              const recipients = contract.signers?.map((signer) => signer.email).join(", ");
-              const confirmed = window.confirm(
-                `Enviar este contrato para assinatura${recipients ? ` a ${recipients}` : ""}?`,
-              );
-              if (confirmed) sendMutation.mutate();
-            }}
-          >
-            {sendMutation.isPending ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <Send className="h-3.5 w-3.5" />
-            )}
-            Enviar via DocuSign
-          </Button>
-        )}
-        {contract.docusignEnvelopeId && contract.status !== "SIGNED" && (
-          <Button
-            size="sm"
-            variant="outline"
-            className="gap-1"
-            disabled={refreshMutation.isPending}
-            onClick={() => refreshMutation.mutate()}
-          >
-            <RefreshCw
-              className={`h-3.5 w-3.5 ${refreshMutation.isPending ? "animate-spin" : ""}`}
-            />
-            Atualizar status
-          </Button>
-        )}
-      </div>
+      {signed && <SignedContractActions contract={contract} onChanged={onChanged} />}
     </div>
   );
 }
