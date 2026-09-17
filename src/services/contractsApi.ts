@@ -1,7 +1,13 @@
+import {
+  normalizePortalStudentResults,
+  type CreatePortalStudentsResponse,
+} from "@/features/contracts/signedContract";
 import { apiRequest } from "@/lib/http";
 import { getSession } from "@/lib/session";
 
 const CORE_API_URL = import.meta.env.VITE_CORE_API_URL as string;
+
+export type { CreatePortalStudentsResponse, PortalStudentResult } from "@/features/contracts/signedContract";
 
 export type ContractProductType = "PROGRAMA_REVALIDA_ITALIA" | "ESCOLA_DE_ITALIANO";
 export type ContractStatus = "GENERATED" | "SENT" | "SIGNED" | "DECLINED" | "VOIDED";
@@ -30,9 +36,12 @@ export interface SaleContract {
   docusignUpdatedAt?: string | null;
   signerEmail?: string | null;
   coreUserId?: string | null;
+  signedContractId?: string | null;
+  signedContract?: { id: string } | null;
   signers?: Array<{
     id: string;
-    nameCiphertext: string;
+    name?: string | null;
+    nameCiphertext?: string;
     email: string;
     recipientId: number;
     docusignStatus?: string | null;
@@ -184,10 +193,43 @@ export async function provisionCoreStudent(
   });
 }
 
+/**
+ * Assumed companion backend (Trello 119):
+ * POST /contracts/:id/create-students
+ * Creates core portal students for every SaleContractSigner email.
+ * Password convention: PRIMEIRONOME@ANO. Access email is sent by core
+ * with the password in the body (sendAccessEmail / import credentials).
+ */
+export async function createPortalStudents(
+  contractId: string,
+): Promise<CreatePortalStudentsResponse> {
+  const payload = await apiRequest<unknown>(CORE_API_URL, `/contracts/${contractId}/create-students`, {
+    method: "POST",
+    body: { sendAccessEmail: true },
+  });
+  return normalizePortalStudentResults(payload);
+}
+
 export async function downloadContractPdf(contractId: string): Promise<void> {
+  return downloadContractFile(`/contracts/${contractId}/download`, `contrato-${contractId}.pdf`);
+}
+
+/**
+ * Assumed companion backend (Trello 119):
+ * GET /contracts/:id/signed-pdf
+ * Streams the DocuSign combined signed PDF through comercial-back.
+ */
+export async function downloadSignedContractPdf(contractId: string): Promise<void> {
+  return downloadContractFile(
+    `/contracts/${contractId}/signed-pdf`,
+    `contrato-assinado-${contractId}.pdf`,
+  );
+}
+
+async function downloadContractFile(path: string, fallbackFileName: string): Promise<void> {
   const session = getSession();
   const base = CORE_API_URL.endsWith("/") ? CORE_API_URL.slice(0, -1) : CORE_API_URL;
-  const response = await fetch(`${base}/contracts/${contractId}/download`, {
+  const response = await fetch(`${base}${path}`, {
     headers: session?.accessToken ? { Authorization: `Bearer ${session.accessToken}` } : {},
   });
 
@@ -215,7 +257,7 @@ export async function downloadContractPdf(contractId: string): Promise<void> {
   const blob = await response.blob();
   const disposition = response.headers.get("content-disposition") ?? "";
   const match = disposition.match(/filename="?([^"]+)"?/i);
-  const fileName = match?.[1] ?? `contrato-${contractId}.pdf`;
+  const fileName = match?.[1] ?? fallbackFileName;
   const objectUrl = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   anchor.href = objectUrl;
