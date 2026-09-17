@@ -20,10 +20,9 @@ import {
 import {
   defaultPortalPasswordHint,
   formatPortalStudentsSummary,
-  inferPortalPassword,
   isSignedContract,
   portalStudentStatusLabel,
-  type PortalStudentResult,
+  type CreatePortalStudentsResponse,
 } from "@/features/contracts/signedContract";
 
 type Props = {
@@ -37,7 +36,7 @@ function signerLabel(signer: NonNullable<SaleContract["signers"]>[number]): stri
 }
 
 export default function SignedContractActions({ contract, onChanged }: Props) {
-  const [studentResults, setStudentResults] = useState<PortalStudentResult[] | null>(null);
+  const [provision, setProvision] = useState<CreatePortalStudentsResponse | null>(null);
   const passwordHint = defaultPortalPasswordHint();
 
   const downloadMutation = useMutation({
@@ -53,9 +52,9 @@ export default function SignedContractActions({ contract, onChanged }: Props) {
   const createStudentsMutation = useMutation({
     mutationFn: () => createPortalStudents(contract.id),
     onSuccess: (payload) => {
-      setStudentResults(payload.results);
-      const summary = formatPortalStudentsSummary(payload.results);
-      if (payload.results.some((result) => result.status === "failed")) {
+      setProvision(payload);
+      const summary = formatPortalStudentsSummary(payload.summary);
+      if (payload.summary.failed > 0) {
         toast.error(`Alunos criados com pendências: ${summary}`);
       } else {
         toast.success(`Alunos no portal: ${summary}`);
@@ -71,12 +70,8 @@ export default function SignedContractActions({ contract, onChanged }: Props) {
     return null;
   }
 
-  const signerEmails = (contract.signers ?? [])
-    .map((signer) => signer.email)
-    .filter(Boolean);
-  const confirmLines = (contract.signers ?? [])
-    .filter((signer) => signer.email)
-    .map(signerLabel);
+  const signers = contract.signers ?? [];
+  const confirmLines = signers.filter((signer) => signer.email).map(signerLabel);
 
   const handleCreateStudents = () => {
     const recipients =
@@ -88,7 +83,7 @@ export default function SignedContractActions({ contract, onChanged }: Props) {
         `Senha inicial no padrão ${passwordHint}. O e-mail de acesso é enviado pelo core com a senha no corpo.`,
     );
     if (confirmed) {
-      setStudentResults(null);
+      setProvision(null);
       createStudentsMutation.mutate();
     }
   };
@@ -129,7 +124,7 @@ export default function SignedContractActions({ contract, onChanged }: Props) {
         Senha inicial: <span className="font-medium text-foreground">{passwordHint}</span>
         {" · "}
         e-mail de acesso enviado pelo core com a senha no corpo
-        {signerEmails.length > 0 ? ` · ${signerEmails.length} signatário(s)` : ""}.
+        {signers.length > 0 ? ` · ${signers.length} signatário(s)` : ""}.
       </p>
 
       {createStudentsMutation.isPending && (
@@ -137,58 +132,51 @@ export default function SignedContractActions({ contract, onChanged }: Props) {
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
             Criando alunos no portal
-            {signerEmails.length > 0 ? ` (${signerEmails.length})` : ""}…
+            {signers.length > 0 ? ` (${signers.length})` : ""}…
           </div>
           <Progress value={45} className="h-1.5" />
         </div>
       )}
 
-      {studentResults && (
-        <Alert className={studentResults.some((result) => result.status === "failed") ? "border-destructive/40" : ""}>
-          {studentResults.some((result) => result.status === "failed") ? (
+      {provision && (
+        <Alert className={provision.summary.failed > 0 ? "border-destructive/40" : ""}>
+          {provision.summary.failed > 0 ? (
             <AlertCircle className="h-4 w-4" />
           ) : (
             <CheckCircle2 className="h-4 w-4" />
           )}
           <AlertTitle>Resultado da criação de alunos</AlertTitle>
           <AlertDescription>
-            <p className="mb-2">{formatPortalStudentsSummary(studentResults)}</p>
+            <p className="mb-2">{formatPortalStudentsSummary(provision.summary)}</p>
             <ul className="space-y-1.5">
-              {studentResults.map((result, index) => {
-                const password =
-                  result.temporaryPassword ??
-                  (result.status === "created" && result.name
-                    ? inferPortalPassword(result.name)
-                    : null);
-                return (
-                  <li
-                    key={`${result.email}-${index}`}
-                    className="flex flex-wrap items-center gap-2 text-foreground"
+              {provision.results.map((result, index) => (
+                <li
+                  key={result.signerId ?? `${result.email}-${index}`}
+                  className="flex flex-wrap items-center gap-2 text-foreground"
+                >
+                  <Badge
+                    variant={
+                      result.status === "failed"
+                        ? "destructive"
+                        : result.status === "already_exists"
+                          ? "secondary"
+                          : "outline"
+                    }
                   >
-                    <Badge
-                      variant={
-                        result.status === "failed"
-                          ? "destructive"
-                          : result.status === "already_exists"
-                            ? "secondary"
-                            : "outline"
-                      }
-                    >
-                      {portalStudentStatusLabel(result.status)}
-                    </Badge>
-                    <span>
-                      {result.name ? `${result.name} · ` : ""}
-                      {result.email || "e-mail não informado"}
-                    </span>
-                    {password && result.status === "created" ? (
-                      <span className="text-xs text-muted-foreground">senha {password}</span>
-                    ) : null}
-                    {result.status === "failed" && result.error ? (
-                      <span className="text-xs text-destructive">{result.error}</span>
-                    ) : null}
-                  </li>
-                );
-              })}
+                    {portalStudentStatusLabel(result.status)}
+                  </Badge>
+                  <span>
+                    {result.name ? `${result.name} · ` : ""}
+                    {result.email || "e-mail não informado"}
+                  </span>
+                  {result.coreUserId ? (
+                    <span className="text-xs text-muted-foreground">core {result.coreUserId}</span>
+                  ) : null}
+                  {result.status === "failed" && result.error ? (
+                    <span className="text-xs text-destructive">{result.error}</span>
+                  ) : null}
+                </li>
+              ))}
             </ul>
           </AlertDescription>
         </Alert>

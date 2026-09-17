@@ -1,4 +1,5 @@
 import {
+  mapSignedContractError,
   normalizePortalStudentResults,
   type CreatePortalStudentsResponse,
 } from "@/features/contracts/signedContract";
@@ -36,8 +37,11 @@ export interface SaleContract {
   docusignUpdatedAt?: string | null;
   signerEmail?: string | null;
   coreUserId?: string | null;
-  signedContractId?: string | null;
-  signedContract?: { id: string } | null;
+  signedContract?: {
+    id: string;
+    envelopeId?: string | null;
+    completedAt?: string | null;
+  } | null;
   signers?: Array<{
     id: string;
     name?: string | null;
@@ -46,6 +50,7 @@ export interface SaleContract {
     recipientId: number;
     docusignStatus?: string | null;
     signedAt?: string | null;
+    coreUserId?: string | null;
   }>;
 }
 
@@ -193,35 +198,30 @@ export async function provisionCoreStudent(
   });
 }
 
-/**
- * Assumed companion backend (Trello 119):
- * POST /contracts/:id/create-students
- * Creates core portal students for every SaleContractSigner email.
- * Password convention: PRIMEIRONOME@ANO. Access email is sent by core
- * with the password in the body (sendAccessEmail / import credentials).
- */
+/** POST /contracts/:id/provision-portal-students — empty body; password is never returned. */
 export async function createPortalStudents(
   contractId: string,
 ): Promise<CreatePortalStudentsResponse> {
-  const payload = await apiRequest<unknown>(CORE_API_URL, `/contracts/${contractId}/create-students`, {
-    method: "POST",
-    body: { sendAccessEmail: true },
-  });
-  return normalizePortalStudentResults(payload);
+  try {
+    const payload = await apiRequest<unknown>(
+      CORE_API_URL,
+      `/contracts/${contractId}/provision-portal-students`,
+      { method: "POST" },
+    );
+    return normalizePortalStudentResults(payload);
+  } catch (error) {
+    throw new Error(mapSignedContractError(error));
+  }
 }
 
 export async function downloadContractPdf(contractId: string): Promise<void> {
   return downloadContractFile(`/contracts/${contractId}/download`, `contrato-${contractId}.pdf`);
 }
 
-/**
- * Assumed companion backend (Trello 119):
- * GET /contracts/:id/signed-pdf
- * Streams the DocuSign combined signed PDF through comercial-back.
- */
+/** GET /contracts/:id/signed-download — JWT blob stream of the DocuSign combined PDF. */
 export async function downloadSignedContractPdf(contractId: string): Promise<void> {
   return downloadContractFile(
-    `/contracts/${contractId}/signed-pdf`,
+    `/contracts/${contractId}/signed-download`,
     `contrato-assinado-${contractId}.pdf`,
   );
 }
@@ -234,14 +234,19 @@ async function downloadContractFile(path: string, fallbackFileName: string): Pro
   });
 
   if (!response.ok) {
-    let message = `Erro HTTP ${response.status}`;
+    let payload: { code?: string; message?: string } | undefined;
     try {
-      const payload = (await response.json()) as { code?: string; message?: string };
-      message = payload.code ?? payload.message ?? message;
+      payload = (await response.json()) as { code?: string; message?: string };
     } catch {
       // ignore
     }
-    throw new Error(message);
+    const error = new Error(payload?.message ?? payload?.code ?? `Erro HTTP ${response.status}`) as Error & {
+      code?: string;
+      status?: number;
+    };
+    error.code = payload?.code;
+    error.status = response.status;
+    throw new Error(mapSignedContractError(error));
   }
 
   const contentType = response.headers.get("content-type") ?? "";
