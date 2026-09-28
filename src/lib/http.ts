@@ -141,11 +141,19 @@ export async function apiRequest<T>(baseUrl: string, path: string, options: Requ
           message = apiError
         }
       }
-    } catch {
-      // Intentionally ignore payload parse errors and keep default message.
+      const error = new Error(message) as Error & { code?: string; status?: number }
+      error.code = payload?.code
+      error.status = response.status
+      throw error
+    } catch (parseError) {
+      if (parseError instanceof Error && "status" in parseError) {
+        throw parseError
+      }
     }
 
-    throw new Error(message);
+    const error = new Error(message) as Error & { status?: number }
+    error.status = response.status
+    throw error
   }
 
   if (response.status === 204) {

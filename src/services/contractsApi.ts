@@ -1,7 +1,14 @@
+import {
+  mapSignedContractError,
+  normalizePortalStudentResults,
+  type CreatePortalStudentsResponse,
+} from "@/features/contracts/signedContract";
 import { apiRequest } from "@/lib/http";
 import { getSession } from "@/lib/session";
 
 const CORE_API_URL = import.meta.env.VITE_CORE_API_URL as string;
+
+export type { CreatePortalStudentsResponse, PortalStudentResult } from "@/features/contracts/signedContract";
 
 export type ContractProductType = "PROGRAMA_REVALIDA_ITALIA" | "ESCOLA_DE_ITALIANO";
 export type ContractStatus = "GENERATED" | "SENT" | "SIGNED" | "DECLINED" | "VOIDED";
@@ -30,13 +37,20 @@ export interface SaleContract {
   docusignUpdatedAt?: string | null;
   signerEmail?: string | null;
   coreUserId?: string | null;
+  signedContract?: {
+    id: string;
+    envelopeId?: string | null;
+    completedAt?: string | null;
+  } | null;
   signers?: Array<{
     id: string;
-    nameCiphertext: string;
+    name?: string | null;
+    nameCiphertext?: string;
     email: string;
     recipientId: number;
     docusignStatus?: string | null;
     signedAt?: string | null;
+    coreUserId?: string | null;
   }>;
 }
 
@@ -184,22 +198,55 @@ export async function provisionCoreStudent(
   });
 }
 
+/** POST /contracts/:id/provision-portal-students — empty body; password is never returned. */
+export async function createPortalStudents(
+  contractId: string,
+): Promise<CreatePortalStudentsResponse> {
+  try {
+    const payload = await apiRequest<unknown>(
+      CORE_API_URL,
+      `/contracts/${contractId}/provision-portal-students`,
+      { method: "POST" },
+    );
+    return normalizePortalStudentResults(payload);
+  } catch (error) {
+    throw new Error(mapSignedContractError(error));
+  }
+}
+
 export async function downloadContractPdf(contractId: string): Promise<void> {
+  return downloadContractFile(`/contracts/${contractId}/download`, `contrato-${contractId}.pdf`);
+}
+
+/** GET /contracts/:id/signed-download — JWT blob stream of the DocuSign combined PDF. */
+export async function downloadSignedContractPdf(contractId: string): Promise<void> {
+  return downloadContractFile(
+    `/contracts/${contractId}/signed-download`,
+    `contrato-assinado-${contractId}.pdf`,
+  );
+}
+
+async function downloadContractFile(path: string, fallbackFileName: string): Promise<void> {
   const session = getSession();
   const base = CORE_API_URL.endsWith("/") ? CORE_API_URL.slice(0, -1) : CORE_API_URL;
-  const response = await fetch(`${base}/contracts/${contractId}/download`, {
+  const response = await fetch(`${base}${path}`, {
     headers: session?.accessToken ? { Authorization: `Bearer ${session.accessToken}` } : {},
   });
 
   if (!response.ok) {
-    let message = `Erro HTTP ${response.status}`;
+    let payload: { code?: string; message?: string } | undefined;
     try {
-      const payload = (await response.json()) as { code?: string; message?: string };
-      message = payload.code ?? payload.message ?? message;
+      payload = (await response.json()) as { code?: string; message?: string };
     } catch {
       // ignore
     }
-    throw new Error(message);
+    const error = new Error(payload?.message ?? payload?.code ?? `Erro HTTP ${response.status}`) as Error & {
+      code?: string;
+      status?: number;
+    };
+    error.code = payload?.code;
+    error.status = response.status;
+    throw new Error(mapSignedContractError(error));
   }
 
   const contentType = response.headers.get("content-type") ?? "";
@@ -215,7 +262,7 @@ export async function downloadContractPdf(contractId: string): Promise<void> {
   const blob = await response.blob();
   const disposition = response.headers.get("content-disposition") ?? "";
   const match = disposition.match(/filename="?([^"]+)"?/i);
-  const fileName = match?.[1] ?? `contrato-${contractId}.pdf`;
+  const fileName = match?.[1] ?? fallbackFileName;
   const objectUrl = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   anchor.href = objectUrl;
