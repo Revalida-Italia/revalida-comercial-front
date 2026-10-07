@@ -54,6 +54,7 @@ const GATEWAY_LABELS: Record<string, string> = {
   PAYPAL: "PayPal",
   ASAAS: "Asaas",
   WISE: "Wise",
+  STRIPE: "Stripe",
 };
 
 const SALE_STATUS_LABELS = Object.fromEntries(

@@ -11,7 +11,9 @@ import DisplayCurrencySelect from "@/components/DisplayCurrencySelect";
 import SaleDetailPreview from "@/features/sales/organisms/SaleDetailPreview";
 import EditableSection from "@/features/sales/organisms/EditableSection";
 import CreatePaymentLinkDialog from "@/features/sales/organisms/CreatePaymentLinkDialog";
+import HotmartCheckoutLinkCard from "@/features/sales/organisms/HotmartCheckoutLink";
 import SendPaymentLinkDialog from "@/features/sales/organisms/SendPaymentLinkDialog";
+import StripeCheckoutLinkDialog from "@/features/sales/organisms/StripeCheckoutLinkDialog";
 import SaleArchiveDeleteActions from "@/features/sales/organisms/SaleArchiveDeleteActions";
 import ViewPaymentLinkDialog from "@/features/sales/organisms/ViewPaymentLinkDialog";
 import SaleContractsPanel from "@/features/contracts/SaleContractsPanel";
@@ -42,6 +44,7 @@ const SaleDetails = () => {
   const [createLinkOpen, setCreateLinkOpen] = useState(false);
   const [displayCurrency, setDisplayCurrency] = useState<DisplayCurrency>("BRL");
   const [viewLinkOpen, setViewLinkOpen] = useState(false);
+  const [stripePaymentId, setStripePaymentId] = useState<string | null>(null);
   const [updatingPaymentId, setUpdatingPaymentId] = useState<string | null>(null);
 
   const saleQuery = useQuery({
@@ -306,6 +309,8 @@ const SaleDetails = () => {
         </CardContent>
       </Card>
 
+      <HotmartCheckoutLinkCard sale={sale} />
+
       <Card>
         <CardHeader>
           <CardTitle>Preview completo</CardTitle>
@@ -327,6 +332,7 @@ const SaleDetails = () => {
             updatingPaymentId={updatingPaymentId}
             onMarkPaymentPaid={handleMarkPaymentPaid}
             onMarkPaymentPending={handleMarkPaymentPending}
+            onOpenStripeCheckout={canMutate && !isArchived ? setStripePaymentId : undefined}
           />
         </CardContent>
       </Card>
@@ -334,6 +340,16 @@ const SaleDetails = () => {
       {isAdmin && <SaleContractsPanel saleId={sale.id} />}
 
       <CreatePaymentLinkDialog sale={sale} open={createLinkOpen} onOpenChange={setCreateLinkOpen} />
+      <StripeCheckoutLinkDialog
+        sale={sale}
+        paymentId={stripePaymentId ?? undefined}
+        open={Boolean(stripePaymentId)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setStripePaymentId(null);
+          }
+        }}
+      />
       <ViewPaymentLinkDialog sale={sale} open={viewLinkOpen} onOpenChange={setViewLinkOpen} />
       <SendPaymentLinkDialog sale={sale} open={whatsappOpen} onOpenChange={setWhatsappOpen} />
     </div>

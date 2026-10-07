@@ -32,7 +32,7 @@ export interface SalesDashboardChartRow extends SalesDashboardPeriod {
   periodLabel: string;
 }
 
-export const PAYMENT_GATEWAYS: PaymentGateway[] = ["NUBANK", "HOTMART", "PAYPAL", "ASAAS", "WISE"];
+export const PAYMENT_GATEWAYS: PaymentGateway[] = ["NUBANK", "HOTMART", "PAYPAL", "ASAAS", "WISE", "STRIPE"];
 
 export const DASHBOARD_METRICS: DashboardMetricOption[] = [
   {

@@ -11,6 +11,7 @@ import {
   CreditCard,
   ExternalLink,
   Landmark,
+  Link2,
   Loader2,
   MinusCircle,
   Package,
@@ -49,6 +50,7 @@ type SaleSummaryProps = {
   updatingPaymentId?: string | null;
   onMarkPaymentPaid?: (paymentId: string) => void;
   onMarkPaymentPending?: (paymentId: string) => void;
+  onOpenStripeCheckout?: (paymentId: string) => void;
 };
 
 function getSubscriptionMonthLabel(
@@ -92,6 +94,7 @@ const SaleSummary = ({
   updatingPaymentId = null,
   onMarkPaymentPaid,
   onMarkPaymentPending,
+  onOpenStripeCheckout,
 }: SaleSummaryProps) => {
   const editStep = (step: number) => (saleId ? `/vendas/${saleId}/editar?step=${step}` : "");
 
@@ -173,6 +176,9 @@ const SaleSummary = ({
                 const isPaid = normalizedStatus === "PAID";
                 const isUpdating = Boolean(payment.id && updatingPaymentId === payment.id);
                 const canManageThisPayment = canManagePaymentStatus && Boolean(payment.id);
+                const canOpenStripeCheckout = Boolean(
+                  onOpenStripeCheckout && payment.id && payment.gateway === "STRIPE",
+                );
 
                 return (
                 <li key={payment.id ?? index} className="rounded-md border p-2">
@@ -241,9 +247,26 @@ const SaleSummary = ({
                   )}
                     </div>
 
-                    {canManageThisPayment && (
-                      <div className="shrink-0">
-                        {!isPaid ? (
+                    {(canManageThisPayment || canOpenStripeCheckout) && (
+                      <div className="flex shrink-0 flex-col items-end gap-1.5">
+                        {canOpenStripeCheckout && (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="h-7 gap-1 px-2 text-[11px]"
+                            aria-label={
+                              payment.linkPagamento
+                                ? "Abrir link de pagamento Stripe"
+                                : "Gerar link de pagamento Stripe"
+                            }
+                            onClick={() => onOpenStripeCheckout?.(payment.id!)}
+                          >
+                            <Link2 className="h-3.5 w-3.5" />
+                            {payment.linkPagamento ? "Link Stripe" : "Gerar link Stripe"}
+                          </Button>
+                        )}
+                        {canManageThisPayment && !isPaid && (
                           <Button
                             type="button"
                             size="sm"
@@ -258,7 +281,8 @@ const SaleSummary = ({
                             )}
                             Marcar como pago
                           </Button>
-                        ) : (
+                        )}
+                        {canManageThisPayment && isPaid && (
                           <Button
                             type="button"
                             variant="outline"

@@ -15,6 +15,7 @@ type SaleDetailPreviewProps = {
   updatingPaymentId?: string | null;
   onMarkPaymentPaid?: (paymentId: string) => void;
   onMarkPaymentPending?: (paymentId: string) => void;
+  onOpenStripeCheckout?: (paymentId: string) => void;
 };
 
 const SaleDetailPreview = ({
@@ -24,6 +25,7 @@ const SaleDetailPreview = ({
   updatingPaymentId = null,
   onMarkPaymentPaid,
   onMarkPaymentPending,
+  onOpenStripeCheckout,
 }: SaleDetailPreviewProps) => {
   const filledCustomers: FilledSaleCustomer[] = sale.clients.map((client) => ({
     name: client.nameCiphertext || "Sem nome",
@@ -113,6 +115,7 @@ const SaleDetailPreview = ({
       updatingPaymentId={updatingPaymentId}
       onMarkPaymentPaid={onMarkPaymentPaid}
       onMarkPaymentPending={onMarkPaymentPending}
+      onOpenStripeCheckout={onOpenStripeCheckout}
     />
   );
 };

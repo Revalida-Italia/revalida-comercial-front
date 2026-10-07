@@ -18,8 +18,11 @@ import {
   getSaleSellerInfo,
 } from "../utils";
 import { saleHasPaymentLink } from "@/features/sales/utils/paymentLink";
+import { saleOffersHotmartCheckout } from "@/features/sales/utils/hotmartCheckout";
 import CreatePaymentLinkDialog from "./CreatePaymentLinkDialog";
+import { HotmartCheckoutLinkDialog } from "./HotmartCheckoutLink";
 import SendPaymentLinkDialog from "./SendPaymentLinkDialog";
+import StripeCheckoutLinkDialog from "./StripeCheckoutLinkDialog";
 import SaleArchiveDeleteActions from "./SaleArchiveDeleteActions";
 import ViewPaymentLinkDialog from "./ViewPaymentLinkDialog";
 
@@ -34,6 +37,8 @@ const SaleListCard = ({ sale }: SaleListCardProps) => {
   const [whatsappOpen, setWhatsappOpen] = useState(false);
   const [createLinkOpen, setCreateLinkOpen] = useState(false);
   const [viewLinkOpen, setViewLinkOpen] = useState(false);
+  const [stripeOpen, setStripeOpen] = useState(false);
+  const [hotmartOpen, setHotmartOpen] = useState(false);
   const customerNames = getSaleCustomerNames(sale);
   const contractValue = getSaleContractValue(sale);
   const netContractValue = getSaleNetContractValue(sale);
@@ -42,6 +47,8 @@ const SaleListCard = ({ sale }: SaleListCardProps) => {
   const sellerInfo = getSaleSellerInfo(sale);
   const hasPaymentLink = saleHasPaymentLink(sale);
   const hasPayments = (sale.payments?.length ?? 0) > 0;
+  const hasStripePayment = sale.payments?.some((payment) => payment.gateway === "STRIPE") ?? false;
+  const hasHotmartCheckout = saleOffersHotmartCheckout(sale);
   const isArchived = String(sale.status).toUpperCase() === "ARCHIVED";
   const subscriptionSummary = sale.financialSummary?.payments;
 
@@ -148,6 +155,34 @@ const SaleListCard = ({ sale }: SaleListCardProps) => {
                     Link de pagamento
                   </Button>
                 )}
+                {canMutate && !isArchived && hasStripePayment && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 gap-1 px-2 text-[11px]"
+                    title="Gerar ou atualizar o link de pagamento Stripe"
+                    aria-label="Link de pagamento Stripe"
+                    onClick={() => setStripeOpen(true)}
+                  >
+                    <Link2 className="h-3.5 w-3.5" />
+                    Link Stripe
+                  </Button>
+                )}
+                {hasHotmartCheckout && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 gap-1 px-2 text-[11px]"
+                    title="Link Hotmart desta venda"
+                    aria-label="Abrir link Hotmart desta venda"
+                    onClick={() => setHotmartOpen(true)}
+                  >
+                    <Link2 className="h-3.5 w-3.5" />
+                    Link Hotmart
+                  </Button>
+                )}
                 {canMutate && !isArchived && (
                   <Button
                     type="button"
@@ -183,6 +218,8 @@ const SaleListCard = ({ sale }: SaleListCardProps) => {
       <CreatePaymentLinkDialog sale={sale} open={createLinkOpen} onOpenChange={setCreateLinkOpen} />
       <ViewPaymentLinkDialog sale={sale} open={viewLinkOpen} onOpenChange={setViewLinkOpen} />
       <SendPaymentLinkDialog sale={sale} open={whatsappOpen} onOpenChange={setWhatsappOpen} />
+      <StripeCheckoutLinkDialog sale={sale} open={stripeOpen} onOpenChange={setStripeOpen} />
+      <HotmartCheckoutLinkDialog sale={sale} open={hotmartOpen} onOpenChange={setHotmartOpen} />
     </>
   );
 };

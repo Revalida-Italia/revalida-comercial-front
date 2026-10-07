@@ -15,6 +15,7 @@ export function salePaymentToDraft(payment: SalePayment): SalePaymentDraft {
     gateway: "ASAAS",
     paymentType: payment.type || "",
     amount: payment.amount ? String(payment.amount) : "",
+    inputCurrency: "BRL",
     totalInstallments: String(payment.totalInstallments ?? "1"),
     dueDate: payment.dueDate?.slice(0, 10) ?? "",
     billingType: (payment.billingType as BillingType) || "",
@@ -22,6 +23,7 @@ export function salePaymentToDraft(payment: SalePayment): SalePaymentDraft {
     paymentDate: payment.paymentDate?.slice(0, 10) ?? "",
     status: payment.status || "PENDING",
     notes: payment.notes || "",
+    generatePaymentLink: false,
   };
 }
 
@@ -30,6 +32,7 @@ export function createEmptyAsaasPaymentDraft(): SalePaymentDraft {
     gateway: "ASAAS",
     paymentType: "",
     amount: "",
+    inputCurrency: "BRL",
     totalInstallments: "1",
     dueDate: "",
     billingType: "",
@@ -37,6 +40,7 @@ export function createEmptyAsaasPaymentDraft(): SalePaymentDraft {
     paymentDate: "",
     status: "PENDING",
     notes: "",
+    generatePaymentLink: false,
   };
 }
 

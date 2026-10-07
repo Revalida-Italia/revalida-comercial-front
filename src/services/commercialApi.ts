@@ -1,5 +1,6 @@
 import { apiRequest } from "@/lib/http";
 import type { DisplayCurrency, ExchangeRates } from "@/services/exchangeRatesApi";
+import type { CheckoutCurrency } from "@/shared/utils/stripeCheckout";
 import { createCobranca } from "@/services/chargesApi";
 import { createAssinatura } from "@/services/subscriptionsApi";
 
@@ -76,6 +77,9 @@ export interface SalePayment {
   gatewayFeeRateSnapshot?: string | number | null;
   notes?: string | null;
   linkPagamento?: string | null;
+  currency?: CheckoutCurrency | string | null;
+  originalAmount?: string | number | null;
+  stripeCheckoutSessionId?: string | null;
   cobrancaExternalId?: string | null;
   billingType?: BillingType | string | null;
   ciclo?: SubscriptionCycle | string | null;
@@ -134,6 +138,7 @@ export interface SaleRecord {
   status: string;
   soldAt?: string | null;
   asaasSubscriptionId?: string | null;
+  hotmartCheckoutLink?: string | null;
   createdAt: string;
   updatedAt: string;
   seller?: {
@@ -348,7 +353,7 @@ export type DeleteSaleResult = {
   remoteInstallmentsNotCancelled: boolean;
 };
 
-export type PaymentGateway = "NUBANK" | "HOTMART" | "PAYPAL" | "ASAAS" | "WISE";
+export type PaymentGateway = "NUBANK" | "HOTMART" | "PAYPAL" | "ASAAS" | "WISE" | "STRIPE";
 
 export interface SalesDashboardRequest {
   sellerId?: string;
