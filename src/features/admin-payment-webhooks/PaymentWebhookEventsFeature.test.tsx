@@ -93,10 +93,42 @@ describe("PaymentWebhookEventsFeature", () => {
       pageSize: 20,
     });
 
+    expect(screen.queryByText(/esperado/)).not.toBeInTheDocument();
+
     fireEvent.click(screen.getByRole("button", { name: "Copiar sessão Stripe" }));
     await waitFor(() => {
       expect(writeText).toHaveBeenCalledWith("cs_test_123");
     });
+  });
+
+  it("shows expected versus received amounts for amount_mismatch", async () => {
+    vi.mocked(listPaymentWebhookEvents).mockResolvedValue(pageOf([
+      webhookEvent({
+        expectedAmount: 10000,
+        expectedCurrency: "brl",
+        amount: 12345,
+        currency: "brl",
+      }),
+      webhookEvent({
+        id: "evt_2",
+        reason: "second_settled_charge",
+        expectedAmount: 5000,
+        expectedCurrency: "eur",
+        amount: 5000,
+        currency: "eur",
+        saleId: null,
+      }),
+    ]));
+    renderFeature();
+
+    const mismatch = await screen.findByText((_, element) => {
+      if (element?.tagName !== "TD") return false;
+      const text = (element.textContent ?? "").replace(/[\u00a0\u202f]/g, " ");
+      return text.includes("esperado R$ 100,00") && text.includes("recebido R$ 123,45");
+    });
+    expect(mismatch).toBeInTheDocument();
+    expect(screen.getByText("Segunda cobrança real no mesmo pagamento")).toBeInTheDocument();
+    expect(screen.getAllByText(/esperado/)).toHaveLength(1);
   });
 
   it("applies provider, status and resolved filters", async () => {

@@ -35,6 +35,8 @@ export interface PaymentWebhookEvent {
   createdAt: string | null;
   amount: number | null;
   currency: string | null;
+  expectedAmount?: number | null;
+  expectedCurrency?: string | null;
   buyerEmail: string | null;
   saleId: string | null;
   paymentId: string | null;
@@ -172,6 +174,8 @@ export function normalizePaymentWebhookEvent(value: unknown): PaymentWebhookEven
     createdAt: readString(value.createdAt),
     amount: toFiniteNumber(value.amount),
     currency: readString(value.currency),
+    expectedAmount: toFiniteNumber(value.expectedAmount),
+    expectedCurrency: readString(value.expectedCurrency)?.toLowerCase() ?? null,
     buyerEmail: readString(value.buyerEmail),
     saleId: readString(value.saleId),
     paymentId: readString(value.paymentId),
@@ -278,6 +282,7 @@ export async function resolvePaymentWebhookEvent(
     `/payment-webhook-events/${encodeURIComponent(id)}/resolve`,
     {
       method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: note ? { note } : {},
     },
   );

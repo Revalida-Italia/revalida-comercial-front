@@ -67,6 +67,26 @@ export function formatWebhookAmount(
   }
 }
 
+export function formatWebhookAmountMismatch(event: {
+  reason?: string | null;
+  amount?: number | null;
+  currency?: string | null;
+  expectedAmount?: number | null;
+  expectedCurrency?: string | null;
+}): string | null {
+  if (event.reason?.trim() !== "amount_mismatch") {
+    return null;
+  }
+
+  if (event.expectedAmount == null || !Number.isFinite(event.expectedAmount)) {
+    return null;
+  }
+
+  const expected = formatWebhookAmount(event.expectedAmount, event.expectedCurrency);
+  const received = formatWebhookAmount(event.amount, event.currency);
+  return `esperado ${expected} / recebido ${received}`;
+}
+
 export function webhookErrorMessage(error: unknown, fallback: string): string {
   if (!(error instanceof Error) || !error.message) {
     return fallback;

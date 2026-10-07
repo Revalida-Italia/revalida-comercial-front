@@ -5,6 +5,7 @@ import {
   createStripeCheckoutLink,
   getHotmartCheckoutLink,
   listPaymentWebhookEvents,
+  normalizePaymentWebhookEvent,
   resolvePaymentWebhookEvent,
 } from "@/services/paymentLinksApi";
 
@@ -106,6 +107,8 @@ describe("payment link API", () => {
           createdAt: "2026-10-07T15:00:01.000Z",
           amount: 9900,
           currency: "brl",
+          expectedAmount: 15000,
+          expectedCurrency: "BRL",
           buyerEmail: "ana@example.com",
           saleId: null,
           paymentId: null,
@@ -145,9 +148,17 @@ describe("payment link API", () => {
       reason: "sale_not_found",
       amount: 9900,
       currency: "brl",
+      expectedAmount: 15000,
+      expectedCurrency: "brl",
       hotmartTransaction: "HP1",
       markedPaymentIds: [],
     });
+  });
+
+  it("treats expected amount fields as optional", () => {
+    const event = normalizePaymentWebhookEvent({ id: "evt_1", reason: "sale_not_found" });
+    expect(event.expectedAmount).toBeNull();
+    expect(event.expectedCurrency).toBeNull();
   });
 
   it("caps webhook page size at 100 and omits unresolved filters", async () => {
@@ -195,10 +206,35 @@ describe("payment link API", () => {
 
     expect(vi.mocked(apiRequest).mock.calls[0]?.slice(1)).toEqual([
       "/payment-webhook-events/evt%201/resolve",
-      { method: "POST", body: { note: "Conferido manualmente" } },
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: { note: "Conferido manualmente" },
+      },
     ]);
     expect(event.resolvedBy).toBe("admin@example.com");
     expect(event.resolutionNote).toBe("Conferido manualmente");
+  });
+
+  it("posts an empty JSON body when resolving without a note", async () => {
+    vi.mocked(apiRequest).mockResolvedValue({
+      success: true,
+      data: { id: "evt_1", provider: "STRIPE", markedPaymentIds: [] },
+    });
+
+    await resolvePaymentWebhookEvent("evt_1");
+    await resolvePaymentWebhookEvent("evt_2", { note: "   " });
+
+    expect(vi.mocked(apiRequest).mock.calls.map((call) => call.slice(1))).toEqual([
+      [
+        "/payment-webhook-events/evt_1/resolve",
+        { method: "POST", headers: { "Content-Type": "application/json" }, body: {} },
+      ],
+      [
+        "/payment-webhook-events/evt_2/resolve",
+        { method: "POST", headers: { "Content-Type": "application/json" }, body: {} },
+      ],
+    ]);
   });
 
   it("refuses a resolution note longer than 2000 characters", async () => {

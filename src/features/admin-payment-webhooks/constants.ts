@@ -5,6 +5,7 @@ export const PAYMENT_WEBHOOK_PAGE_SIZE = 20;
 export const WEBHOOK_REASON_LABELS: Record<string, string> = {
   duplicate_charge: "Cobrança duplicada",
   amount_mismatch: "Valor divergente",
+  second_settled_charge: "Segunda cobrança real no mesmo pagamento",
   untracked_session: "Sessão não rastreada",
   payment_not_found: "Pagamento não encontrado",
   installment_not_found: "Parcela não encontrada",

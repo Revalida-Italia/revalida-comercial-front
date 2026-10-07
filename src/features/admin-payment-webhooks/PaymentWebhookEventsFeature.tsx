@@ -33,6 +33,7 @@ import {
 import { PAYMENT_WEBHOOK_PAGE_SIZE } from "./constants";
 import {
   formatWebhookAmount,
+  formatWebhookAmountMismatch,
   formatWebhookDateTime,
   formatWebhookProvider,
   formatWebhookReason,
@@ -228,7 +229,9 @@ const PaymentWebhookEventsFeature = () => {
                   </div>
                 </TableCell>
                 <TableCell>{formatWebhookDateTime(event.receivedAt ?? event.createdAt)}</TableCell>
-                <TableCell>{formatWebhookAmount(event.amount, event.currency)}</TableCell>
+                <TableCell>
+                  {formatWebhookAmountMismatch(event) ?? formatWebhookAmount(event.amount, event.currency)}
+                </TableCell>
                 <TableCell className="break-all">{event.buyerEmail || "—"}</TableCell>
                 <TableCell className="min-w-52 space-y-1">
                   {eventIdentifiers(event).map((item) => (
