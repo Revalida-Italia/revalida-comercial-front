@@ -14,6 +14,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { PAYMENT_TYPE_LABELS } from "@/features/new-sale/constants";
 import SendPaymentLinkDialog from "@/features/sales/organisms/SendPaymentLinkDialog";
 import type { SalePayment, SaleRecord } from "@/services/commercialApi";
 import { createStripeCheckoutLink, type StripeCheckoutSession } from "@/services/paymentLinksApi";
@@ -50,7 +51,8 @@ function paymentOptionLabel(payment: SalePayment): string {
     ? formatCurrency(Number(payment.originalAmount) || 0, currency)
     : formatCurrency(Number(payment.amount) || 0, "BRL");
 
-  return [payment.type, amountLabel].filter(Boolean).join(" · ");
+  const typeLabel = payment.type ? PAYMENT_TYPE_LABELS[payment.type] ?? payment.type : "";
+  return [typeLabel, amountLabel].filter(Boolean).join(" · ");
 }
 
 function initialAmountInput(payment: SalePayment | undefined, currency: CheckoutCurrency): string {

@@ -129,6 +129,39 @@ describe("PaymentWebhookEventsFeature", () => {
     expect(mismatch).toBeInTheDocument();
     expect(screen.getByText("Segunda cobrança real no mesmo pagamento")).toBeInTheDocument();
     expect(screen.getAllByText(/esperado/)).toHaveLength(1);
+    expect(screen.queryByText(/Cobrança anterior/)).not.toBeInTheDocument();
+  });
+
+  it("shows the previous and current charges for a second settled charge", async () => {
+    vi.mocked(listPaymentWebhookEvents).mockResolvedValue(pageOf([
+      webhookEvent({
+        reason: "second_settled_charge",
+        secondSettledCharge: {
+          previousPaymentIntentId: "pi_old",
+          paymentIntentId: "pi_new",
+          previousSessionId: "cs_old",
+          sessionId: "cs_new",
+        },
+      }),
+    ]));
+    renderFeature();
+
+    const line = (element: Element | null, label: string, intent: string, session: string) => {
+      if (element?.tagName !== "P") return false;
+      const text = element.textContent ?? "";
+      return text.includes(label) && text.includes(intent) && text.includes(`(sessão`) && text.includes(session);
+    };
+    const previous = await screen.findByText((_, element) => line(element, "Cobrança anterior:", "pi_old", "cs_old"));
+    const current = screen.getByText((_, element) => line(element, "Cobrança atual:", "pi_new", "cs_new"));
+    expect(previous).toBeInTheDocument();
+    expect(current).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Copiar cobrança anterior" }));
+    fireEvent.click(screen.getByRole("button", { name: "Copiar sessão anterior" }));
+    await waitFor(() => {
+      expect(writeText).toHaveBeenCalledWith("pi_old");
+      expect(writeText).toHaveBeenCalledWith("cs_old");
+    });
   });
 
   it("applies provider, status and resolved filters", async () => {

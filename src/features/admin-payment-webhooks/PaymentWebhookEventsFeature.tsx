@@ -27,6 +27,7 @@ import {
   listPaymentWebhookEvents,
   resolvePaymentWebhookEvent,
   type PaymentWebhookEvent,
+  type SecondSettledCharge,
   type PaymentWebhookProvider,
   type PaymentWebhookStatus,
 } from "@/services/paymentLinksApi";
@@ -65,6 +66,70 @@ function CopyableId({ label, value }: { label: string; value: string }) {
       >
         <Copy className="h-3 w-3" />
       </Button>
+    </div>
+  );
+}
+
+function ChargeId({ label, value }: { label: string; value: string }) {
+  return (
+    <>
+      <code className="break-all text-xs text-foreground">{value}</code>
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        className="h-6 shrink-0 px-1"
+        aria-label={`Copiar ${label}`}
+        onClick={() => {
+          void navigator.clipboard.writeText(value);
+          toast.success("Identificador copiado.");
+        }}
+      >
+        <Copy className="h-3 w-3" />
+      </Button>
+    </>
+  );
+}
+
+function SecondSettledChargeLine({ charge }: { charge: SecondSettledCharge }) {
+  const hasPrevious = Boolean(charge.previousPaymentIntentId || charge.previousSessionId);
+  const hasCurrent = Boolean(charge.paymentIntentId || charge.sessionId);
+  if (!hasPrevious && !hasCurrent) {
+    return null;
+  }
+
+  return (
+    <div className="space-y-1 text-xs text-muted-foreground">
+      {hasPrevious && (
+        <p className="flex flex-wrap items-center gap-1">
+          <span>Cobrança anterior:</span>
+          {charge.previousPaymentIntentId && (
+            <ChargeId label="cobrança anterior" value={charge.previousPaymentIntentId} />
+          )}
+          {charge.previousSessionId && (
+            <>
+              <span>(sessão</span>
+              <ChargeId label="sessão anterior" value={charge.previousSessionId} />
+              <span>)</span>
+            </>
+          )}
+        </p>
+      )}
+      {hasCurrent && (
+        <p className="flex flex-wrap items-center gap-1">
+          <span>Cobrança atual:</span>
+          {charge.paymentIntentId && (
+            <ChargeId label="cobrança atual" value={charge.paymentIntentId} />
+          )}
+          {charge.sessionId && (
+            <>
+              <span>(sessão</span>
+              <ChargeId label="sessão atual" value={charge.sessionId} />
+              <span>)</span>
+            </>
+          )}
+        </p>
+      )}
     </div>
   );
 }
@@ -225,6 +290,9 @@ const PaymentWebhookEventsFeature = () => {
                 <TableCell>
                   <div className="space-y-1">
                     <p>{formatWebhookReason(event.reason)}</p>
+                    {event.reason === "second_settled_charge" && event.secondSettledCharge && (
+                      <SecondSettledChargeLine charge={event.secondSettledCharge} />
+                    )}
                     <Badge variant="outline">{formatWebhookStatus(event.status)}</Badge>
                   </div>
                 </TableCell>

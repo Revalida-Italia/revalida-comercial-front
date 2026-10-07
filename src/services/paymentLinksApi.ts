@@ -24,6 +24,13 @@ export interface HotmartCheckoutLink {
 export type PaymentWebhookStatus = "PROCESSED" | "UNMATCHED" | "IGNORED" | "ERROR";
 export type PaymentWebhookProvider = "STRIPE" | "HOTMART";
 
+export interface SecondSettledCharge {
+  previousPaymentIntentId: string | null;
+  paymentIntentId: string | null;
+  previousSessionId: string | null;
+  sessionId: string | null;
+}
+
 export interface PaymentWebhookEvent {
   id: string;
   provider: string;
@@ -45,6 +52,7 @@ export interface PaymentWebhookEvent {
   hotmartTransaction: string | null;
   hotmartXcod: string | null;
   markedPaymentIds: string[];
+  secondSettledCharge?: SecondSettledCharge | null;
   resolvedAt: string | null;
   resolvedBy: string | null;
   resolutionNote: string | null;
@@ -145,6 +153,25 @@ export function normalizeHotmartCheckoutLink(payload: unknown): HotmartCheckoutL
   return { url };
 }
 
+function readSecondSettledCharge(value: unknown): SecondSettledCharge | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  const charge: SecondSettledCharge = {
+    previousPaymentIntentId: readString(value.previousPaymentIntentId),
+    paymentIntentId: readString(value.paymentIntentId),
+    previousSessionId: readString(value.previousSessionId),
+    sessionId: readString(value.sessionId),
+  };
+
+  if (!charge.previousPaymentIntentId && !charge.paymentIntentId && !charge.previousSessionId && !charge.sessionId) {
+    return null;
+  }
+
+  return charge;
+}
+
 function readStringList(value: unknown): string[] {
   if (!Array.isArray(value)) {
     return [];
@@ -184,6 +211,7 @@ export function normalizePaymentWebhookEvent(value: unknown): PaymentWebhookEven
     hotmartTransaction: readString(value.hotmartTransaction),
     hotmartXcod: readString(value.hotmartXcod),
     markedPaymentIds: readStringList(value.markedPaymentIds),
+    secondSettledCharge: readSecondSettledCharge(value.secondSettledCharge),
     resolvedAt: readString(value.resolvedAt),
     resolvedBy: readString(value.resolvedBy),
     resolutionNote: readString(value.resolutionNote),

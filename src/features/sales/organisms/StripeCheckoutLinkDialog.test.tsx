@@ -88,6 +88,36 @@ describe("StripeCheckoutLinkDialog", () => {
     });
   });
 
+  it("labels the payment type in Portuguese", () => {
+    const view = renderDialog(makeSale({
+      payments: [stripePayment({
+        type: "INSTALLMENT",
+        currency: "USD",
+        originalAmount: 100,
+      })],
+    }));
+
+    const installment = screen.getByText(/Pagamento:/).textContent?.replace(/[\u00a0\u202f]/g, " ") ?? "";
+    expect(installment).toContain("Parcelamento");
+    expect(installment).not.toContain("INSTALLMENT");
+    expect(installment).toMatch(/US\$\s*100,00/);
+    view.unmount();
+
+    const labels = [
+      ["FULL_PAYMENT", "À vista"],
+      ["ENTRY", "Entrada"],
+      ["SUBSCRIPTION", "Assinatura"],
+    ] as const;
+
+    for (const [type, label] of labels) {
+      const next = renderDialog(makeSale({ payments: [stripePayment({ type })] }));
+      const text = screen.getByText(/Pagamento:/).textContent ?? "";
+      expect(text).toContain(label);
+      expect(text).not.toContain(type);
+      next.unmount();
+    }
+  });
+
   it("creates a BRL link without asking for an amount", async () => {
     vi.mocked(createStripeCheckoutLink).mockResolvedValue({
       url: "https://checkout.stripe.com/c/pay_brl",

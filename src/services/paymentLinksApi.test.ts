@@ -159,6 +159,37 @@ describe("payment link API", () => {
     const event = normalizePaymentWebhookEvent({ id: "evt_1", reason: "sale_not_found" });
     expect(event.expectedAmount).toBeNull();
     expect(event.expectedCurrency).toBeNull();
+    expect(event.secondSettledCharge).toBeNull();
+  });
+
+  it("reads second settled charge ids and ignores an empty object", () => {
+    const event = normalizePaymentWebhookEvent({
+      id: "evt_2",
+      reason: "second_settled_charge",
+      secondSettledCharge: {
+        previousPaymentIntentId: " pi_old ",
+        paymentIntentId: "pi_new",
+        previousSessionId: "cs_old",
+        sessionId: "cs_new",
+      },
+    });
+    expect(event.secondSettledCharge).toEqual({
+      previousPaymentIntentId: "pi_old",
+      paymentIntentId: "pi_new",
+      previousSessionId: "cs_old",
+      sessionId: "cs_new",
+    });
+
+    const empty = normalizePaymentWebhookEvent({
+      id: "evt_3",
+      secondSettledCharge: {
+        previousPaymentIntentId: null,
+        paymentIntentId: "",
+        previousSessionId: null,
+        sessionId: null,
+      },
+    });
+    expect(empty.secondSettledCharge).toBeNull();
   });
 
   it("caps webhook page size at 100 and omits unresolved filters", async () => {
