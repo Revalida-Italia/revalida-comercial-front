@@ -112,6 +112,8 @@ describe("payment link API", () => {
           buyerEmail: "ana@example.com",
           saleId: null,
           paymentId: null,
+          stripeObjectId: "price_1",
+          stripeObjectType: "price",
           stripeSessionId: null,
           stripePaymentIntentId: null,
           hotmartTransaction: "HP1",
@@ -151,6 +153,9 @@ describe("payment link API", () => {
       expectedAmount: 15000,
       expectedCurrency: "brl",
       hotmartTransaction: "HP1",
+      stripeObjectId: "price_1",
+      stripeObjectType: "price",
+      stripeSessionId: null,
       markedPaymentIds: [],
     });
   });
@@ -160,6 +165,8 @@ describe("payment link API", () => {
     expect(event.expectedAmount).toBeNull();
     expect(event.expectedCurrency).toBeNull();
     expect(event.secondSettledCharge).toBeNull();
+    expect(event.stripeObjectId).toBeNull();
+    expect(event.stripeObjectType).toBeNull();
   });
 
   it("reads second settled charge ids and ignores an empty object", () => {

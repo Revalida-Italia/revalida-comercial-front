@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  formatStripeObjectType,
   formatWebhookAmount,
   formatWebhookAmountMismatch,
   formatWebhookDateTime,
@@ -23,6 +24,15 @@ describe("webhook event formatting", () => {
     expect(formatWebhookReason("event_ignored")).toBe("Evento ignorado");
     expect(formatWebhookReason("buyer_mismatch")).toBe("buyer_mismatch");
     expect(formatWebhookReason(null)).toBe("—");
+  });
+
+  it("labels Stripe object types in Portuguese", () => {
+    expect(formatStripeObjectType("checkout.session")).toBe("Sessão de checkout");
+    expect(formatStripeObjectType("price")).toBe("Preço");
+    expect(formatStripeObjectType("product")).toBe("Produto");
+    expect(formatStripeObjectType("payment_intent")).toBe("Pagamento (PaymentIntent)");
+    expect(formatStripeObjectType("invoice")).toBe("Objeto Stripe");
+    expect(formatStripeObjectType(null)).toBe("Objeto Stripe");
   });
 
   it("formats the timestamp in pt-BR for America/Sao_Paulo", () => {

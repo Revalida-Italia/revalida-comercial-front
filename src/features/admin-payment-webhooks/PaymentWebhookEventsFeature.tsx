@@ -36,6 +36,7 @@ import {
   formatWebhookAmount,
   formatWebhookAmountMismatch,
   formatWebhookDateTime,
+  formatStripeObjectType,
   formatWebhookProvider,
   formatWebhookReason,
   formatWebhookStatus,
@@ -135,13 +136,21 @@ function SecondSettledChargeLine({ charge }: { charge: SecondSettledCharge }) {
 }
 
 function eventIdentifiers(event: PaymentWebhookEvent) {
+  const stripeObject = event.stripeObjectId
+    ? { label: formatStripeObjectType(event.stripeObjectType), value: event.stripeObjectId }
+    : event.stripeSessionId
+      ? { label: formatStripeObjectType("checkout.session"), value: event.stripeSessionId }
+      : null;
+
   return [
     { label: "evento", value: event.eventId ?? event.id },
-    { label: "sessão Stripe", value: event.stripeSessionId },
-    { label: "payment intent", value: event.stripePaymentIntentId },
+    stripeObject,
+    event.stripePaymentIntentId && event.stripePaymentIntentId !== stripeObject?.value
+      ? { label: "Pagamento (PaymentIntent)", value: event.stripePaymentIntentId }
+      : null,
     { label: "transação Hotmart", value: event.hotmartTransaction },
     { label: "xcod", value: event.hotmartXcod },
-  ].filter((item): item is { label: string; value: string } => Boolean(item.value));
+  ].filter((item): item is { label: string; value: string } => Boolean(item?.value));
 }
 
 const PaymentWebhookEventsFeature = () => {

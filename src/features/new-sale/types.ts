@@ -1,3 +1,4 @@
+import type { StripePaymentMethod } from "@/features/sales/utils/stripePaymentMethod";
 import type { BillingType, CreateSaleCustomer, SubscriptionCycle } from "@/services/commercialApi";
 import type { DisplayCurrency } from "@/services/exchangeRatesApi";
 
@@ -40,6 +41,7 @@ export type ConfiguredSalePayment = {
   dueDate?: string;
   feeRate: number;
   billingType: BillingType;
+  stripePaymentMethod?: StripePaymentMethod | null;
   ciclo?: SubscriptionCycle;
   linkPagamento?: string;
 };

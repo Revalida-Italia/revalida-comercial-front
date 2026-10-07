@@ -1,6 +1,7 @@
 import { apiRequest } from "@/lib/http";
 import type { DisplayCurrency, ExchangeRates } from "@/services/exchangeRatesApi";
 import type { CheckoutCurrency } from "@/shared/utils/stripeCheckout";
+import { readStripePaymentMethod, type StripePaymentMethod } from "@/features/sales/utils/stripePaymentMethod";
 import { createCobranca } from "@/services/chargesApi";
 import { createAssinatura } from "@/services/subscriptionsApi";
 
@@ -80,6 +81,7 @@ export interface SalePayment {
   currency?: CheckoutCurrency | string | null;
   originalAmount?: string | number | null;
   stripeCheckoutSessionId?: string | null;
+  stripePaymentMethod?: StripePaymentMethod | null;
   cobrancaExternalId?: string | null;
   billingType?: BillingType | string | null;
   ciclo?: SubscriptionCycle | string | null;
@@ -408,8 +410,15 @@ interface SalesDashboardEnvelope {
   };
 }
 
+function normalizeSalePayment(payment: SalePayment): SalePayment {
+  return {
+    ...payment,
+    stripePaymentMethod: readStripePaymentMethod(payment.stripePaymentMethod),
+  };
+}
+
 function normalizeSaleRecord(sale: SaleRecord): SaleRecord {
-  const payments = Array.isArray(sale.payments) ? sale.payments : [];
+  const payments = (Array.isArray(sale.payments) ? sale.payments : []).map(normalizeSalePayment);
   const commissionsFromPayments = payments
     .map((payment) => payment.commission)
     .filter((commission): commission is SalePaymentCommission => Boolean(commission));

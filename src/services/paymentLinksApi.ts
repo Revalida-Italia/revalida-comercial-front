@@ -47,6 +47,8 @@ export interface PaymentWebhookEvent {
   buyerEmail: string | null;
   saleId: string | null;
   paymentId: string | null;
+  stripeObjectId: string | null;
+  stripeObjectType: string | null;
   stripeSessionId: string | null;
   stripePaymentIntentId: string | null;
   hotmartTransaction: string | null;
@@ -206,6 +208,8 @@ export function normalizePaymentWebhookEvent(value: unknown): PaymentWebhookEven
     buyerEmail: readString(value.buyerEmail),
     saleId: readString(value.saleId),
     paymentId: readString(value.paymentId),
+    stripeObjectId: readString(value.stripeObjectId),
+    stripeObjectType: readString(value.stripeObjectType),
     stripeSessionId: readString(value.stripeSessionId),
     stripePaymentIntentId: readString(value.stripePaymentIntentId),
     hotmartTransaction: readString(value.hotmartTransaction),

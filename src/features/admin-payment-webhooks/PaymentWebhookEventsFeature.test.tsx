@@ -32,6 +32,8 @@ function webhookEvent(overrides: Partial<PaymentWebhookEvent> = {}): PaymentWebh
     buyerEmail: "ana@example.com",
     saleId: "sale_9",
     paymentId: "pay_1",
+    stripeObjectId: null,
+    stripeObjectType: null,
     stripeSessionId: "cs_test_123",
     stripePaymentIntentId: "pi_test_123",
     hotmartTransaction: null,
@@ -95,9 +97,81 @@ describe("PaymentWebhookEventsFeature", () => {
 
     expect(screen.queryByText(/esperado/)).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Copiar sessão Stripe" }));
+    fireEvent.click(screen.getByRole("button", { name: "Copiar Sessão de checkout" }));
     await waitFor(() => {
       expect(writeText).toHaveBeenCalledWith("cs_test_123");
+    });
+  });
+
+  it("labels the Stripe object by type and falls back to the checkout session", async () => {
+    vi.mocked(listPaymentWebhookEvents).mockResolvedValue(pageOf([
+      webhookEvent({
+        id: "evt_session",
+        stripeObjectId: "cs_live",
+        stripeObjectType: "checkout.session",
+        stripeSessionId: "cs_live",
+        stripePaymentIntentId: null,
+      }),
+      webhookEvent({
+        id: "evt_price",
+        stripeObjectId: "price_1",
+        stripeObjectType: "price",
+        stripeSessionId: null,
+        stripePaymentIntentId: null,
+        saleId: null,
+      }),
+      webhookEvent({
+        id: "evt_product",
+        stripeObjectId: "prod_1",
+        stripeObjectType: "product",
+        stripeSessionId: null,
+        stripePaymentIntentId: null,
+        saleId: null,
+      }),
+      webhookEvent({
+        id: "evt_pi",
+        stripeObjectId: "pi_obj",
+        stripeObjectType: "payment_intent",
+        stripeSessionId: null,
+        stripePaymentIntentId: "pi_obj",
+        saleId: null,
+      }),
+      webhookEvent({
+        id: "evt_unknown",
+        stripeObjectId: "in_1",
+        stripeObjectType: "invoice",
+        stripeSessionId: null,
+        stripePaymentIntentId: null,
+        saleId: null,
+      }),
+      webhookEvent({
+        id: "evt_old",
+        stripeObjectId: null,
+        stripeObjectType: null,
+        stripeSessionId: "cs_old",
+        stripePaymentIntentId: "pi_old",
+        saleId: null,
+      }),
+    ]));
+    renderFeature();
+
+    expect(await screen.findByText("cs_live")).toBeInTheDocument();
+    expect(screen.getAllByText("Sessão de checkout")).toHaveLength(2);
+    expect(screen.getByText("Preço")).toBeInTheDocument();
+    expect(screen.getByText("price_1")).toBeInTheDocument();
+    expect(screen.getByText("Produto")).toBeInTheDocument();
+    expect(screen.getByText("prod_1")).toBeInTheDocument();
+    expect(screen.getAllByText("Pagamento (PaymentIntent)")).toHaveLength(2);
+    expect(screen.getByText("pi_obj")).toBeInTheDocument();
+    expect(screen.getByText("pi_old")).toBeInTheDocument();
+    expect(screen.getByText("Objeto Stripe")).toBeInTheDocument();
+    expect(screen.getByText("in_1")).toBeInTheDocument();
+    expect(screen.queryByText("invoice")).not.toBeInTheDocument();
+    expect(screen.getByText("cs_old")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Copiar Preço" }));
+    await waitFor(() => {
+      expect(writeText).toHaveBeenCalledWith("price_1");
     });
   });
 

@@ -1,4 +1,10 @@
-import { WEBHOOK_PROVIDER_LABELS, WEBHOOK_REASON_LABELS, WEBHOOK_STATUS_LABELS } from "./constants";
+import {
+  STRIPE_OBJECT_FALLBACK_LABEL,
+  STRIPE_OBJECT_TYPE_LABELS,
+  WEBHOOK_PROVIDER_LABELS,
+  WEBHOOK_REASON_LABELS,
+  WEBHOOK_STATUS_LABELS,
+} from "./constants";
 
 const SAO_PAULO_TIME_ZONE = "America/Sao_Paulo";
 
@@ -18,6 +24,15 @@ export function formatWebhookStatus(status: string | null | undefined): string {
   }
 
   return WEBHOOK_STATUS_LABELS[code] ?? code;
+}
+
+export function formatStripeObjectType(type: string | null | undefined): string {
+  const code = type?.trim();
+  if (!code) {
+    return STRIPE_OBJECT_FALLBACK_LABEL;
+  }
+
+  return STRIPE_OBJECT_TYPE_LABELS[code] ?? STRIPE_OBJECT_FALLBACK_LABEL;
 }
 
 export function formatWebhookProvider(provider: string | null | undefined): string {

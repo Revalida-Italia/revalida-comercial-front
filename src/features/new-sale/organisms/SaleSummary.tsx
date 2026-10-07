@@ -26,6 +26,7 @@ import EditableSection from "@/features/sales/organisms/EditableSection";
 import { billingStatusLabel, normalizeBillingStatus } from "@/features/billing-calendar/utils";
 import { Badge } from "@/components/ui/badge";
 import { formatInstallmentLabel, getPaymentGrossValue } from "@/shared/utils/payment";
+import { formatStripeChargeLabel } from "@/features/sales/utils/stripePaymentMethod";
 
 type PaymentValueLike = {
   amount: string | number;
@@ -203,7 +204,9 @@ const SaleSummary = ({
                     })()}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    Cobrança: {BILLING_TYPE_LABELS[payment.billingType] ?? payment.billingType}
+                    {payment.gateway === "STRIPE" && payment.stripePaymentMethod !== undefined
+                      ? formatStripeChargeLabel(payment.stripePaymentMethod)
+                      : <>Cobrança: {BILLING_TYPE_LABELS[payment.billingType] ?? payment.billingType}</>}
                     {payment.paymentType === "SUBSCRIPTION" && payment.ciclo && (
                       <> · Ciclo: {SUBSCRIPTION_CYCLE_LABELS[payment.ciclo] ?? payment.ciclo}</>
                     )}

@@ -28,3 +28,12 @@ export const WEBHOOK_PROVIDER_LABELS: Record<string, string> = {
   STRIPE: "Stripe",
   HOTMART: "Hotmart",
 };
+
+export const STRIPE_OBJECT_TYPE_LABELS: Record<string, string> = {
+  "checkout.session": "Sessão de checkout",
+  price: "Preço",
+  product: "Produto",
+  payment_intent: "Pagamento (PaymentIntent)",
+};
+
+export const STRIPE_OBJECT_FALLBACK_LABEL = "Objeto Stripe";

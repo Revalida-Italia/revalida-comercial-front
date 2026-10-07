@@ -4,6 +4,7 @@ import type { SaleRecord } from "@/services/commercialApi";
 import { toNumberOrZero } from "@/shared/utils/number";
 import { getPaymentGrossValue, isMonthlySubscriptionPayment } from "@/shared/utils/payment";
 import type { ConfiguredSalePayment, FilledSaleCustomer } from "@/features/new-sale/types";
+import { readStripePaymentMethod } from "@/features/sales/utils/stripePaymentMethod";
 import { getSaleCommissionValue } from "../utils";
 import SaleSummary from "@/features/new-sale/organisms/SaleSummary";
 import { useMemo } from "react";
@@ -52,6 +53,9 @@ const SaleDetailPreview = ({
     feeRate: toNumberOrZero(payment.gatewayFeeRateSnapshot ?? payment.gatewayFee?.feeRate),
     linkPagamento: payment.linkPagamento ?? undefined,
     billingType: (payment.billingType as ConfiguredSalePayment["billingType"]) || "PIX",
+    ...(payment.gateway === "STRIPE"
+      ? { stripePaymentMethod: readStripePaymentMethod(payment.stripePaymentMethod) }
+      : {}),
     ciclo: payment.ciclo ? (payment.ciclo as ConfiguredSalePayment["ciclo"]) : undefined,
   }));
 
