@@ -133,7 +133,7 @@ describe("StripeCheckoutLinkDialog", () => {
     expect(screen.queryByLabelText(/Valor/)).not.toBeInTheDocument();
     expect(screen.getByRole("combobox", { name: "Moeda" })).toHaveTextContent("Real (BRL)");
     expect(screen.getByText(/cartão e PIX/)).toBeInTheDocument();
-    expect(screen.getByText(/US\$ 3\.000/)).toBeInTheDocument();
+    expect(screen.queryByText(/somente cartão/)).not.toBeInTheDocument();
     expect(screen.queryByText(/Bancontact|MB WAY|EPS|métodos dinâmicos/i)).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Gerar link Stripe" }));
 
@@ -142,6 +142,28 @@ describe("StripeCheckoutLinkDialog", () => {
     });
     expect(await screen.findByText("https://checkout.stripe.com/c/pay_brl")).toBeInTheDocument();
     expect(screen.getByText(/Expira em/)).toBeInTheDocument();
+  });
+
+  it("says card only when the BRL amount is above the US$ 3,000 Pix cap", () => {
+    const overCap = renderDialog(makeSale({
+      usdRateBrl: 5,
+      payments: [stripePayment({ amount: 15001 })],
+    }));
+
+    expect(screen.getByText(/somente cartão/)).toBeInTheDocument();
+    expect(screen.getByText(/PIX não está disponível/)).toBeInTheDocument();
+    expect(screen.getByText(/US\$ 3\.000/)).toBeInTheDocument();
+    expect(screen.queryByText(/cartão e PIX/)).not.toBeInTheDocument();
+    overCap.unmount();
+
+    renderDialog(makeSale({
+      usdRateBrl: 5,
+      payments: [stripePayment({ amount: 15000 })],
+    }));
+
+    expect(screen.getByText(/cartão e PIX/)).toBeInTheDocument();
+    expect(screen.queryByText(/somente cartão/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/PIX não está disponível/)).not.toBeInTheDocument();
   });
 
   it("asks for an amount after selecting euro", async () => {

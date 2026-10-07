@@ -19,6 +19,7 @@ import SendPaymentLinkDialog from "@/features/sales/organisms/SendPaymentLinkDia
 import type { SalePayment, SaleRecord } from "@/services/commercialApi";
 import { createStripeCheckoutLink, type StripeCheckoutSession } from "@/services/paymentLinksApi";
 import { formatCurrency, formatDateTime } from "@/shared/utils/format";
+import { getSaleRateBrl } from "@/shared/utils/exchange";
 import {
   CHECKOUT_CURRENCIES,
   buildStripeCheckoutBody,
@@ -240,7 +241,12 @@ const StripeCheckoutLinkDialog = ({
                   ))}
                 </SelectContent>
               </Select>
-              <p className="text-xs text-muted-foreground">{stripeCheckoutMethodHint(currency)}</p>
+              <p className="text-xs text-muted-foreground">
+                {stripeCheckoutMethodHint(currency, {
+                  amountBrl: selectedPayment ? Number(selectedPayment.amount) : null,
+                  usdRateBrl: getSaleRateBrl(sale, "USD"),
+                })}
+              </p>
             </div>
 
             {currency !== "BRL" && (

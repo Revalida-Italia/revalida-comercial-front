@@ -101,6 +101,25 @@ describe("PaymentWebhookEventsFeature", () => {
     });
   });
 
+  it("shows Portuguese labels for matched, deleted, pending and ignored reasons", async () => {
+    vi.mocked(listPaymentWebhookEvents).mockResolvedValue(pageOf([
+      webhookEvent({ id: "evt_product", reason: "product_not_matched" }),
+      webhookEvent({ id: "evt_deleted", reason: "payment_deleted" }),
+      webhookEvent({ id: "evt_pending", reason: "payment_pending" }),
+      webhookEvent({ id: "evt_ignored", reason: "event_ignored" }),
+    ]));
+    renderFeature();
+
+    expect(await screen.findByText("Produto não conciliado")).toBeInTheDocument();
+    expect(screen.getByText("Pagamento excluído")).toBeInTheDocument();
+    expect(screen.getByText("Pagamento pendente")).toBeInTheDocument();
+    expect(screen.getByText("Evento ignorado")).toBeInTheDocument();
+    expect(screen.queryByText("product_not_matched")).not.toBeInTheDocument();
+    expect(screen.queryByText("payment_deleted")).not.toBeInTheDocument();
+    expect(screen.queryByText("payment_pending")).not.toBeInTheDocument();
+    expect(screen.queryByText("event_ignored")).not.toBeInTheDocument();
+  });
+
   it("shows expected versus received amounts for amount_mismatch", async () => {
     vi.mocked(listPaymentWebhookEvents).mockResolvedValue(pageOf([
       webhookEvent({

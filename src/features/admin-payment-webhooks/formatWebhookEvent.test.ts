@@ -17,6 +17,10 @@ describe("webhook event formatting", () => {
     expect(formatWebhookReason("installment_not_found")).toBe("Parcela não encontrada");
     expect(formatWebhookReason("payment_gateway_not_stripe")).toBe("Gateway do pagamento não é Stripe");
     expect(formatWebhookReason("sale_not_found")).toBe("Venda não encontrada");
+    expect(formatWebhookReason("product_not_matched")).toBe("Produto não conciliado");
+    expect(formatWebhookReason("payment_deleted")).toBe("Pagamento excluído");
+    expect(formatWebhookReason("payment_pending")).toBe("Pagamento pendente");
+    expect(formatWebhookReason("event_ignored")).toBe("Evento ignorado");
     expect(formatWebhookReason("buyer_mismatch")).toBe("buyer_mismatch");
     expect(formatWebhookReason(null)).toBe("—");
   });

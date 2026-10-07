@@ -1,4 +1,8 @@
+import { convertBrlWithSaleRate } from "@/shared/utils/exchange";
+
 export const CHECKOUT_CURRENCIES = ["BRL", "USD", "EUR"] as const;
+
+export const STRIPE_PIX_USD_CAP = 3000;
 
 export type CheckoutCurrency = (typeof CHECKOUT_CURRENCIES)[number];
 
@@ -43,10 +47,29 @@ export function buildStripeCheckoutBody(input: {
   };
 }
 
-export function stripeCheckoutMethodHint(currency: CheckoutCurrency): string {
-  if (currency === "BRL") {
-    return "No real, o checkout aceita cartão e PIX. O PIX vale somente até o limite de US$ 3.000.";
+export function brlExceedsStripePixCap(
+  amountBrl: number | null | undefined,
+  usdRateBrl: number | null | undefined,
+): boolean {
+  if (amountBrl == null || usdRateBrl == null) {
+    return false;
   }
 
-  return "Em dólar e euro, o checkout aceita somente cartão.";
+  const amountUsd = convertBrlWithSaleRate(amountBrl, "USD", { usdRateBrl });
+  return amountUsd != null && amountUsd > STRIPE_PIX_USD_CAP;
+}
+
+export function stripeCheckoutMethodHint(
+  currency: CheckoutCurrency,
+  input?: { amountBrl?: number | null; usdRateBrl?: number | null },
+): string {
+  if (currency !== "BRL") {
+    return "Em dólar e euro, o checkout aceita somente cartão.";
+  }
+
+  if (brlExceedsStripePixCap(input?.amountBrl, input?.usdRateBrl)) {
+    return "No real, este valor fica acima de US$ 3.000. O checkout aceita somente cartão. O PIX não está disponível.";
+  }
+
+  return "No real, o checkout aceita cartão e PIX.";
 }

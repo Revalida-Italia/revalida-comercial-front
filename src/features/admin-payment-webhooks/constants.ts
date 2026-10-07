@@ -11,6 +11,10 @@ export const WEBHOOK_REASON_LABELS: Record<string, string> = {
   installment_not_found: "Parcela não encontrada",
   payment_gateway_not_stripe: "Gateway do pagamento não é Stripe",
   sale_not_found: "Venda não encontrada",
+  product_not_matched: "Produto não conciliado",
+  payment_deleted: "Pagamento excluído",
+  payment_pending: "Pagamento pendente",
+  event_ignored: "Evento ignorado",
 };
 
 export const WEBHOOK_STATUS_LABELS: Record<string, string> = {
