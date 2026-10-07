@@ -23,6 +23,7 @@ import {
   buildStripeCheckoutBody,
   isCheckoutCurrency,
   parseCheckoutAmount,
+  stripeCheckoutMethodHint,
   type CheckoutCurrency,
 } from "@/shared/utils/stripeCheckout";
 
@@ -237,6 +238,7 @@ const StripeCheckoutLinkDialog = ({
                   ))}
                 </SelectContent>
               </Select>
+              <p className="text-xs text-muted-foreground">{stripeCheckoutMethodHint(currency)}</p>
             </div>
 
             {currency !== "BRL" && (

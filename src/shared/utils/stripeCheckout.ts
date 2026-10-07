@@ -42,3 +42,11 @@ export function buildStripeCheckoutBody(input: {
     amount: input.amount,
   };
 }
+
+export function stripeCheckoutMethodHint(currency: CheckoutCurrency): string {
+  if (currency === "BRL") {
+    return "No real, o checkout aceita cartão e PIX. O PIX vale somente até o limite de US$ 3.000.";
+  }
+
+  return "Em dólar e euro, o checkout aceita somente cartão.";
+}

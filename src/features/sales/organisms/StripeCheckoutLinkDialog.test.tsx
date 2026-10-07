@@ -102,6 +102,9 @@ describe("StripeCheckoutLinkDialog", () => {
 
     expect(screen.queryByLabelText(/Valor/)).not.toBeInTheDocument();
     expect(screen.getByRole("combobox", { name: "Moeda" })).toHaveTextContent("Real (BRL)");
+    expect(screen.getByText(/cartão e PIX/)).toBeInTheDocument();
+    expect(screen.getByText(/US\$ 3\.000/)).toBeInTheDocument();
+    expect(screen.queryByText(/Bancontact|MB WAY|EPS|métodos dinâmicos/i)).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Gerar link Stripe" }));
 
     await waitFor(() => {
@@ -118,6 +121,8 @@ describe("StripeCheckoutLinkDialog", () => {
 
     fireEvent.click(await screen.findByRole("option", { name: "Euro (EUR)" }));
     expect(screen.getByLabelText("Valor (EUR) *")).toBeInTheDocument();
+    expect(screen.getByText(/somente cartão/)).toBeInTheDocument();
+    expect(screen.queryByText(/Bancontact|MB WAY|EPS|métodos dinâmicos/i)).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Gerar link Stripe" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("Informe o valor em euro.");
     expect(createStripeCheckoutLink).not.toHaveBeenCalled();

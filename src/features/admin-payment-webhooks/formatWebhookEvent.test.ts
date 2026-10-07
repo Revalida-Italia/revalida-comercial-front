@@ -1,0 +1,38 @@
+import { describe, expect, it } from "vitest";
+import {
+  formatWebhookAmount,
+  formatWebhookDateTime,
+  formatWebhookReason,
+  webhookErrorMessage,
+} from "./formatWebhookEvent";
+
+describe("webhook event formatting", () => {
+  it("labels known reasons in Portuguese and keeps unknown codes", () => {
+    expect(formatWebhookReason("duplicate_charge")).toBe("Cobrança duplicada");
+    expect(formatWebhookReason("amount_mismatch")).toBe("Valor divergente");
+    expect(formatWebhookReason("untracked_session")).toBe("Sessão não rastreada");
+    expect(formatWebhookReason("payment_not_found")).toBe("Pagamento não encontrado");
+    expect(formatWebhookReason("installment_not_found")).toBe("Parcela não encontrada");
+    expect(formatWebhookReason("payment_gateway_not_stripe")).toBe("Gateway do pagamento não é Stripe");
+    expect(formatWebhookReason("sale_not_found")).toBe("Venda não encontrada");
+    expect(formatWebhookReason("buyer_mismatch")).toBe("buyer_mismatch");
+    expect(formatWebhookReason(null)).toBe("—");
+  });
+
+  it("formats the timestamp in pt-BR for America/Sao_Paulo", () => {
+    const formatted = formatWebhookDateTime("2026-10-07T15:00:00.000Z");
+    expect(formatted).toContain("07/10/2026");
+    expect(formatted).toContain("12:00");
+  });
+
+  it("formats minor units as currency", () => {
+    expect(formatWebhookAmount(12345, "brl").replace(/\u00a0/g, " ")).toBe("R$ 123,45");
+    expect(formatWebhookAmount(1000, "usd").replace(/\u00a0/g, " ")).toMatch(/US\$\s*10,00/);
+    expect(formatWebhookAmount(null, "eur")).toBe("—");
+  });
+
+  it("maps the missing-event error", () => {
+    expect(webhookErrorMessage(new Error("WEBHOOK_EVENT_NOT_FOUND"), "falha")).toBe("Evento não encontrado.");
+    expect(webhookErrorMessage(new Error("Sem permissão"), "falha")).toBe("Sem permissão");
+  });
+});

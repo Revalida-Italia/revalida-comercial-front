@@ -5,6 +5,7 @@ import {
   createStripeCheckoutLink,
   getHotmartCheckoutLink,
   listPaymentWebhookEvents,
+  resolvePaymentWebhookEvent,
 } from "@/services/paymentLinksApi";
 
 vi.mock("@/lib/http", () => ({
@@ -90,46 +91,120 @@ describe("payment link API", () => {
     expect(vi.mocked(apiRequest).mock.calls[0]?.[1]).toBe("/sales/sale_1/hotmart-checkout-link");
   });
 
-  it("lists unmatched Hotmart webhook events", async () => {
+  it("lists webhook events with the admin contract", async () => {
     vi.mocked(apiRequest).mockResolvedValue({
-      data: [{ id: "evt_1", provider: "HOTMART", status: "unmatched", type: "PURCHASE_APPROVED" }],
-      meta: { page: 2, limit: 10, total: 15 },
+      success: true,
+      data: {
+        items: [{
+          id: "evt_1",
+          provider: "HOTMART",
+          eventId: "hm_1",
+          eventType: "PURCHASE_APPROVED",
+          status: "UNMATCHED",
+          reason: "sale_not_found",
+          receivedAt: "2026-10-07T15:00:00.000Z",
+          createdAt: "2026-10-07T15:00:01.000Z",
+          amount: 9900,
+          currency: "brl",
+          buyerEmail: "ana@example.com",
+          saleId: null,
+          paymentId: null,
+          stripeSessionId: null,
+          stripePaymentIntentId: null,
+          hotmartTransaction: "HP1",
+          hotmartXcod: "sale_x",
+          markedPaymentIds: [],
+          resolvedAt: null,
+          resolvedBy: null,
+          resolutionNote: null,
+        }],
+        page: 2,
+        pageSize: 10,
+        total: 15,
+      },
     });
 
     const page = await listPaymentWebhookEvents({
-      status: "unmatched",
+      status: "UNMATCHED",
       provider: "HOTMART",
+      resolved: false,
       page: 2,
-      limit: 10,
+      pageSize: 10,
     });
 
     expect(vi.mocked(apiRequest).mock.calls[0]?.[1]).toBe(
-      "/payment-webhook-events?status=unmatched&provider=HOTMART&page=2&limit=10",
+      "/payment-webhook-events?status=UNMATCHED&provider=HOTMART&resolved=false&page=2&pageSize=10",
     );
-    expect(page).toEqual({
-      items: [{
-        id: "evt_1",
-        provider: "HOTMART",
-        status: "unmatched",
-        eventType: "PURCHASE_APPROVED",
-        externalId: null,
-        saleId: null,
-        reason: null,
-        createdAt: null,
-      }],
-      page: 2,
-      pageSize: 10,
-      total: 15,
+    expect(page.page).toBe(2);
+    expect(page.pageSize).toBe(10);
+    expect(page.total).toBe(15);
+    expect(page.items[0]).toMatchObject({
+      id: "evt_1",
+      provider: "HOTMART",
+      eventId: "hm_1",
+      reason: "sale_not_found",
+      amount: 9900,
+      currency: "brl",
+      hotmartTransaction: "HP1",
+      markedPaymentIds: [],
     });
   });
 
-  it("accepts a bare webhook event array", async () => {
-    vi.mocked(apiRequest).mockResolvedValue([{ id: "evt_2", provider: "HOTMART", status: "unmatched" }]);
+  it("caps webhook page size at 100 and omits unresolved filters", async () => {
+    vi.mocked(apiRequest).mockResolvedValue({
+      success: true,
+      data: { items: [], page: 1, pageSize: 100, total: 0 },
+    });
 
-    const page = await listPaymentWebhookEvents({ status: "unmatched", provider: "HOTMART" });
+    await listPaymentWebhookEvents({ pageSize: 500 });
 
-    expect(page.items).toHaveLength(1);
-    expect(page.total).toBe(1);
-    expect(page.items[0]?.id).toBe("evt_2");
+    expect(vi.mocked(apiRequest).mock.calls[0]?.[1]).toBe(
+      "/payment-webhook-events?page=1&pageSize=100",
+    );
+  });
+
+  it("resolves a webhook event with an optional note", async () => {
+    vi.mocked(apiRequest).mockResolvedValue({
+      success: true,
+      data: {
+        id: "evt_1",
+        provider: "STRIPE",
+        eventId: "evt_stripe_1",
+        eventType: "checkout.session.completed",
+        status: "UNMATCHED",
+        reason: "amount_mismatch",
+        receivedAt: "2026-10-07T15:00:00.000Z",
+        createdAt: "2026-10-07T15:00:00.000Z",
+        amount: 1000,
+        currency: "usd",
+        buyerEmail: "ana@example.com",
+        saleId: "sale_1",
+        paymentId: "pay_1",
+        stripeSessionId: "cs_1",
+        stripePaymentIntentId: "pi_1",
+        hotmartTransaction: null,
+        hotmartXcod: null,
+        markedPaymentIds: ["pay_1"],
+        resolvedAt: "2026-10-07T16:00:00.000Z",
+        resolvedBy: "admin@example.com",
+        resolutionNote: "Conferido manualmente",
+      },
+    });
+
+    const event = await resolvePaymentWebhookEvent("evt 1", { note: "  Conferido manualmente  " });
+
+    expect(vi.mocked(apiRequest).mock.calls[0]?.slice(1)).toEqual([
+      "/payment-webhook-events/evt%201/resolve",
+      { method: "POST", body: { note: "Conferido manualmente" } },
+    ]);
+    expect(event.resolvedBy).toBe("admin@example.com");
+    expect(event.resolutionNote).toBe("Conferido manualmente");
+  });
+
+  it("refuses a resolution note longer than 2000 characters", async () => {
+    await expect(resolvePaymentWebhookEvent("evt_1", { note: "a".repeat(2001) })).rejects.toThrow(
+      "A nota pode ter no máximo 2000 caracteres.",
+    );
+    expect(apiRequest).not.toHaveBeenCalled();
   });
 });

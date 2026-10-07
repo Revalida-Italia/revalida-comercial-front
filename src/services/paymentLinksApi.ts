@@ -21,15 +21,31 @@ export interface HotmartCheckoutLink {
   url: string;
 }
 
+export type PaymentWebhookStatus = "PROCESSED" | "UNMATCHED" | "IGNORED" | "ERROR";
+export type PaymentWebhookProvider = "STRIPE" | "HOTMART";
+
 export interface PaymentWebhookEvent {
   id: string;
-  provider?: string | null;
-  status?: string | null;
-  eventType?: string | null;
-  externalId?: string | null;
-  saleId?: string | null;
-  reason?: string | null;
-  createdAt?: string | null;
+  provider: string;
+  eventId: string | null;
+  eventType: string | null;
+  status: string | null;
+  reason: string | null;
+  receivedAt: string | null;
+  createdAt: string | null;
+  amount: number | null;
+  currency: string | null;
+  buyerEmail: string | null;
+  saleId: string | null;
+  paymentId: string | null;
+  stripeSessionId: string | null;
+  stripePaymentIntentId: string | null;
+  hotmartTransaction: string | null;
+  hotmartXcod: string | null;
+  markedPaymentIds: string[];
+  resolvedAt: string | null;
+  resolvedBy: string | null;
+  resolutionNote: string | null;
 }
 
 export interface PaginatedPaymentWebhookEvents {
@@ -40,11 +56,19 @@ export interface PaginatedPaymentWebhookEvents {
 }
 
 export interface ListPaymentWebhookEventsQuery {
-  status?: string;
-  provider?: string;
+  status?: PaymentWebhookStatus | string;
+  provider?: PaymentWebhookProvider | string;
+  resolved?: boolean;
   page?: number;
-  limit?: number;
+  pageSize?: number;
 }
+
+export interface ResolvePaymentWebhookEventInput {
+  note?: string;
+}
+
+const WEBHOOK_NOTE_MAX_LENGTH = 2000;
+const WEBHOOK_PAGE_SIZE_MAX = 100;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
@@ -119,70 +143,67 @@ export function normalizeHotmartCheckoutLink(payload: unknown): HotmartCheckoutL
   return { url };
 }
 
-function normalizePaymentWebhookEvent(value: unknown, index: number): PaymentWebhookEvent {
-  const record = isRecord(value) ? value : {};
-  const id = readString(record.id) ?? `webhook-${index}`;
+function readStringList(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.filter((item): item is string => typeof item === "string" && item.trim().length > 0);
+}
+
+export function normalizePaymentWebhookEvent(value: unknown): PaymentWebhookEvent {
+  if (!isRecord(value)) {
+    throw new Error("Resposta de eventos de webhook fora do contrato esperado.");
+  }
+
+  const id = readString(value.id);
+  if (!id) {
+    throw new Error("Resposta de eventos de webhook fora do contrato esperado.");
+  }
 
   return {
     id,
-    provider: readString(record.provider),
-    status: readString(record.status),
-    eventType: readString(record.eventType ?? record.type),
-    externalId: readString(record.externalId),
-    saleId: readString(record.saleId),
-    reason: readString(record.reason ?? record.message),
-    createdAt: readString(record.createdAt ?? record.receivedAt),
+    provider: readString(value.provider) ?? "",
+    eventId: readString(value.eventId),
+    eventType: readString(value.eventType),
+    status: readString(value.status),
+    reason: readString(value.reason),
+    receivedAt: readString(value.receivedAt),
+    createdAt: readString(value.createdAt),
+    amount: toFiniteNumber(value.amount),
+    currency: readString(value.currency),
+    buyerEmail: readString(value.buyerEmail),
+    saleId: readString(value.saleId),
+    paymentId: readString(value.paymentId),
+    stripeSessionId: readString(value.stripeSessionId),
+    stripePaymentIntentId: readString(value.stripePaymentIntentId),
+    hotmartTransaction: readString(value.hotmartTransaction),
+    hotmartXcod: readString(value.hotmartXcod),
+    markedPaymentIds: readStringList(value.markedPaymentIds),
+    resolvedAt: readString(value.resolvedAt),
+    resolvedBy: readString(value.resolvedBy),
+    resolutionNote: readString(value.resolutionNote),
   };
 }
 
 export function normalizePaymentWebhookEvents(
   payload: unknown,
   fallbackPage = 1,
-  fallbackLimit = 20,
+  fallbackPageSize = 20,
 ): PaginatedPaymentWebhookEvents {
-  if (Array.isArray(payload)) {
-    return {
-      items: payload.map(normalizePaymentWebhookEvent),
-      page: fallbackPage,
-      pageSize: fallbackLimit,
-      total: payload.length,
-    };
-  }
+  const envelope = isRecord(payload) ? payload : null;
+  const data = envelope && isRecord(envelope.data) ? envelope.data : null;
+  const rawItems = data && Array.isArray(data.items) ? data.items : null;
 
-  if (!isRecord(payload)) {
-    throw new Error("Resposta de eventos de webhook fora do contrato esperado.");
-  }
-
-  const meta = isRecord(payload.meta) ? payload.meta : undefined;
-  const nested = isRecord(payload.data) ? payload.data : undefined;
-  const nestedMeta = nested && isRecord(nested.meta) ? nested.meta : undefined;
-  const pageMeta = nestedMeta ?? meta;
-
-  const rawItems = Array.isArray(payload.items)
-    ? payload.items
-    : Array.isArray(payload.data)
-      ? payload.data
-      : nested && Array.isArray(nested.items)
-        ? nested.items
-        : nested && Array.isArray(nested.data)
-          ? nested.data
-          : null;
-
-  if (!rawItems) {
+  if (!data || !rawItems) {
     throw new Error("Resposta de eventos de webhook fora do contrato esperado.");
   }
 
   return {
     items: rawItems.map(normalizePaymentWebhookEvent),
-    page: readNumber(payload.page ?? nested?.page ?? pageMeta?.page, fallbackPage),
-    pageSize: readNumber(
-      payload.pageSize ?? payload.limit ?? nested?.pageSize ?? nested?.limit ?? pageMeta?.pageSize ?? pageMeta?.limit,
-      fallbackLimit,
-    ),
-    total: readNumber(
-      payload.total ?? payload.totalItems ?? nested?.total ?? nested?.totalItems ?? pageMeta?.total ?? pageMeta?.totalItems,
-      rawItems.length,
-    ),
+    page: readNumber(data.page, fallbackPage),
+    pageSize: readNumber(data.pageSize, fallbackPageSize),
+    total: readNumber(data.total, rawItems.length),
   };
 }
 
@@ -213,20 +234,54 @@ export async function getHotmartCheckoutLink(saleId: string): Promise<HotmartChe
   return normalizeHotmartCheckoutLink(payload);
 }
 
+function webhookPageSize(value: number | undefined): number {
+  const pageSize = value ?? 20;
+  if (!Number.isFinite(pageSize)) {
+    return 20;
+  }
+
+  return Math.min(WEBHOOK_PAGE_SIZE_MAX, Math.max(1, Math.trunc(pageSize)));
+}
+
 export async function listPaymentWebhookEvents(
   query: ListPaymentWebhookEventsQuery = {},
 ): Promise<PaginatedPaymentWebhookEvents> {
+  const page = query.page ?? 1;
+  const pageSize = webhookPageSize(query.pageSize);
   const params = new URLSearchParams();
   if (query.status) params.set("status", query.status);
   if (query.provider) params.set("provider", query.provider);
-  if (query.page != null) params.set("page", String(query.page));
-  if (query.limit != null) params.set("limit", String(query.limit));
+  if (query.resolved === true) params.set("resolved", "true");
+  if (query.resolved === false) params.set("resolved", "false");
+  params.set("page", String(page));
+  params.set("pageSize", String(pageSize));
 
-  const queryString = params.toString();
   const payload = await apiRequest<unknown>(
     CORE_API_URL,
-    `/payment-webhook-events${queryString ? `?${queryString}` : ""}`,
+    `/payment-webhook-events?${params.toString()}`,
   );
 
-  return normalizePaymentWebhookEvents(payload, query.page ?? 1, query.limit ?? 20);
+  return normalizePaymentWebhookEvents(payload, page, pageSize);
+}
+
+export async function resolvePaymentWebhookEvent(
+  id: string,
+  input: ResolvePaymentWebhookEventInput = {},
+): Promise<PaymentWebhookEvent> {
+  const note = input.note?.trim();
+  if (note && note.length > WEBHOOK_NOTE_MAX_LENGTH) {
+    throw new Error("A nota pode ter no máximo 2000 caracteres.");
+  }
+
+  const payload = await apiRequest<unknown>(
+    CORE_API_URL,
+    `/payment-webhook-events/${encodeURIComponent(id)}/resolve`,
+    {
+      method: "POST",
+      body: note ? { note } : {},
+    },
+  );
+
+  const data = isRecord(payload) && "data" in payload ? payload.data : payload;
+  return normalizePaymentWebhookEvent(data);
 }
