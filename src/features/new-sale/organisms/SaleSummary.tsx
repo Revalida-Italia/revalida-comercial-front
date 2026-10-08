@@ -11,7 +11,6 @@ import {
   CreditCard,
   ExternalLink,
   Landmark,
-  Link2,
   Loader2,
   MinusCircle,
   Package,
@@ -24,6 +23,7 @@ import { BILLING_TYPE_LABELS, PAYMENT_TYPE_LABELS, SUBSCRIPTION_CYCLE_LABELS } f
 import type { ConfiguredSalePayment, FilledSaleCustomer, SaleSummaryItem } from "../types";
 import EditableSection from "@/features/sales/organisms/EditableSection";
 import { billingStatusLabel, normalizeBillingStatus } from "@/features/billing-calendar/utils";
+import StripeMark from "@/components/icons/StripeMark";
 import { Badge } from "@/components/ui/badge";
 import { formatInstallmentLabel, getPaymentGrossValue } from "@/shared/utils/payment";
 import { formatStripeChargeLabel } from "@/features/sales/utils/stripePaymentMethod";
@@ -255,7 +255,7 @@ const SaleSummary = ({
                         {canOpenStripeCheckout && (
                           <Button
                             type="button"
-                            variant="outline"
+                            variant="success"
                             size="sm"
                             className="h-7 gap-1 px-2 text-[11px]"
                             aria-label={
@@ -265,7 +265,7 @@ const SaleSummary = ({
                             }
                             onClick={() => onOpenStripeCheckout?.(payment.id!)}
                           >
-                            <Link2 className="h-3.5 w-3.5" />
+                            <StripeMark className="h-3.5 w-3.5" />
                             {payment.linkPagamento ? "Link Stripe" : "Gerar link Stripe"}
                           </Button>
                         )}

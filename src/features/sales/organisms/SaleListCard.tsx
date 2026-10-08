@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import type { SaleRecord } from "@/services/commercialApi";
 import { formatCurrency, formatDate } from "@/shared/utils/format";
 import { Badge } from "@/components/ui/badge";
+import StripeMark from "@/components/icons/StripeMark";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { CalendarDays, CircleDollarSign, Eye, HandCoins, Link2, MessageCircle, Pencil, Users, UserCircle } from "lucide-react";
@@ -158,14 +159,14 @@ const SaleListCard = ({ sale }: SaleListCardProps) => {
                 {canMutate && !isArchived && hasStripePayment && (
                   <Button
                     type="button"
-                    variant="outline"
+                    variant="success"
                     size="sm"
                     className="h-7 gap-1 px-2 text-[11px]"
                     title="Gerar ou atualizar o link de pagamento Stripe"
                     aria-label="Link de pagamento Stripe"
                     onClick={() => setStripeOpen(true)}
                   >
-                    <Link2 className="h-3.5 w-3.5" />
+                    <StripeMark className="h-3.5 w-3.5" />
                     Link Stripe
                   </Button>
                 )}

@@ -301,8 +301,43 @@ describe("SaleSummary Stripe action", () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Gerar link de pagamento Stripe" }));
+    const generateStripe = screen.getByRole("button", { name: "Gerar link de pagamento Stripe" });
+    expect(generateStripe).toHaveTextContent("Gerar link Stripe");
+    expect(generateStripe.className).toContain("hsl(var(--success))");
+    expect(generateStripe.className).toContain("black_32%");
+    expect(generateStripe).toHaveClass("text-success-foreground");
+    expect(generateStripe.querySelector("svg path")?.getAttribute("d")).toMatch(/^M13\.976/);
+    fireEvent.click(generateStripe);
     expect(onOpenStripeCheckout).toHaveBeenCalledWith("pay_1");
+
+    rerender(
+      <SaleSummary
+        filledCustomers={[]}
+        saleItems={[]}
+        configuredPayments={[{
+          id: "pay_1",
+          gateway: "STRIPE",
+          paymentType: "FULL_PAYMENT",
+          amount: 100,
+          feeRate: 0,
+          billingType: "PIX",
+          linkPagamento: "https://checkout.stripe.com/c/pay_existing",
+        }]}
+        commissionBreakdown={breakdown}
+        estimatedCommission={0}
+        currency="BRL"
+        getFeeRate={() => 0}
+        paymentGrossValue={() => 100}
+        onOpenStripeCheckout={onOpenStripeCheckout}
+      />,
+    );
+
+    const openStripe = screen.getByRole("button", { name: "Abrir link de pagamento Stripe" });
+    expect(openStripe).toHaveTextContent("Link Stripe");
+    expect(openStripe.className).toContain("hsl(var(--success))");
+    expect(openStripe.className).toContain("black_32%");
+    expect(openStripe).toHaveClass("text-success-foreground");
+    expect(openStripe.querySelector("svg path")?.getAttribute("d")).toMatch(/^M13\.976/);
 
     rerender(
       <SaleSummary
