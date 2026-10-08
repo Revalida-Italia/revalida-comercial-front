@@ -303,6 +303,8 @@ describe("SaleSummary Stripe action", () => {
 
     const generateStripe = screen.getByRole("button", { name: "Gerar link de pagamento Stripe" });
     expect(generateStripe).toHaveTextContent("Gerar link Stripe");
+    expect(generateStripe.parentElement?.querySelector("button")).toBe(generateStripe);
+    expect(generateStripe.querySelector("svg")).toHaveClass("h-3.5", "w-3.5");
     expect(generateStripe.className).toContain("hsl(var(--success))");
     expect(generateStripe.className).toContain("black_32%");
     expect(generateStripe).toHaveClass("text-success-foreground");

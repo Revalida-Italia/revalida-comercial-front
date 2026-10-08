@@ -129,6 +129,20 @@ const SaleListCard = ({ sale }: SaleListCardProps) => {
                 {sale.status}
               </Badge>
               <div className="flex flex-wrap items-center justify-end gap-1.5">
+                {canMutate && !isArchived && hasStripePayment && (
+                  <Button
+                    type="button"
+                    variant="success"
+                    size="sm"
+                    className="h-7 gap-1 px-2 text-[11px]"
+                    title="Gerar ou atualizar o link de pagamento Stripe"
+                    aria-label="Link de pagamento Stripe"
+                    onClick={() => setStripeOpen(true)}
+                  >
+                    <StripeMark className="h-3.5 w-3.5" />
+                    Link Stripe
+                  </Button>
+                )}
                 {hasPaymentLink && (
                   <Button
                     type="button"
@@ -154,20 +168,6 @@ const SaleListCard = ({ sale }: SaleListCardProps) => {
                   >
                     <Link2 className="h-3.5 w-3.5" />
                     Link de pagamento
-                  </Button>
-                )}
-                {canMutate && !isArchived && hasStripePayment && (
-                  <Button
-                    type="button"
-                    variant="success"
-                    size="sm"
-                    className="h-7 gap-1 px-2 text-[11px]"
-                    title="Gerar ou atualizar o link de pagamento Stripe"
-                    aria-label="Link de pagamento Stripe"
-                    onClick={() => setStripeOpen(true)}
-                  >
-                    <StripeMark className="h-3.5 w-3.5" />
-                    Link Stripe
                   </Button>
                 )}
                 {hasHotmartCheckout && (

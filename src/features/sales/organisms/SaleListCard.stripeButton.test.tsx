@@ -72,13 +72,22 @@ describe("dashboard Link Stripe button", () => {
 
     const stripe = screen.getByRole("button", { name: "Link de pagamento Stripe" });
     expect(stripe).toHaveTextContent("Link Stripe");
+    expect(stripe.parentElement?.firstElementChild).toBe(stripe);
     expect(stripe.className).toContain("hsl(var(--success))");
     expect(stripe.className).toContain("black_32%");
     expect(stripe.className).toContain("black_42%");
     expect(stripe).toHaveClass("text-success-foreground");
-    expect(stripe.querySelector("svg path")?.getAttribute("d")).toMatch(/^M13\.976/);
+    const mark = stripe.querySelector("svg");
+    expect(mark?.querySelector("path")?.getAttribute("d")).toMatch(/^M13\.976/);
+    expect(mark).toHaveClass("h-3.5", "w-3.5");
+    expect(mark?.getAttribute("viewBox")).toBe("0 0 24 24");
+    expect(mark?.querySelector("g")?.getAttribute("transform")).toBe(
+      `translate(12 12) scale(${13.3 / 24}) translate(-12 -12)`,
+    );
 
     const viewLink = screen.getByRole("button", { name: "Ver link" });
+    expect(viewLink.querySelector("svg")).toHaveClass("h-3.5", "w-3.5");
+    expect(stripe.compareDocumentPosition(viewLink) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(viewLink).toHaveClass("border");
     expect(viewLink.className).not.toContain("--success");
     expect(screen.queryByRole("button", { name: "Link de pagamento" })).not.toBeInTheDocument();
@@ -89,8 +98,10 @@ describe("dashboard Link Stripe button", () => {
 
     const stripe = screen.getByRole("button", { name: "Link de pagamento Stripe" });
     expect(stripe.className).toContain("hsl(var(--success))");
+    expect(stripe.parentElement?.firstElementChild).toBe(stripe);
 
     const asaas = screen.getByRole("button", { name: "Link de pagamento" });
+    expect(stripe.compareDocumentPosition(asaas) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(asaas).toHaveClass("border");
     expect(asaas.className).not.toContain("--success");
     expect(asaas.querySelector("svg path")?.getAttribute("d") ?? "").not.toMatch(/^M13\.976/);
