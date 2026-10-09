@@ -23,7 +23,7 @@ type BillingCalendarHeaderProps = {
   onSellerChange: (value: string) => void;
 };
 
-const STATUS_CHIPS: Array<"all" | BillingEventStatus> = ["all", "PAID", "PENDING", "OVERDUE"];
+const STATUS_CHIPS: Array<"all" | BillingEventStatus> = ["all", "PAID", "PENDING", "OVERDUE", "CANCELLED"];
 
 const BillingCalendarHeader = ({
   monthLabel,

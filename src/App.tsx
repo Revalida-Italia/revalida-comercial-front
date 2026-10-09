@@ -8,6 +8,8 @@ import Dashboard from "./pages/Dashboard";
 import AdminDashboard from "./pages/AdminDashboard";
 import AdminCareerPlan from "./pages/AdminCareerPlan";
 import AdminPaymentGateways from "./pages/AdminPaymentGateways";
+import AdminPaymentWebhookEvents from "./pages/AdminPaymentWebhookEvents";
+import { PAYMENT_WEBHOOK_EVENTS_PATH } from "@/features/admin-payment-webhooks/constants";
 import AdminProducts from "@/pages/AdminProducts";
 import AdminProductsCreate from "@/pages/AdminProductsCreate";
 import AdminCreateUser from "@/pages/AdminCreateUser";
@@ -61,6 +63,7 @@ const App = () => (
                 <Route path="/admin" element={<AdminDashboard />} />
                 <Route path="/admin/carreira" element={<AdminCareerPlan />} />
                 <Route path="/admin/payment-gateways" element={<AdminPaymentGateways />} />
+                <Route path={PAYMENT_WEBHOOK_EVENTS_PATH} element={<AdminPaymentWebhookEvents />} />
                 <Route path="/admin/products" element={<AdminProducts />} />
                 <Route path="/admin/products/new" element={<AdminProductsCreate />} />
                 <Route path="/admin/users" element={<AdminUsers />} />

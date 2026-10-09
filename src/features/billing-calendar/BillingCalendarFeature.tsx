@@ -3,8 +3,10 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { AlertCircle, CalendarFold, CircleCheck, CircleDollarSign, Clock3 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { canManagePaymentStatus } from "@/lib/session";
+import { canManagePaymentStatus, canPayCommission } from "@/lib/session";
 import { getMonthlyBilling, updateSalePaymentStatus } from "@/services/billingCalendarApi";
+import { paySalePaymentCommission } from "@/services/saleCommissionApi";
+import { isCancelledStatus, translatePaymentStatusError, translateSaleApiError } from "@/features/sales/utils/commissionStatus";
 import { listUsers } from "@/services/usersApi";
 import { formatCurrency } from "@/shared/utils/format";
 import type { BillingCalendarEvent, BillingEventStatus } from "./types";
@@ -21,6 +23,7 @@ import BillingEventDetailsDialog from "./organisms/BillingEventDetailsDialog";
 const BillingCalendarFeature = () => {
   const queryClient = useQueryClient();
   const canUpdatePaymentStatus = canManagePaymentStatus();
+  const canMarkCommissionPaid = canPayCommission();
   const canFilterBySeller = canUpdatePaymentStatus;
   const [currentMonthDate, setCurrentMonthDate] = useState(() => {
     const now = new Date();
@@ -84,8 +87,25 @@ const BillingCalendarFeature = () => {
         setSelectedEvent(null);
       }
     },
+    onError: (error: unknown, variables) => {
+      toast.error(translatePaymentStatusError(
+        error,
+        "Erro ao atualizar status do pagamento.",
+        variables.status,
+      ));
+    },
+  });
+
+  const payCommissionMutation = useMutation({
+    mutationFn: (input: { saleId: string; paymentId: string }) =>
+      paySalePaymentCommission(input.saleId, input.paymentId),
+    onSuccess: async () => {
+      toast.success("Comissão marcada como paga.");
+      await queryClient.invalidateQueries({ queryKey: ["billingCalendar", "monthly"] });
+      await queryClient.invalidateQueries({ queryKey: ["sales"] });
+    },
     onError: (error: unknown) => {
-      toast.error(error instanceof Error ? error.message : "Erro ao atualizar status do pagamento.");
+      toast.error(translateSaleApiError(error, "Não foi possível marcar a comissão como paga."));
     },
   });
 
@@ -114,7 +134,9 @@ const BillingCalendarFeature = () => {
   );
 
   const totals = monthlyData?.totals;
-  const totalEvents = monthlyData?.events?.length ?? 0;
+  const listedEventCount = monthlyData?.events?.length ?? 0;
+  const monthlyChargeCount =
+    (totals?.paidCount ?? 0) + (totals?.pendingCount ?? 0) + (totals?.overdueCount ?? 0);
   const monthlyTotal = monthlyData?.totalAmount ?? 0;
 
   const handleOpenEventDetails = (event: BillingCalendarEvent) => {
@@ -148,6 +170,11 @@ const BillingCalendarFeature = () => {
       return;
     }
 
+    if (isCancelledStatus(selectedEvent?.status) || isCancelledStatus(selectedEvent?.paymentStatus)) {
+      toast.error(translateSaleApiError(new Error("PAYMENT_CANCELLED"), "Erro ao atualizar status do pagamento."));
+      return;
+    }
+
     updateStatusMutation.mutate({
       ...ids,
       status: "PAID",
@@ -161,10 +188,28 @@ const BillingCalendarFeature = () => {
       return;
     }
 
+    if (String(selectedEvent?.commission?.status ?? "").toUpperCase() === "PAID") {
+      toast.error(translatePaymentStatusError(
+        new Error("COMMISSION_ALREADY_PAID"),
+        "Erro ao atualizar status do pagamento.",
+        "PENDING",
+      ));
+      return;
+    }
+
     updateStatusMutation.mutate({
       ...ids,
       status: "PENDING",
     });
+  };
+
+  const handlePayCommission = () => {
+    const ids = resolvePaymentIds();
+    if (!ids) {
+      return;
+    }
+
+    payCommissionMutation.mutate(ids);
   };
 
   return (
@@ -190,7 +235,7 @@ const BillingCalendarFeature = () => {
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-semibold">{formatCurrency(monthlyTotal)}</p>
-            <p className="mt-1 text-xs text-muted-foreground">{totalEvents} cobranca(s)</p>
+            <p className="mt-1 text-xs text-muted-foreground">{monthlyChargeCount} cobranca(s)</p>
           </CardContent>
         </Card>
 
@@ -240,7 +285,7 @@ const BillingCalendarFeature = () => {
         </div>
       )}
 
-      {!monthlyQuery.isLoading && !monthlyQuery.isError && totalEvents === 0 && (
+      {!monthlyQuery.isLoading && !monthlyQuery.isError && listedEventCount === 0 && (
         <div className="rounded-xl border border-dashed border-border/80 bg-card/60 p-8 text-center text-sm text-muted-foreground">
           <CalendarFold className="mx-auto mb-2 h-5 w-5 opacity-70" />
           Nenhuma cobranca encontrada para este mes.
@@ -264,6 +309,9 @@ const BillingCalendarFeature = () => {
         onOpenChange={setEventDetailsOpen}
         onMarkPaid={handleMarkPaid}
         onMarkPending={handleMarkPending}
+        canPayCommission={canMarkCommissionPaid}
+        isPayingCommission={payCommissionMutation.isPending}
+        onPayCommission={handlePayCommission}
       />
     </div>
   );

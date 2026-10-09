@@ -144,3 +144,8 @@ export function canViewGlobalSalesExtras(): boolean {
 export function canManagePaymentStatus(): boolean {
   return canViewFixedCosts();
 }
+
+/** Pagar comissão manualmente: ADMIN ou FIXED_COSTS_MANAGER. */
+export function canPayCommission(): boolean {
+  return hasAnyRole("ADMIN", "FIXED_COSTS_MANAGER");
+}

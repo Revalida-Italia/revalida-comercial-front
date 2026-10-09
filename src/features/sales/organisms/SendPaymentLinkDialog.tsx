@@ -22,14 +22,30 @@ type SendPaymentLinkDialogProps = {
   sale: SaleRecord;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  initialPaymentId?: string;
 };
 
-function getDefaultPayment(sale: SaleRecord): SalePayment | undefined {
+function getDefaultPayment(sale: SaleRecord, initialPaymentId?: string): SalePayment | undefined {
+  if (initialPaymentId) {
+    const selected = sale.payments.find((payment) => payment.id === initialPaymentId);
+    if (selected) {
+      return selected;
+    }
+  }
+
   return sale.payments.find((payment) => payment.linkPagamento) ?? sale.payments[0];
 }
 
-const SendPaymentLinkDialog = ({ sale, open, onOpenChange }: SendPaymentLinkDialogProps) => {
-  const defaultPayment = useMemo(() => getDefaultPayment(sale), [sale]);
+const SendPaymentLinkDialog = ({
+  sale,
+  open,
+  onOpenChange,
+  initialPaymentId,
+}: SendPaymentLinkDialogProps) => {
+  const defaultPayment = useMemo(
+    () => getDefaultPayment(sale, initialPaymentId),
+    [sale, initialPaymentId],
+  );
 
   const [paymentId, setPaymentId] = useState(defaultPayment?.id ?? "");
   const [telefone, setTelefone] = useState(getPrimaryClientPhone(sale));
@@ -47,11 +63,11 @@ const SendPaymentLinkDialog = ({ sale, open, onOpenChange }: SendPaymentLinkDial
       return;
     }
 
-    const payment = getDefaultPayment(sale);
+    const payment = getDefaultPayment(sale, initialPaymentId);
     setPaymentId(payment?.id ?? "");
     setTelefone(getPrimaryClientPhone(sale));
     setBodyParam(getPrimaryClientName(sale));
-  }, [open, sale]);
+  }, [open, sale, initialPaymentId]);
 
   useEffect(() => {
     if (!templateName && templatesQuery.data?.length) {
@@ -104,7 +120,7 @@ const SendPaymentLinkDialog = ({ sale, open, onOpenChange }: SendPaymentLinkDial
             Enviar link no WhatsApp
           </DialogTitle>
           <DialogDescription>
-            O backend usa o pagamento da venda e envia o link Asaas pelo template escolhido.
+            O backend usa o pagamento da venda e envia o link pelo template escolhido.
           </DialogDescription>
         </DialogHeader>
 

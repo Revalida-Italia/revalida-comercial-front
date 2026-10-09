@@ -11,16 +11,25 @@ import DisplayCurrencySelect from "@/components/DisplayCurrencySelect";
 import SaleDetailPreview from "@/features/sales/organisms/SaleDetailPreview";
 import EditableSection from "@/features/sales/organisms/EditableSection";
 import CreatePaymentLinkDialog from "@/features/sales/organisms/CreatePaymentLinkDialog";
+import HotmartCheckoutLinkCard from "@/features/sales/organisms/HotmartCheckoutLink";
 import SendPaymentLinkDialog from "@/features/sales/organisms/SendPaymentLinkDialog";
+import StripeCheckoutLinkDialog from "@/features/sales/organisms/StripeCheckoutLinkDialog";
 import SaleArchiveDeleteActions from "@/features/sales/organisms/SaleArchiveDeleteActions";
 import ViewPaymentLinkDialog from "@/features/sales/organisms/ViewPaymentLinkDialog";
 import SaleContractsPanel from "@/features/contracts/SaleContractsPanel";
 import { getSaleCommissionValue, getSaleContractValue, getSaleSellerInfo } from "@/features/sales/utils";
 import { saleHasPaymentLink } from "@/features/sales/utils/paymentLink";
-import { canManagePaymentStatus, getProfile, hasRole } from "@/lib/session";
+import { canManagePaymentStatus, canPayCommission, getProfile, hasRole } from "@/lib/session";
 import { canMutateSales } from "@/services/usersApi";
 import { getSaleById } from "@/services/commercialApi";
 import { updateSalePaymentStatus } from "@/services/billingCalendarApi";
+import { paySalePaymentCommission } from "@/services/saleCommissionApi";
+import {
+  isCancelledStatus,
+  PAYMENT_REVERT_BLOCKED_MESSAGE,
+  translatePaymentStatusError,
+  translateSaleApiError,
+} from "@/features/sales/utils/commissionStatus";
 import type { DisplayCurrency } from "@/services/exchangeRatesApi";
 import { formatCurrency, formatDateTime } from "@/shared/utils/format";
 import {
@@ -38,11 +47,14 @@ const SaleDetails = () => {
   const isAdmin = hasRole("ADMIN");
   const canMutate = canMutateSales(profile?.role);
   const canUpdatePaymentStatus = canManagePaymentStatus();
+  const canMarkCommissionPaid = canPayCommission();
   const [whatsappOpen, setWhatsappOpen] = useState(false);
   const [createLinkOpen, setCreateLinkOpen] = useState(false);
   const [displayCurrency, setDisplayCurrency] = useState<DisplayCurrency>("BRL");
   const [viewLinkOpen, setViewLinkOpen] = useState(false);
+  const [stripePaymentId, setStripePaymentId] = useState<string | null>(null);
   const [updatingPaymentId, setUpdatingPaymentId] = useState<string | null>(null);
+  const [payingCommissionPaymentId, setPayingCommissionPaymentId] = useState<string | null>(null);
 
   const saleQuery = useQuery({
     queryKey: ["sale", id],
@@ -61,14 +73,38 @@ const SaleDetails = () => {
       await queryClient.invalidateQueries({ queryKey: ["sale", id] });
       setUpdatingPaymentId(null);
     },
-    onError: (error: unknown) => {
+    onError: (error: unknown, variables) => {
       setUpdatingPaymentId(null);
-      toast.error(error instanceof Error ? error.message : "Erro ao atualizar status do pagamento.");
+      toast.error(translatePaymentStatusError(
+        error,
+        "Erro ao atualizar status do pagamento.",
+        variables.status,
+      ));
+    },
+  });
+
+  const payCommissionMutation = useMutation({
+    mutationFn: (paymentId: string) => paySalePaymentCommission(id!, paymentId),
+    onSuccess: async () => {
+      toast.success("Comissão marcada como paga.");
+      await queryClient.invalidateQueries({ queryKey: ["sale", id] });
+      await queryClient.invalidateQueries({ queryKey: ["sales"] });
+      setPayingCommissionPaymentId(null);
+    },
+    onError: (error: unknown) => {
+      setPayingCommissionPaymentId(null);
+      toast.error(translateSaleApiError(error, "Não foi possível marcar a comissão como paga."));
     },
   });
 
   const handleMarkPaymentPaid = (paymentId: string) => {
     if (!id) {
+      return;
+    }
+
+    const current = saleQuery.data?.payments?.find((payment) => payment.id === paymentId);
+    if (isCancelledStatus(current?.status)) {
+      toast.error(translateSaleApiError(new Error("PAYMENT_CANCELLED"), "Erro ao atualizar status do pagamento."));
       return;
     }
 
@@ -81,8 +117,23 @@ const SaleDetails = () => {
     });
   };
 
+  const handlePayCommission = (paymentId: string) => {
+    if (!id) {
+      return;
+    }
+
+    setPayingCommissionPaymentId(paymentId);
+    payCommissionMutation.mutate(paymentId);
+  };
+
   const handleMarkPaymentPending = (paymentId: string) => {
     if (!id) {
+      return;
+    }
+
+    const current = saleQuery.data?.payments?.find((payment) => payment.id === paymentId);
+    if (String(current?.commission?.status ?? "").toUpperCase() === "PAID") {
+      toast.error(PAYMENT_REVERT_BLOCKED_MESSAGE);
       return;
     }
 
@@ -306,6 +357,8 @@ const SaleDetails = () => {
         </CardContent>
       </Card>
 
+      <HotmartCheckoutLinkCard sale={sale} />
+
       <Card>
         <CardHeader>
           <CardTitle>Preview completo</CardTitle>
@@ -327,6 +380,10 @@ const SaleDetails = () => {
             updatingPaymentId={updatingPaymentId}
             onMarkPaymentPaid={handleMarkPaymentPaid}
             onMarkPaymentPending={handleMarkPaymentPending}
+            onOpenStripeCheckout={canMutate && !isArchived ? setStripePaymentId : undefined}
+            canPayCommission={canMarkCommissionPaid && !isArchived}
+            payingCommissionPaymentId={payingCommissionPaymentId}
+            onPayCommission={handlePayCommission}
           />
         </CardContent>
       </Card>
@@ -334,6 +391,16 @@ const SaleDetails = () => {
       {isAdmin && <SaleContractsPanel saleId={sale.id} />}
 
       <CreatePaymentLinkDialog sale={sale} open={createLinkOpen} onOpenChange={setCreateLinkOpen} />
+      <StripeCheckoutLinkDialog
+        sale={sale}
+        paymentId={stripePaymentId ?? undefined}
+        open={Boolean(stripePaymentId)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setStripePaymentId(null);
+          }
+        }}
+      />
       <ViewPaymentLinkDialog sale={sale} open={viewLinkOpen} onOpenChange={setViewLinkOpen} />
       <SendPaymentLinkDialog sale={sale} open={whatsappOpen} onOpenChange={setWhatsappOpen} />
     </div>

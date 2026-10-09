@@ -12,8 +12,14 @@ import type { BillingCalendarEvent } from "@/features/billing-calendar/types";
 import {
   billingStatusColor,
   billingStatusLabel,
-  normalizeBillingStatus,
+  resolveBillingEventStatus,
 } from "@/features/billing-calendar/utils";
+import CommissionPayControl from "@/features/sales/organisms/CommissionPayControl";
+import {
+  isCancelledStatus,
+  PAYMENT_REVERT_BLOCKED_MESSAGE,
+  type CommissionPayView,
+} from "@/features/sales/utils/commissionStatus";
 import { formatCurrency } from "@/shared/utils/format";
 import {
   CalendarDays,
@@ -35,6 +41,9 @@ type BillingEventDetailsDialogProps = {
   onOpenChange: (open: boolean) => void;
   onMarkPaid?: () => void;
   onMarkPending?: () => void;
+  canPayCommission?: boolean;
+  isPayingCommission?: boolean;
+  onPayCommission?: () => void;
 };
 
 function formatEventDate(dateIso?: string | null): string {
@@ -60,6 +69,9 @@ const BillingEventDetailsDialog = ({
   onOpenChange,
   onMarkPaid,
   onMarkPending,
+  canPayCommission = false,
+  isPayingCommission = false,
+  onPayCommission,
 }: BillingEventDetailsDialogProps) => {
   const navigate = useNavigate();
   const saleId = event?.saleId || event?.sale?.id || "";
@@ -67,8 +79,23 @@ const BillingEventDetailsDialog = ({
     event?.installmentNumber != null && event?.totalInstallments != null
       ? `${event.installmentNumber}/${event.totalInstallments}`
       : null;
-  const normalizedStatus = normalizeBillingStatus(event?.status);
+  const normalizedStatus = resolveBillingEventStatus({
+    status: event?.status,
+    paymentStatus: event?.paymentStatus,
+  });
   const isPaid = normalizedStatus === "PAID";
+  const isCancelled = normalizedStatus === "CANCELLED";
+  const commissionAlreadyPaid = String(event?.commission?.status ?? "").toUpperCase() === "PAID";
+  const commissionView: CommissionPayView | null = event?.commission
+    ? {
+      status: isCancelled || isCancelledStatus(event.commission.status)
+        ? "CANCELLED"
+        : event.commission.status,
+      paidAt: event.commission.paidAt ?? null,
+      eligibleAt: isCancelled ? null : event.commission.eligibleAt ?? null,
+      canPay: isCancelled ? false : Boolean(event.commission.canPay),
+    }
+    : null;
 
   const handleGoToSale = () => {
     if (!saleId) {
@@ -100,9 +127,11 @@ const BillingEventDetailsDialog = ({
               <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
                 <span
                   className="h-2.5 w-2.5 rounded-full"
-                  style={{ backgroundColor: billingStatusColor(event.status) }}
+                  style={{ backgroundColor: billingStatusColor(normalizedStatus) }}
                 />
-                <span>{billingStatusLabel(event.status)}</span>
+                <span className={isCancelled ? "text-muted-foreground" : undefined}>
+                  {billingStatusLabel(normalizedStatus)}
+                </span>
               </div>
             </div>
 
@@ -203,7 +232,18 @@ const BillingEventDetailsDialog = ({
               </div>
             )}
 
-            {canManageStatus && (
+            {commissionView && (
+              <div className="rounded-lg border border-border/80 p-3">
+                <CommissionPayControl
+                  commission={commissionView}
+                  canPayCommission={canPayCommission}
+                  isPaying={isPayingCommission}
+                  onPay={onPayCommission}
+                />
+              </div>
+            )}
+
+            {canManageStatus && !isCancelled && (
               <div className="rounded-lg border border-border/80 bg-muted/10 p-3">
                 <p className="text-xs font-medium text-muted-foreground">Status do pagamento</p>
                 <div className="mt-2 flex flex-wrap gap-2">
@@ -226,7 +266,8 @@ const BillingEventDetailsDialog = ({
                       type="button"
                       variant="outline"
                       className="gap-2"
-                      disabled={isUpdatingStatus}
+                      disabled={isUpdatingStatus || commissionAlreadyPaid}
+                      title={commissionAlreadyPaid ? PAYMENT_REVERT_BLOCKED_MESSAGE : undefined}
                       onClick={onMarkPending}
                     >
                       {isUpdatingStatus ? (
