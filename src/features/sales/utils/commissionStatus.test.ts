@@ -33,10 +33,10 @@ describe("commission status copy", () => {
     expect(translatePaymentStatusError(new Error("COMMISSION_ALREADY_PAID"), fallback, "PENDING")).toBe(
       PAYMENT_REVERT_BLOCKED_MESSAGE,
     );
-    expect(translatePaymentStatusError(new Error("PAYMENT_COMMISSION_PAID"), fallback, "PENDING")).toBe(
-      PAYMENT_REVERT_BLOCKED_MESSAGE,
-    );
     expect(translatePaymentStatusError(new Error("COMMISSION_ALREADY_PAID"), fallback, "PAID")).toBe(
+      "A comissão já está paga.",
+    );
+    expect(translateSaleApiError(new Error("COMMISSION_ALREADY_PAID"), "Não foi possível marcar a comissão como paga.")).toBe(
       "A comissão já está paga.",
     );
   });

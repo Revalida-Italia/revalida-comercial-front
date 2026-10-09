@@ -15,7 +15,7 @@ export const SALE_API_ERROR_MESSAGES: Record<string, string> = {
 export const PAYMENT_REVERT_BLOCKED_MESSAGE =
   "Não é possível voltar para pendente: a comissão desta parcela já foi paga.";
 
-const PAYMENT_REVERT_BLOCKED_CODES = new Set(["COMMISSION_ALREADY_PAID", "PAYMENT_COMMISSION_PAID"]);
+const PAYMENT_REVERT_BLOCKED_CODES = new Set(["COMMISSION_ALREADY_PAID"]);
 
 export function translateSaleApiError(error: unknown, fallback: string): string {
   const message = error instanceof Error ? error.message.trim() : "";

@@ -9,7 +9,7 @@ import {
 } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { isCancelledStatus } from "@/features/sales/utils/commissionStatus";
-import type { BillingCalendarEvent, BillingDailyTotal, BillingEventStatus, BillingMonthTotals } from "./types";
+import type { BillingCalendarEvent, BillingDailyTotal, BillingEventStatus } from "./types";
 
 export function formatMonthLabel(date: Date): string {
   const raw = format(date, "MMMM yyyy", { locale: ptBR });
@@ -107,44 +107,4 @@ export function resolveBillingEventStatus(event: {
   }
 
   return normalizeBillingStatus(event.status);
-}
-
-export function summarizeBillingEvents(events: BillingCalendarEvent[]): BillingMonthTotals & {
-  cancelledCount: number;
-  cancelledAmount: number;
-} {
-  const summary = {
-    paidCount: 0,
-    pendingCount: 0,
-    overdueCount: 0,
-    cancelledCount: 0,
-    paidAmount: 0,
-    pendingAmount: 0,
-    overdueAmount: 0,
-    cancelledAmount: 0,
-  };
-
-  events.forEach((event) => {
-    const status = resolveBillingEventStatus(event);
-    const amount = Number(event.amount) || 0;
-    if (status === "PAID") {
-      summary.paidCount += 1;
-      summary.paidAmount += amount;
-      return;
-    }
-    if (status === "OVERDUE") {
-      summary.overdueCount += 1;
-      summary.overdueAmount += amount;
-      return;
-    }
-    if (status === "CANCELLED") {
-      summary.cancelledCount += 1;
-      summary.cancelledAmount += amount;
-      return;
-    }
-    summary.pendingCount += 1;
-    summary.pendingAmount += amount;
-  });
-
-  return summary;
 }

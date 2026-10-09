@@ -15,7 +15,6 @@ import {
   formatMonthLabel,
   groupEventsByDate,
   mapDailyTotals,
-  summarizeBillingEvents,
 } from "./utils";
 import BillingCalendarHeader from "./organisms/BillingCalendarHeader";
 import BillingMonthlyGrid from "./organisms/BillingMonthlyGrid";
@@ -134,10 +133,7 @@ const BillingCalendarFeature = () => {
     [monthlyData?.dailyTotals],
   );
 
-  const eventSummary = summarizeBillingEvents(monthlyData?.events ?? []);
-  const totals = monthlyData?.events
-    ? eventSummary
-    : monthlyData?.totals;
+  const totals = monthlyData?.totals;
   const totalEvents = monthlyData?.events?.length ?? 0;
   const monthlyTotal = monthlyData?.totalAmount ?? 0;
 
