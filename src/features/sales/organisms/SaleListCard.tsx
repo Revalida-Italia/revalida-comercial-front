@@ -57,6 +57,10 @@ const SaleListCard = ({ sale }: SaleListCardProps) => {
   const hasStripePayment = sale.payments?.some((payment) => payment.gateway === "STRIPE") ?? false;
   const hasHotmartCheckout = saleOffersHotmartCheckout(sale);
   const isArchived = String(sale.status).toUpperCase() === "ARCHIVED";
+  const subscriptionCancelled =
+    subscriptionProgress != null
+    && subscriptionProgress.pending === 0
+    && saleHasCancelledPayments(sale, "SUBSCRIPTION");
   const subscriptionSummary = sale.financialSummary?.payments;
 
   return (
@@ -144,14 +148,16 @@ const SaleListCard = ({ sale }: SaleListCardProps) => {
             </div>
 
             <div className="flex flex-col items-end justify-end gap-2">
-              <Badge
-                variant="outline"
-                className={`h-6 px-2 text-[10px] ${isArchived ? "border-amber-500/40 text-amber-700" : ""}`}
-              >
-                {saleStatusLabel(sale.status)}
-              </Badge>
+              {!(subscriptionCancelled && saleStatusLabel(sale.status) === "Pendente") && (
+                <Badge
+                  variant="outline"
+                  className={`h-6 px-2 text-[10px] ${isArchived ? "border-amber-500/40 text-amber-700" : ""}`}
+                >
+                  {saleStatusLabel(sale.status)}
+                </Badge>
+              )}
               <div className="flex flex-wrap items-center justify-end gap-1.5">
-                {canMutate && !isArchived && hasStripePayment && (
+                {canMutate && !isArchived && hasStripePayment && !subscriptionCancelled && (
                   <Button
                     type="button"
                     variant="success"
@@ -165,7 +171,7 @@ const SaleListCard = ({ sale }: SaleListCardProps) => {
                     Link Stripe
                   </Button>
                 )}
-                {hasPaymentLink && (
+                {hasPaymentLink && !subscriptionCancelled && (
                   <Button
                     type="button"
                     variant="outline"
@@ -178,7 +184,7 @@ const SaleListCard = ({ sale }: SaleListCardProps) => {
                     Ver link
                   </Button>
                 )}
-                {canMutate && !hasPaymentLink && !isArchived && (
+                {canMutate && !hasPaymentLink && !isArchived && !subscriptionCancelled && (
                   <Button
                     type="button"
                     variant="outline"

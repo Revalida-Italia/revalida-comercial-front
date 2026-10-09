@@ -1,7 +1,8 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
+import { clearSession, setProfile, setSession } from "@/lib/session";
 import type { SalePayment, SaleRecord } from "@/services/commercialApi";
 import SaleListCard from "./SaleListCard";
 
@@ -71,18 +72,27 @@ function sale(): SaleRecord {
   };
 }
 
-describe("dashboard sale card cancelled subscription", () => {
-  it("translates the status, drops cancelled installments from the count, and excludes their commission", () => {
-    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    render(
-      <QueryClientProvider client={client}>
-        <MemoryRouter>
-          <SaleListCard sale={sale()} />
-        </MemoryRouter>
-      </QueryClientProvider>,
-    );
+function renderCard(record: SaleRecord) {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(
+    <QueryClientProvider client={client}>
+      <MemoryRouter>
+        <SaleListCard sale={record} />
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+}
 
-    expect(screen.getByText("Pendente")).toBeInTheDocument();
+describe("dashboard sale card cancelled subscription", () => {
+  afterEach(() => {
+    clearSession();
+    cleanup();
+  });
+
+  it("translates the status, drops cancelled installments from the count, and excludes their commission", () => {
+    renderCard(sale());
+
+    expect(screen.queryByText("Pendente")).not.toBeInTheDocument();
     expect(screen.queryByText("PENDING")).not.toBeInTheDocument();
     expect(screen.getByText("4/4 assin. pagas")).toBeInTheDocument();
     expect(screen.queryByText("4/12 assin. pagas")).not.toBeInTheDocument();
@@ -96,5 +106,68 @@ describe("dashboard sale card cancelled subscription", () => {
       return element?.classList.contains("text-primary") === true && normalized.includes("R$ 40,00");
     });
     expect((commission.textContent ?? "").replace(/[\u00a0\u202f]/g, " ")).not.toContain("120,00");
+  });
+
+  it("hides the pending badge and payment links when the subscription is cancelled", () => {
+    setSession({ accessToken: "token" });
+    setProfile({
+      sub: "user_1",
+      email: "admin@example.com",
+      role: "ADMIN",
+      roles: ["ADMIN"],
+    });
+
+    const withLink = sale();
+    withLink.payments = withLink.payments.map((payment, index) => ({
+      ...payment,
+      gateway: "STRIPE",
+      linkPagamento: index === 0 ? "https://checkout.stripe.com/c/pay_1" : payment.linkPagamento,
+    }));
+    renderCard(withLink);
+
+    expect(screen.queryByText("Pendente")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Link de pagamento Stripe" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Ver link" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Link de pagamento" })).not.toBeInTheDocument();
+
+    cleanup();
+
+    const withoutLink = sale();
+    withoutLink.payments = withoutLink.payments.map((payment) => ({
+      ...payment,
+      gateway: "STRIPE",
+      linkPagamento: null,
+    }));
+    renderCard(withoutLink);
+
+    expect(screen.queryByRole("button", { name: "Link de pagamento Stripe" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Link de pagamento" })).not.toBeInTheDocument();
+  });
+
+  it("keeps the pending badge and payment links while a subscription still has open charges", () => {
+    setSession({ accessToken: "token" });
+    setProfile({
+      sub: "user_1",
+      email: "admin@example.com",
+      role: "ADMIN",
+      roles: ["ADMIN"],
+    });
+
+    const openSale = sale();
+    openSale.payments = openSale.payments.map((payment, index) => ({
+      ...payment,
+      gateway: "STRIPE",
+      status: index === 0 ? "PAID" : "PENDING",
+      linkPagamento: null,
+      commission: payment.commission
+        ? { ...payment.commission, status: "PENDING" }
+        : payment.commission,
+    }));
+    renderCard(openSale);
+
+    expect(screen.getByText("Pendente")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Link de pagamento Stripe" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Link de pagamento" })).toBeInTheDocument();
+    expect(screen.queryByText("Assinatura cancelada")).not.toBeInTheDocument();
   });
 });

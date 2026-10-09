@@ -134,7 +134,9 @@ const BillingCalendarFeature = () => {
   );
 
   const totals = monthlyData?.totals;
-  const totalEvents = monthlyData?.events?.length ?? 0;
+  const listedEventCount = monthlyData?.events?.length ?? 0;
+  const monthlyChargeCount =
+    (totals?.paidCount ?? 0) + (totals?.pendingCount ?? 0) + (totals?.overdueCount ?? 0);
   const monthlyTotal = monthlyData?.totalAmount ?? 0;
 
   const handleOpenEventDetails = (event: BillingCalendarEvent) => {
@@ -233,7 +235,7 @@ const BillingCalendarFeature = () => {
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-semibold">{formatCurrency(monthlyTotal)}</p>
-            <p className="mt-1 text-xs text-muted-foreground">{totalEvents} cobranca(s)</p>
+            <p className="mt-1 text-xs text-muted-foreground">{monthlyChargeCount} cobranca(s)</p>
           </CardContent>
         </Card>
 
@@ -283,7 +285,7 @@ const BillingCalendarFeature = () => {
         </div>
       )}
 
-      {!monthlyQuery.isLoading && !monthlyQuery.isError && totalEvents === 0 && (
+      {!monthlyQuery.isLoading && !monthlyQuery.isError && listedEventCount === 0 && (
         <div className="rounded-xl border border-dashed border-border/80 bg-card/60 p-8 text-center text-sm text-muted-foreground">
           <CalendarFold className="mx-auto mb-2 h-5 w-5 opacity-70" />
           Nenhuma cobranca encontrada para este mes.

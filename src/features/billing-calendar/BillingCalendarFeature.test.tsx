@@ -78,7 +78,7 @@ function plain(value: string | null | undefined): string {
 function summaryCard(title: string) {
   const heading = screen.getByRole("heading", { name: title });
   const card = heading.closest("div.rounded-lg");
-  if (!card) {
+  if (!(card instanceof HTMLElement)) {
     throw new Error(`card ${title} not found`);
   }
   return within(card);
@@ -110,6 +110,7 @@ describe("BillingCalendarFeature", () => {
 
     expect(await screen.findByText("Parcela cancelada")).toBeInTheDocument();
 
+    expect(plain(summaryCard("Total do mes").getByText(/cobranca/).textContent)).toBe("7 cobranca(s)");
     expect(plain(summaryCard("Pendente").getByText(/cobranca/).textContent)).toBe("2 cobranca(s)");
     expect(plain(summaryCard("Pendente").getByText(/R\$/).textContent)).toContain("R$ 200,00");
     expect(plain(summaryCard("Pago").getByText(/cobranca/).textContent)).toBe("4 cobranca(s)");
@@ -140,6 +141,7 @@ describe("BillingCalendarFeature", () => {
       });
     });
 
+    expect(plain(summaryCard("Total do mes").getByText(/cobranca/).textContent)).toBe("7 cobranca(s)");
     expect(plain(summaryCard("Pendente").getByText(/cobranca/).textContent)).toBe("2 cobranca(s)");
     expect(plain(summaryCard("Em atraso").getByText(/cobranca/).textContent)).toBe("1 cobranca(s)");
     expect(screen.getByText("Parcela cancelada")).toBeInTheDocument();
