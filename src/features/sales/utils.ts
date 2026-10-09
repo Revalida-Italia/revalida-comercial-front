@@ -110,18 +110,43 @@ export const formatSalePaymentsProgress = (sale: SaleRecord): string => {
   return `${summary.paid} pagos · ${summary.pending} pendentes`;
 };
 
+export function saleHasCancelledPayments(sale: SaleRecord, type?: string): boolean {
+  return (sale.payments ?? []).some((payment) => {
+    if (!isCancelledStatus(payment.status)) {
+      return false;
+    }
+
+    if (!type) {
+      return true;
+    }
+
+    return String(payment.type).toUpperCase() === type.toUpperCase();
+  });
+}
+
 export const getSaleContractValue = (sale: SaleRecord): number => {
+  const paymentContext = toPaymentGrossValueContext(sale.payments ?? []);
+  const activeGross = paymentContext.reduce((acc, payment, index) => {
+    if (isCancelledStatus(sale.payments?.[index]?.status)) {
+      return acc;
+    }
+
+    return acc + getPaymentGrossValue(payment, paymentContext);
+  }, 0);
+  const cancelledGross = paymentContext.reduce((acc, payment, index) => {
+    if (!isCancelledStatus(sale.payments?.[index]?.status)) {
+      return acc;
+    }
+
+    return acc + getPaymentGrossValue(payment, paymentContext);
+  }, 0);
   const contract = toNumberOrZero(sale.contractValue);
+
   if (contract > 0) {
-    return contract;
+    return Math.max(0, contract - cancelledGross);
   }
 
-  const paymentContext = toPaymentGrossValueContext(sale.payments ?? []);
-
-  return paymentContext.reduce(
-    (acc, payment) => acc + getPaymentGrossValue(payment, paymentContext),
-    0,
-  );
+  return activeGross;
 };
 
 function commissionCountsTowardTotal(

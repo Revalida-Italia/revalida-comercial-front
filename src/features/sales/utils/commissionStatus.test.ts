@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  PAYMENT_REVERT_BLOCKED_MESSAGE,
   SALE_API_ERROR_MESSAGES,
   commissionHoldLabel,
   commissionStatusText,
+  translatePaymentStatusError,
   translateSaleApiError,
 } from "./commissionStatus";
 
@@ -24,6 +26,19 @@ describe("commission status copy", () => {
     for (const [code, message] of Object.entries(expected)) {
       expect(translateSaleApiError(new Error(code), "fallback")).toBe(message);
     }
+  });
+
+  it("blocks reverting a payment whose commission is already paid", () => {
+    const fallback = "Erro ao atualizar status do pagamento.";
+    expect(translatePaymentStatusError(new Error("COMMISSION_ALREADY_PAID"), fallback, "PENDING")).toBe(
+      PAYMENT_REVERT_BLOCKED_MESSAGE,
+    );
+    expect(translatePaymentStatusError(new Error("PAYMENT_COMMISSION_PAID"), fallback, "PENDING")).toBe(
+      PAYMENT_REVERT_BLOCKED_MESSAGE,
+    );
+    expect(translatePaymentStatusError(new Error("COMMISSION_ALREADY_PAID"), fallback, "PAID")).toBe(
+      "A comissão já está paga.",
+    );
   });
 
   it("does not surface an unknown raw code", () => {

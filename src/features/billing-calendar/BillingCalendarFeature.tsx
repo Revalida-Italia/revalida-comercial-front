@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { canManagePaymentStatus, canPayCommission } from "@/lib/session";
 import { getMonthlyBilling, updateSalePaymentStatus } from "@/services/billingCalendarApi";
 import { paySalePaymentCommission } from "@/services/saleCommissionApi";
-import { isCancelledStatus, translateSaleApiError } from "@/features/sales/utils/commissionStatus";
+import { isCancelledStatus, translatePaymentStatusError, translateSaleApiError } from "@/features/sales/utils/commissionStatus";
 import { listUsers } from "@/services/usersApi";
 import { formatCurrency } from "@/shared/utils/format";
 import type { BillingCalendarEvent, BillingEventStatus } from "./types";
@@ -15,6 +15,7 @@ import {
   formatMonthLabel,
   groupEventsByDate,
   mapDailyTotals,
+  summarizeBillingEvents,
 } from "./utils";
 import BillingCalendarHeader from "./organisms/BillingCalendarHeader";
 import BillingMonthlyGrid from "./organisms/BillingMonthlyGrid";
@@ -87,8 +88,12 @@ const BillingCalendarFeature = () => {
         setSelectedEvent(null);
       }
     },
-    onError: (error: unknown) => {
-      toast.error(translateSaleApiError(error, "Erro ao atualizar status do pagamento."));
+    onError: (error: unknown, variables) => {
+      toast.error(translatePaymentStatusError(
+        error,
+        "Erro ao atualizar status do pagamento.",
+        variables.status,
+      ));
     },
   });
 
@@ -129,7 +134,10 @@ const BillingCalendarFeature = () => {
     [monthlyData?.dailyTotals],
   );
 
-  const totals = monthlyData?.totals;
+  const eventSummary = summarizeBillingEvents(monthlyData?.events ?? []);
+  const totals = monthlyData?.events
+    ? eventSummary
+    : monthlyData?.totals;
   const totalEvents = monthlyData?.events?.length ?? 0;
   const monthlyTotal = monthlyData?.totalAmount ?? 0;
 
@@ -164,7 +172,7 @@ const BillingCalendarFeature = () => {
       return;
     }
 
-    if (isCancelledStatus(selectedEvent?.status)) {
+    if (isCancelledStatus(selectedEvent?.status) || isCancelledStatus(selectedEvent?.paymentStatus)) {
       toast.error(translateSaleApiError(new Error("PAYMENT_CANCELLED"), "Erro ao atualizar status do pagamento."));
       return;
     }
@@ -179,6 +187,15 @@ const BillingCalendarFeature = () => {
   const handleMarkPending = () => {
     const ids = resolvePaymentIds();
     if (!ids) {
+      return;
+    }
+
+    if (String(selectedEvent?.commission?.status ?? "").toUpperCase() === "PAID") {
+      toast.error(translatePaymentStatusError(
+        new Error("COMMISSION_ALREADY_PAID"),
+        "Erro ao atualizar status do pagamento.",
+        "PENDING",
+      ));
       return;
     }
 

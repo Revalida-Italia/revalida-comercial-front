@@ -4,6 +4,7 @@ import { formatPaymentChargeLabel } from "@/features/sales/utils/chargeLabel";
 import {
   formatSalePaymentsProgress,
   getSaleCommissionValue,
+  getSaleContractValue,
   getSubscriptionPaymentsProgress,
   saleStatusLabel,
 } from "@/features/sales/utils";
@@ -136,5 +137,28 @@ describe("cancelled Hotmart subscription", () => {
       billingType: "PIX",
       stripePaymentMethod: null,
     })).toBe("Stripe (aguardando confirmação)");
+    expect(formatPaymentChargeLabel({
+      gateway: "HOTMART",
+      billingType: "CREDIT_CARD",
+      status: "CANCELLED",
+      paymentType: "SUBSCRIPTION",
+    })).toBeNull();
+    expect(formatPaymentChargeLabel({
+      gateway: "HOTMART",
+      billingType: "CREDIT_CARD",
+      status: "PENDING",
+      paymentType: "SUBSCRIPTION",
+    })).toBeNull();
+    expect(formatPaymentChargeLabel({
+      gateway: "HOTMART",
+      billingType: "CREDIT_CARD",
+      status: "PAID",
+      paymentType: "SUBSCRIPTION",
+    })).toBe("Cobrança: Cartão");
+  });
+
+  it("drops cancelled installments from the contract total", () => {
+    expect(getSaleContractValue(sale)).toBe(400);
+    expect(getSaleContractValue({ ...sale, contractValue: 1200 })).toBe(400);
   });
 });

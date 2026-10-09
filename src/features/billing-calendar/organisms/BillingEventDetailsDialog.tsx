@@ -12,10 +12,14 @@ import type { BillingCalendarEvent } from "@/features/billing-calendar/types";
 import {
   billingStatusColor,
   billingStatusLabel,
-  normalizeBillingStatus,
+  resolveBillingEventStatus,
 } from "@/features/billing-calendar/utils";
 import CommissionPayControl from "@/features/sales/organisms/CommissionPayControl";
-import { isCancelledStatus, type CommissionPayView } from "@/features/sales/utils/commissionStatus";
+import {
+  isCancelledStatus,
+  PAYMENT_REVERT_BLOCKED_MESSAGE,
+  type CommissionPayView,
+} from "@/features/sales/utils/commissionStatus";
 import { formatCurrency } from "@/shared/utils/format";
 import {
   CalendarDays,
@@ -75,9 +79,13 @@ const BillingEventDetailsDialog = ({
     event?.installmentNumber != null && event?.totalInstallments != null
       ? `${event.installmentNumber}/${event.totalInstallments}`
       : null;
-  const normalizedStatus = normalizeBillingStatus(event?.status);
+  const normalizedStatus = resolveBillingEventStatus({
+    status: event?.status,
+    paymentStatus: event?.paymentStatus,
+  });
   const isPaid = normalizedStatus === "PAID";
   const isCancelled = normalizedStatus === "CANCELLED";
+  const commissionAlreadyPaid = String(event?.commission?.status ?? "").toUpperCase() === "PAID";
   const commissionView: CommissionPayView | null = event?.commission
     ? {
       status: isCancelled || isCancelledStatus(event.commission.status)
@@ -119,9 +127,11 @@ const BillingEventDetailsDialog = ({
               <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
                 <span
                   className="h-2.5 w-2.5 rounded-full"
-                  style={{ backgroundColor: billingStatusColor(event.status) }}
+                  style={{ backgroundColor: billingStatusColor(normalizedStatus) }}
                 />
-                <span>{billingStatusLabel(event.status)}</span>
+                <span className={isCancelled ? "text-muted-foreground" : undefined}>
+                  {billingStatusLabel(normalizedStatus)}
+                </span>
               </div>
             </div>
 
@@ -256,7 +266,8 @@ const BillingEventDetailsDialog = ({
                       type="button"
                       variant="outline"
                       className="gap-2"
-                      disabled={isUpdatingStatus}
+                      disabled={isUpdatingStatus || commissionAlreadyPaid}
+                      title={commissionAlreadyPaid ? PAYMENT_REVERT_BLOCKED_MESSAGE : undefined}
                       onClick={onMarkPending}
                     >
                       {isUpdatingStatus ? (

@@ -28,6 +28,7 @@ import StripeMark from "@/components/icons/StripeMark";
 import { Badge } from "@/components/ui/badge";
 import { formatInstallmentLabel, getPaymentGrossValue } from "@/shared/utils/payment";
 import { formatPaymentChargeLabel } from "@/features/sales/utils/chargeLabel";
+import { isCancelledStatus, PAYMENT_REVERT_BLOCKED_MESSAGE } from "@/features/sales/utils/commissionStatus";
 
 type PaymentValueLike = {
   amount: string | number;
@@ -115,6 +116,13 @@ const SaleSummary = ({
     );
   };
 
+  const estimateEntries = commissionBreakdown.payments
+    .map((row, index) => ({ row, source: configuredPayments[index], index }))
+    .filter((entry) => !isCancelledStatus(entry.source?.status));
+  const estimateGross = estimateEntries.reduce((acc, entry) => acc + entry.row.grossAmount, 0);
+  const estimateFees = estimateEntries.reduce((acc, entry) => acc + entry.row.feeAmount, 0);
+  const estimateNet = estimateEntries.reduce((acc, entry) => acc + entry.row.netAmount, 0);
+
   return (
     <div className="space-y-4 text-sm">
       {wrapSection(1, "Editar clientes", (
@@ -185,10 +193,17 @@ const SaleSummary = ({
                 const isCancelled = normalizedStatus === "CANCELLED";
                 const isUpdating = Boolean(payment.id && updatingPaymentId === payment.id);
                 const canManageThisPayment = canManagePaymentStatus && Boolean(payment.id) && !isCancelled;
+                const commissionAlreadyPaid = String(payment.commission?.status ?? "").toUpperCase() === "PAID";
                 const canOpenStripeCheckout = Boolean(
                   onOpenStripeCheckout && payment.id && payment.gateway === "STRIPE",
                 );
-                const chargeLabel = formatPaymentChargeLabel(payment);
+                const chargeLabel = formatPaymentChargeLabel({
+                  gateway: payment.gateway,
+                  billingType: payment.billingType,
+                  stripePaymentMethod: payment.stripePaymentMethod,
+                  status: payment.status,
+                  paymentType: payment.paymentType,
+                });
                 const cycleLabel = payment.paymentType === "SUBSCRIPTION" && payment.ciclo
                   ? `Ciclo: ${SUBSCRIPTION_CYCLE_LABELS[payment.ciclo] ?? payment.ciclo}`
                   : null;
@@ -314,7 +329,8 @@ const SaleSummary = ({
                             variant="outline"
                             size="sm"
                             className="h-7 gap-1 px-2 text-[11px]"
-                            disabled={isUpdating}
+                            disabled={isUpdating || commissionAlreadyPaid}
+                            title={commissionAlreadyPaid ? PAYMENT_REVERT_BLOCKED_MESSAGE : undefined}
                             onClick={() => onMarkPaymentPending?.(payment.id!)}
                           >
                             {isUpdating ? (
@@ -361,22 +377,22 @@ const SaleSummary = ({
             )}
             <p className="flex items-center gap-1 text-xs text-muted-foreground">
               <Banknote className="h-3 w-3" />
-              Bruto total: {commissionBreakdown.totalGross.toLocaleString("pt-BR", { style: "currency", currency })}
+              Bruto total: {estimateGross.toLocaleString("pt-BR", { style: "currency", currency })}
             </p>
             <p className="flex items-center gap-1 text-xs text-muted-foreground">
               <Landmark className="h-3 w-3" />
-              Taxas gateway: {commissionBreakdown.totalFees.toLocaleString("pt-BR", { style: "currency", currency })}
+              Taxas gateway: {estimateFees.toLocaleString("pt-BR", { style: "currency", currency })}
             </p>
             <p className="flex items-center gap-1 text-xs text-muted-foreground">
               <TrendingDown className="h-3 w-3" />
-              Líquido: {commissionBreakdown.totalNet.toLocaleString("pt-BR", { style: "currency", currency })}
+              Líquido: {estimateNet.toLocaleString("pt-BR", { style: "currency", currency })}
             </p>
           </div>
 
           <div className="space-y-2 pt-1">
-            {commissionBreakdown.payments.map((payment, idx) => {
-              const installmentLabel = configuredPayments[idx]
-                ? formatInstallmentLabel(configuredPayments[idx], currency, {
+            {estimateEntries.map(({ row: payment, source, index: idx }) => {
+              const installmentLabel = source
+                ? formatInstallmentLabel(source, currency, {
                     allPayments: configuredPayments,
                     index: idx,
                   })
@@ -385,7 +401,7 @@ const SaleSummary = ({
               return (
               <div key={`${payment.gateway}-${payment.paymentType}-${idx}`} className="rounded-md border bg-background p-2 space-y-0.5">
                 <p className="text-xs font-semibold text-foreground">
-                  {payment.gateway} · {PAYMENT_TYPE_LABELS[configuredPayments[idx]?.paymentType ?? payment.paymentType] ?? payment.paymentType}
+                  {payment.gateway} · {PAYMENT_TYPE_LABELS[source?.paymentType ?? payment.paymentType] ?? payment.paymentType}
                 </p>
                 {installmentLabel && (
                   <p className="text-xs text-muted-foreground">{installmentLabel}</p>
@@ -395,15 +411,12 @@ const SaleSummary = ({
                 <p className="flex items-center gap-1 text-xs text-muted-foreground"><TrendingDown className="h-3 w-3" /> Líquido: {payment.netAmount.toLocaleString("pt-BR", { style: "currency", currency })}</p>
                 <p className="flex items-center gap-1 text-xs font-medium text-primary"><TrendingUp className="h-3 w-3" /> Comissao: {payment.commissionAmount.toLocaleString("pt-BR", { style: "currency", currency })}</p>
                 <CommissionPayControl
-                  commission={configuredPayments[idx]?.commission}
+                  commission={source?.commission}
                   canPayCommission={canPayCommission}
-                  isPaying={Boolean(
-                    configuredPayments[idx]?.id
-                    && payingCommissionPaymentId === configuredPayments[idx]?.id,
-                  )}
+                  isPaying={Boolean(source?.id && payingCommissionPaymentId === source.id)}
                   onPay={
-                    configuredPayments[idx]?.id && onPayCommission
-                      ? () => onPayCommission(configuredPayments[idx].id!)
+                    source?.id && onPayCommission
+                      ? () => onPayCommission(source.id!)
                       : undefined
                   }
                 />

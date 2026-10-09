@@ -66,6 +66,22 @@ describe("billing event details", () => {
 
     expect(screen.getByText("Comissão: Pendente")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Marcar comissão como paga" })).toBeEnabled();
-    expect(screen.getByRole("button", { name: "Marcar como pendente" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Marcar como pendente" })).toBeEnabled();
+  });
+
+  it("disables reverting a payment whose commission is already paid", () => {
+    renderDialog(event({
+      status: "PAID",
+      commission: {
+        id: "commission_1",
+        amount: 10,
+        status: "PAID",
+        paidAt: "2026-10-09",
+        canPay: false,
+      },
+    }));
+
+    expect(screen.getByRole("button", { name: "Marcar como pendente" })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "Marcar como pago" })).not.toBeInTheDocument();
   });
 });

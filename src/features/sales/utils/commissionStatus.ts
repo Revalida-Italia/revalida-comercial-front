@@ -12,6 +12,11 @@ export const SALE_API_ERROR_MESSAGES: Record<string, string> = {
   SALE_NOT_FOUND: "Venda não encontrada.",
 };
 
+export const PAYMENT_REVERT_BLOCKED_MESSAGE =
+  "Não é possível voltar para pendente: a comissão desta parcela já foi paga.";
+
+const PAYMENT_REVERT_BLOCKED_CODES = new Set(["COMMISSION_ALREADY_PAID", "PAYMENT_COMMISSION_PAID"]);
+
 export function translateSaleApiError(error: unknown, fallback: string): string {
   const message = error instanceof Error ? error.message.trim() : "";
   if (SALE_API_ERROR_MESSAGES[message]) {
@@ -23,6 +28,19 @@ export function translateSaleApiError(error: unknown, fallback: string): string 
   }
 
   return message;
+}
+
+export function translatePaymentStatusError(
+  error: unknown,
+  fallback: string,
+  nextStatus?: string | null,
+): string {
+  const code = error instanceof Error ? error.message.trim() : "";
+  if (String(nextStatus ?? "").toUpperCase() === "PENDING" && PAYMENT_REVERT_BLOCKED_CODES.has(code)) {
+    return PAYMENT_REVERT_BLOCKED_MESSAGE;
+  }
+
+  return translateSaleApiError(error, fallback);
 }
 
 export type CommissionPayView = {

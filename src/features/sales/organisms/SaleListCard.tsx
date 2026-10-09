@@ -19,6 +19,7 @@ import {
   getSaleProductName,
   getSaleSellerInfo,
   getSubscriptionPaymentsProgress,
+  saleHasCancelledPayments,
   saleStatusLabel,
 } from "../utils";
 import { saleHasPaymentLink } from "@/features/sales/utils/paymentLink";
@@ -92,18 +93,18 @@ const SaleListCard = ({ sale }: SaleListCardProps) => {
               <p className="text-xs font-medium">{paymentsProgress}</p>
               {subscriptionProgress ? (
                 <p className="mt-0.5 text-[10px] leading-tight text-muted-foreground">
-                  {subscriptionProgress.total === 0
-                    ? "Assinatura cancelada"
-                    : subscriptionProgress.pending > 0
-                      ? `${subscriptionProgress.pending} parcela(s) pendente(s)`
+                  {subscriptionProgress.pending > 0
+                    ? `${subscriptionProgress.pending} parcela(s) pendente(s)`
+                    : saleHasCancelledPayments(sale, "SUBSCRIPTION")
+                      ? "Assinatura cancelada"
                       : "Assinatura quitada"}
                 </p>
               ) : installmentProgress ? (
                 <p className="mt-0.5 text-[10px] leading-tight text-muted-foreground">
-                  {installmentProgress.total === 0
-                    ? "Parcelamento cancelado"
-                    : installmentProgress.pending > 0
-                      ? `${installmentProgress.pending} parcela(s) pendente(s)`
+                  {installmentProgress.pending > 0
+                    ? `${installmentProgress.pending} parcela(s) pendente(s)`
+                    : saleHasCancelledPayments(sale, "INSTALLMENT")
+                      ? "Parcelamento cancelado"
                       : "Parcelamento quitado"}
                 </p>
               ) : subscriptionSummary && subscriptionSummary.subscriptionTotal > 0 ? (

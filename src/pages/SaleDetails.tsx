@@ -24,7 +24,12 @@ import { canMutateSales } from "@/services/usersApi";
 import { getSaleById } from "@/services/commercialApi";
 import { updateSalePaymentStatus } from "@/services/billingCalendarApi";
 import { paySalePaymentCommission } from "@/services/saleCommissionApi";
-import { isCancelledStatus, translateSaleApiError } from "@/features/sales/utils/commissionStatus";
+import {
+  isCancelledStatus,
+  PAYMENT_REVERT_BLOCKED_MESSAGE,
+  translatePaymentStatusError,
+  translateSaleApiError,
+} from "@/features/sales/utils/commissionStatus";
 import type { DisplayCurrency } from "@/services/exchangeRatesApi";
 import { formatCurrency, formatDateTime } from "@/shared/utils/format";
 import {
@@ -68,9 +73,13 @@ const SaleDetails = () => {
       await queryClient.invalidateQueries({ queryKey: ["sale", id] });
       setUpdatingPaymentId(null);
     },
-    onError: (error: unknown) => {
+    onError: (error: unknown, variables) => {
       setUpdatingPaymentId(null);
-      toast.error(translateSaleApiError(error, "Erro ao atualizar status do pagamento."));
+      toast.error(translatePaymentStatusError(
+        error,
+        "Erro ao atualizar status do pagamento.",
+        variables.status,
+      ));
     },
   });
 
@@ -119,6 +128,12 @@ const SaleDetails = () => {
 
   const handleMarkPaymentPending = (paymentId: string) => {
     if (!id) {
+      return;
+    }
+
+    const current = saleQuery.data?.payments?.find((payment) => payment.id === paymentId);
+    if (String(current?.commission?.status ?? "").toUpperCase() === "PAID") {
+      toast.error(PAYMENT_REVERT_BLOCKED_MESSAGE);
       return;
     }
 

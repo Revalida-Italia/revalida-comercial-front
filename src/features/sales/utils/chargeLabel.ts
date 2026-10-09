@@ -1,3 +1,4 @@
+import { isCancelledStatus } from "@/features/sales/utils/commissionStatus";
 import {
   formatStripeChargeLabel,
   type StripePaymentMethod,
@@ -13,7 +14,21 @@ export function formatPaymentChargeLabel(payment: {
   gateway?: string | null;
   billingType?: string | null;
   stripePaymentMethod?: StripePaymentMethod | null;
+  status?: string | null;
+  paymentType?: string | null;
 }): string | null {
+  if (isCancelledStatus(payment.status)) {
+    return null;
+  }
+
+  const type = String(payment.paymentType ?? "").toUpperCase();
+  const status = String(payment.status ?? "").toUpperCase();
+  const isInstallment = type === "SUBSCRIPTION" || type === "INSTALLMENT";
+  const wasCharged = status === "PAID" || status === "OVERDUE";
+  if (isInstallment && status && !wasCharged) {
+    return null;
+  }
+
   if (
     String(payment.gateway ?? "").toUpperCase() === "STRIPE"
     && payment.stripePaymentMethod !== undefined

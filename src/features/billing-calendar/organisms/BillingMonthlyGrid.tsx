@@ -7,6 +7,7 @@ import {
   billingStatusColor,
   buildMonthGrid,
   isOutsideCurrentMonth,
+  resolveBillingEventStatus,
   toDateKey,
 } from "@/features/billing-calendar/utils";
 import { format } from "date-fns";
@@ -84,11 +85,13 @@ const BillingMonthlyGrid = ({
                       </div>
 
                       <div className="mt-1 max-h-72 space-y-1 overflow-y-auto">
-                        {dayEvents.map((eventItem) => (
+                        {dayEvents.map((eventItem) => {
+                          const cancelled = resolveBillingEventStatus(eventItem) === "CANCELLED";
+                          return (
                           <Button
                             key={eventItem.instanceId}
                             variant="ghost"
-                            className="h-auto w-full justify-start rounded-md px-2 py-2 text-left"
+                            className={`h-auto w-full justify-start rounded-md px-2 py-2 text-left ${cancelled ? "text-muted-foreground" : ""}`}
                             onClick={() => {
                               setOpenPopoverDate(null);
                               onEventClick(eventItem);
@@ -96,11 +99,12 @@ const BillingMonthlyGrid = ({
                           >
                             <span
                               className="mr-2 h-2.5 w-2.5 shrink-0 rounded-full"
-                              style={{ backgroundColor: billingStatusColor(eventItem.status) }}
+                              style={{ backgroundColor: billingStatusColor(resolveBillingEventStatus(eventItem)) }}
                             />
                             <span className="min-w-0 flex-1 truncate text-sm">{eventItem.title}</span>
                           </Button>
-                        ))}
+                          );
+                        })}
                       </div>
                     </PopoverContent>
                   </Popover>
@@ -108,20 +112,27 @@ const BillingMonthlyGrid = ({
               </div>
 
               <div className="mt-2 space-y-1.5">
-                {visibleEvents.map((event) => (
+                {visibleEvents.map((event) => {
+                  const cancelled = resolveBillingEventStatus(event) === "CANCELLED";
+                  return (
                   <Button
                     key={event.instanceId}
                     variant="ghost"
-                    className="h-auto w-full justify-start gap-2 rounded-md border border-border/70 bg-card px-2 py-1.5 text-left"
+                    className={`h-auto w-full justify-start gap-2 rounded-md border px-2 py-1.5 text-left ${
+                      cancelled
+                        ? "border-border bg-muted/60 text-muted-foreground"
+                        : "border-border/70 bg-card"
+                    }`}
                     onClick={() => onEventClick(event)}
                   >
                     <span
                       className="h-2 w-2 shrink-0 rounded-full"
-                      style={{ backgroundColor: billingStatusColor(event.status) }}
+                      style={{ backgroundColor: billingStatusColor(resolveBillingEventStatus(event)) }}
                     />
                     <span className="min-w-0 flex-1 truncate text-xs">{event.title}</span>
                   </Button>
-                ))}
+                  );
+                })}
               </div>
 
               {dailyTotal && (

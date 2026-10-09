@@ -33,7 +33,7 @@ function payment(number: number, status: string, commissionStatus: string, extra
     installmentNumber: number,
     totalInstallments: 12,
     paymentDate: status === "PAID" || number === 5 ? "2026-10-05" : null,
-    billingType: "UNDEFINED",
+    billingType: "CREDIT_CARD",
     createdAt: "2026-10-01T12:00:00.000Z",
     updatedAt: "2026-10-01T12:00:00.000Z",
     ...extras,
@@ -119,7 +119,13 @@ describe("sale detail commissions", () => {
     expect(screen.queryByText("CANCELLED")).not.toBeInTheDocument();
     expect(screen.queryByText("PAID")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Marcar como pago" })).not.toBeInTheDocument();
-    expect(screen.getAllByRole("button", { name: "Marcar como pendente" })).toHaveLength(4);
+    const revertButtons = screen.getAllByRole("button", { name: "Marcar como pendente" });
+    expect(revertButtons).toHaveLength(4);
+    expect(revertButtons[3]).toBeDisabled();
+    expect(revertButtons.slice(0, 3).every((button) => !button.hasAttribute("disabled"))).toBe(true);
+    expect(screen.getAllByText("Cobrança: Cartão")).toHaveLength(4);
+    expect(screen.getByText(/Bruto total:.*400,00/)).toBeInTheDocument();
+    expect(screen.queryByText(/Bruto total:.*1\.200,00/)).not.toBeInTheDocument();
     expect(screen.getAllByText("Pago em: 2026-10-05")).toHaveLength(4);
 
     const payButtons = screen.getAllByRole("button", { name: "Marcar comissão como paga" });

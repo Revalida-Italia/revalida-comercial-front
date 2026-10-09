@@ -87,7 +87,8 @@ describe("dashboard sale card cancelled subscription", () => {
     expect(screen.getByText("4/4 assin. pagas")).toBeInTheDocument();
     expect(screen.queryByText("4/12 assin. pagas")).not.toBeInTheDocument();
     expect(screen.queryByText(/8 parcela/)).not.toBeInTheDocument();
-    expect(screen.getByText("Assinatura quitada")).toBeInTheDocument();
+    expect(screen.getByText("Assinatura cancelada")).toBeInTheDocument();
+    expect(screen.queryByText("Assinatura quitada")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Marcar como pago" })).not.toBeInTheDocument();
 
     const commission = screen.getByText((_, element) => {
