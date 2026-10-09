@@ -1,4 +1,4 @@
-export type BillingEventStatus = "PAID" | "PENDING" | "OVERDUE";
+export type BillingEventStatus = "PAID" | "PENDING" | "OVERDUE" | "CANCELLED";
 
 export type BillingSeller = {
   id: string;
@@ -25,6 +25,10 @@ export type BillingCommissionRef = {
   id: string;
   amount?: number | string | null;
   status?: string | null;
+  paidAt?: string | null;
+  paidByUserId?: string | null;
+  eligibleAt?: string | null;
+  canPay?: boolean;
 };
 
 export type BillingCalendarEvent = {

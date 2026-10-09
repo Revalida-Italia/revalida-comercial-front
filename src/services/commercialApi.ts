@@ -48,6 +48,8 @@ export interface SaleItem {
   };
 }
 
+export type CommissionStatus = "PENDING" | "PAID" | "CANCELLED";
+
 export interface SalePaymentCommission {
   id: string;
   saleId: string;
@@ -55,9 +57,13 @@ export interface SalePaymentCommission {
   sellerId: string;
   amount: string | number;
   dueDate?: string | null;
-  status: string;
+  status: CommissionStatus | string;
   calculatedAt?: string;
   paidAt?: string | null;
+  paidByUserId?: string | null;
+  /** paymentDate + 7 dias, ou null quando o pagamento ainda não foi pago. */
+  eligibleAt?: string | null;
+  canPay?: boolean;
   payment?: {
     type?: string;
   };
@@ -210,7 +216,7 @@ export interface CreateSaleItem {
   notes?: string;
 }
 
-export type BillingType = "PIX" | "BOLETO" | "CREDIT_CARD";
+export type BillingType = "PIX" | "BOLETO" | "CREDIT_CARD" | "UNDEFINED";
 
 export type SubscriptionCycle =
   | "WEEKLY"
@@ -249,7 +255,7 @@ export interface CreateSaleInput {
 
 export type SaleStatus = "PENDING" | "CONCLUDED" | "ARCHIVED";
 
-export type PaymentStatus = "PENDING" | "PAID" | string;
+export type PaymentStatus = "PENDING" | "PAID" | "CANCELLED" | string;
 
 export interface UpdateSaleClient {
   nameCiphertext: string;

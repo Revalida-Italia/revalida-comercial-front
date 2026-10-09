@@ -19,14 +19,15 @@ import {
   User,
 } from "lucide-react";
 import { toast } from "sonner";
-import { BILLING_TYPE_LABELS, PAYMENT_TYPE_LABELS, SUBSCRIPTION_CYCLE_LABELS } from "../constants";
+import { PAYMENT_TYPE_LABELS, SUBSCRIPTION_CYCLE_LABELS } from "../constants";
 import type { ConfiguredSalePayment, FilledSaleCustomer, SaleSummaryItem } from "../types";
 import EditableSection from "@/features/sales/organisms/EditableSection";
+import CommissionPayControl from "@/features/sales/organisms/CommissionPayControl";
 import { billingStatusLabel, normalizeBillingStatus } from "@/features/billing-calendar/utils";
 import StripeMark from "@/components/icons/StripeMark";
 import { Badge } from "@/components/ui/badge";
 import { formatInstallmentLabel, getPaymentGrossValue } from "@/shared/utils/payment";
-import { formatStripeChargeLabel } from "@/features/sales/utils/stripePaymentMethod";
+import { formatPaymentChargeLabel } from "@/features/sales/utils/chargeLabel";
 
 type PaymentValueLike = {
   amount: string | number;
@@ -52,6 +53,9 @@ type SaleSummaryProps = {
   onMarkPaymentPaid?: (paymentId: string) => void;
   onMarkPaymentPending?: (paymentId: string) => void;
   onOpenStripeCheckout?: (paymentId: string) => void;
+  canPayCommission?: boolean;
+  payingCommissionPaymentId?: string | null;
+  onPayCommission?: (paymentId: string) => void;
 };
 
 function getSubscriptionMonthLabel(
@@ -96,6 +100,9 @@ const SaleSummary = ({
   onMarkPaymentPaid,
   onMarkPaymentPending,
   onOpenStripeCheckout,
+  canPayCommission = false,
+  payingCommissionPaymentId = null,
+  onPayCommission,
 }: SaleSummaryProps) => {
   const editStep = (step: number) => (saleId ? `/vendas/${saleId}/editar?step=${step}` : "");
 
@@ -175,14 +182,19 @@ const SaleSummary = ({
                 });
                 const normalizedStatus = normalizeBillingStatus(payment.status);
                 const isPaid = normalizedStatus === "PAID";
+                const isCancelled = normalizedStatus === "CANCELLED";
                 const isUpdating = Boolean(payment.id && updatingPaymentId === payment.id);
-                const canManageThisPayment = canManagePaymentStatus && Boolean(payment.id);
+                const canManageThisPayment = canManagePaymentStatus && Boolean(payment.id) && !isCancelled;
                 const canOpenStripeCheckout = Boolean(
                   onOpenStripeCheckout && payment.id && payment.gateway === "STRIPE",
                 );
+                const chargeLabel = formatPaymentChargeLabel(payment);
+                const cycleLabel = payment.paymentType === "SUBSCRIPTION" && payment.ciclo
+                  ? `Ciclo: ${SUBSCRIPTION_CYCLE_LABELS[payment.ciclo] ?? payment.ciclo}`
+                  : null;
 
                 return (
-                <li key={payment.id ?? index} className="rounded-md border p-2">
+                <li key={payment.id ?? index} className={`rounded-md border p-2 ${isCancelled ? "border-border bg-muted/50" : ""}`}>
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
@@ -190,7 +202,13 @@ const SaleSummary = ({
                     {payment.status && (
                       <Badge
                         variant="outline"
-                        className={`h-5 px-1.5 text-[10px] ${isPaid ? "border-emerald-500/40 text-emerald-700" : ""}`}
+                        className={`h-5 px-1.5 text-[10px] ${
+                          isPaid
+                            ? "border-emerald-500/40 text-emerald-700"
+                            : isCancelled
+                              ? "border-border bg-muted text-muted-foreground"
+                              : ""
+                        }`}
                       >
                         {billingStatusLabel(payment.status)}
                       </Badge>
@@ -203,14 +221,13 @@ const SaleSummary = ({
                       return feeRate > 0 ? ` - taxa ${feeRate}%` : "";
                     })()}
                   </p>
-                  <p className="text-xs text-muted-foreground">
-                    {payment.gateway === "STRIPE" && payment.stripePaymentMethod !== undefined
-                      ? formatStripeChargeLabel(payment.stripePaymentMethod)
-                      : <>Cobrança: {BILLING_TYPE_LABELS[payment.billingType] ?? payment.billingType}</>}
-                    {payment.paymentType === "SUBSCRIPTION" && payment.ciclo && (
-                      <> · Ciclo: {SUBSCRIPTION_CYCLE_LABELS[payment.ciclo] ?? payment.ciclo}</>
-                    )}
-                  </p>
+                  {(chargeLabel || cycleLabel) && (
+                    <p className="text-xs text-muted-foreground">
+                      {chargeLabel}
+                      {chargeLabel && cycleLabel ? " · " : null}
+                      {cycleLabel}
+                    </p>
+                  )}
                   <p className="font-medium">
                     {getPaymentGrossValue(payment, configuredPayments).toLocaleString("pt-BR", { style: "currency", currency })}
                   </p>
@@ -218,9 +235,15 @@ const SaleSummary = ({
                     <p className="text-xs text-muted-foreground">{installmentLabel}</p>
                   )}
                   {payment.dueDate && <p className="text-xs text-muted-foreground">Vencimento: {payment.dueDate}</p>}
-                  {payment.paymentDate && (
+                  {isPaid && payment.paymentDate && (
                     <p className="text-xs text-muted-foreground">Pago em: {payment.paymentDate}</p>
                   )}
+                  <CommissionPayControl
+                    commission={payment.commission}
+                    canPayCommission={canPayCommission}
+                    isPaying={Boolean(payment.id && payingCommissionPaymentId === payment.id)}
+                    onPay={payment.id && onPayCommission ? () => onPayCommission(payment.id!) : undefined}
+                  />
                   {payment.linkPagamento && (
                     <div className="mt-2 space-y-1.5 rounded-md border border-dashed border-primary/30 bg-primary/5 p-2">
                       <p className="text-xs font-medium text-muted-foreground">Link de pagamento</p>
@@ -371,6 +394,19 @@ const SaleSummary = ({
                 <p className="flex items-center gap-1 text-xs text-muted-foreground"><MinusCircle className="h-3 w-3" /> Taxa ({payment.feeRate}%): {payment.feeAmount.toLocaleString("pt-BR", { style: "currency", currency })}</p>
                 <p className="flex items-center gap-1 text-xs text-muted-foreground"><TrendingDown className="h-3 w-3" /> Líquido: {payment.netAmount.toLocaleString("pt-BR", { style: "currency", currency })}</p>
                 <p className="flex items-center gap-1 text-xs font-medium text-primary"><TrendingUp className="h-3 w-3" /> Comissao: {payment.commissionAmount.toLocaleString("pt-BR", { style: "currency", currency })}</p>
+                <CommissionPayControl
+                  commission={configuredPayments[idx]?.commission}
+                  canPayCommission={canPayCommission}
+                  isPaying={Boolean(
+                    configuredPayments[idx]?.id
+                    && payingCommissionPaymentId === configuredPayments[idx]?.id,
+                  )}
+                  onPay={
+                    configuredPayments[idx]?.id && onPayCommission
+                      ? () => onPayCommission(configuredPayments[idx].id!)
+                      : undefined
+                  }
+                />
 
                 {payment.paymentType === "SUBSCRIPTION" && payment.monthlyCommissions && (
                   <div className="mt-1.5 rounded border border-dashed p-1.5 space-y-1">

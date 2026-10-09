@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import type { SaleRecord, SalesSummary } from "@/services/commercialApi";
 import type { DisplayCurrency } from "@/services/exchangeRatesApi";
 import { PAYMENT_TYPE_LABELS, SALE_STATUS_OPTIONS } from "@/features/new-sale/constants";
+import { billingStatusLabel, normalizeBillingStatus } from "@/features/billing-calendar/utils";
 import {
   getSaleCustomerNames,
   getSaleProductName,
@@ -66,10 +67,7 @@ function formatGatewayLabel(gateway: string) {
 }
 
 function paymentStatusLabel(status?: string) {
-  const normalized = String(status ?? "").toUpperCase();
-  if (normalized === "PAID") return "Pago";
-  if (normalized === "PENDING" || !normalized) return "Pendente";
-  return status ?? "Pendente";
+  return billingStatusLabel(status);
 }
 
 function formatSalePayments(sale: SaleRecord): AuditPaymentDisplay[] {
@@ -132,17 +130,18 @@ function SaleStatusBadge({ status }: { status: string }) {
 }
 
 function PaymentStatusBadge({ status }: { status?: string }) {
-  const normalized = String(status ?? "PENDING").toUpperCase();
+  const normalized = normalizeBillingStatus(status);
   const isPaid = normalized === "PAID";
+  const isCancelled = normalized === "CANCELLED";
 
   return (
     <Badge
       variant="outline"
       className={cn(
         "h-5 whitespace-nowrap px-1.5 py-0 text-[10px] font-medium",
-        isPaid
-          ? "border-emerald-300 bg-emerald-50 text-emerald-800"
-          : "border-slate-200 bg-slate-50 text-slate-700",
+        isPaid && "border-emerald-300 bg-emerald-50 text-emerald-800",
+        isCancelled && "border-border bg-muted text-muted-foreground",
+        !isPaid && !isCancelled && "border-slate-200 bg-slate-50 text-slate-700",
       )}
     >
       {paymentStatusLabel(status)}

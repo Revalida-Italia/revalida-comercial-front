@@ -99,8 +99,9 @@ export function getSalePaymentLinks(sale: SaleRecord): SalePaymentLinkItem[] {
 
 export function formatPaymentLinkLabel(payment: SalePaymentLinkItem): string {
   const typeLabel = PAYMENT_TYPE_LABELS[payment.type] ?? payment.type;
-  const billingLabel = payment.billingType
-    ? BILLING_TYPE_LABELS[payment.billingType] ?? payment.billingType
+  const billing = String(payment.billingType ?? "").trim().toUpperCase();
+  const billingLabel = billing && billing !== "UNDEFINED"
+    ? BILLING_TYPE_LABELS[billing] ?? null
     : null;
 
   return [payment.gateway, typeLabel, billingLabel, `R$ ${payment.amount}`]

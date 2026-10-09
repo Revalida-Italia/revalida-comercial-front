@@ -71,17 +71,19 @@ export const BILLING_STATUS_LABELS: Record<BillingEventStatus, string> = {
   PAID: "Pago",
   PENDING: "Pendente",
   OVERDUE: "Em atraso",
+  CANCELLED: "Cancelada",
 };
 
 export const BILLING_STATUS_COLORS: Record<BillingEventStatus, string> = {
   PAID: "#16a34a",
   PENDING: "#64748b",
   OVERDUE: "#dc2626",
+  CANCELLED: "hsl(var(--muted-foreground))",
 };
 
 export function normalizeBillingStatus(status?: string | null): BillingEventStatus {
   const value = String(status ?? "").toUpperCase();
-  if (value === "PAID" || value === "PENDING" || value === "OVERDUE") {
+  if (value === "PAID" || value === "PENDING" || value === "OVERDUE" || value === "CANCELLED") {
     return value;
   }
   return "PENDING";

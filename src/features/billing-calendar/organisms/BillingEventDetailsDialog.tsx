@@ -14,6 +14,8 @@ import {
   billingStatusLabel,
   normalizeBillingStatus,
 } from "@/features/billing-calendar/utils";
+import CommissionPayControl from "@/features/sales/organisms/CommissionPayControl";
+import { isCancelledStatus, type CommissionPayView } from "@/features/sales/utils/commissionStatus";
 import { formatCurrency } from "@/shared/utils/format";
 import {
   CalendarDays,
@@ -35,6 +37,9 @@ type BillingEventDetailsDialogProps = {
   onOpenChange: (open: boolean) => void;
   onMarkPaid?: () => void;
   onMarkPending?: () => void;
+  canPayCommission?: boolean;
+  isPayingCommission?: boolean;
+  onPayCommission?: () => void;
 };
 
 function formatEventDate(dateIso?: string | null): string {
@@ -60,6 +65,9 @@ const BillingEventDetailsDialog = ({
   onOpenChange,
   onMarkPaid,
   onMarkPending,
+  canPayCommission = false,
+  isPayingCommission = false,
+  onPayCommission,
 }: BillingEventDetailsDialogProps) => {
   const navigate = useNavigate();
   const saleId = event?.saleId || event?.sale?.id || "";
@@ -69,6 +77,17 @@ const BillingEventDetailsDialog = ({
       : null;
   const normalizedStatus = normalizeBillingStatus(event?.status);
   const isPaid = normalizedStatus === "PAID";
+  const isCancelled = normalizedStatus === "CANCELLED";
+  const commissionView: CommissionPayView | null = event?.commission
+    ? {
+      status: isCancelled || isCancelledStatus(event.commission.status)
+        ? "CANCELLED"
+        : event.commission.status,
+      paidAt: event.commission.paidAt ?? null,
+      eligibleAt: isCancelled ? null : event.commission.eligibleAt ?? null,
+      canPay: isCancelled ? false : Boolean(event.commission.canPay),
+    }
+    : null;
 
   const handleGoToSale = () => {
     if (!saleId) {
@@ -203,7 +222,18 @@ const BillingEventDetailsDialog = ({
               </div>
             )}
 
-            {canManageStatus && (
+            {commissionView && (
+              <div className="rounded-lg border border-border/80 p-3">
+                <CommissionPayControl
+                  commission={commissionView}
+                  canPayCommission={canPayCommission}
+                  isPaying={isPayingCommission}
+                  onPay={onPayCommission}
+                />
+              </div>
+            )}
+
+            {canManageStatus && !isCancelled && (
               <div className="rounded-lg border border-border/80 bg-muted/10 p-3">
                 <p className="text-xs font-medium text-muted-foreground">Status do pagamento</p>
                 <div className="mt-2 flex flex-wrap gap-2">

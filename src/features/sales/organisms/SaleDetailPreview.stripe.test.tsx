@@ -79,4 +79,35 @@ describe("SaleDetailPreview Stripe charge", () => {
     expect(screen.getByText("Cobrança: PIX")).toBeInTheDocument();
     expect(screen.queryByText("Stripe (aguardando confirmação)")).not.toBeInTheDocument();
   });
+
+  it("labels card and boleto without inventing PIX", () => {
+    const { rerender } = renderPreview(sale([
+      payment({ gateway: "HOTMART", billingType: "CREDIT_CARD", stripePaymentMethod: undefined }),
+    ]));
+    expect(screen.getByText("Cobrança: Cartão")).toBeInTheDocument();
+    expect(screen.queryByText("Cobrança: Cartão de Crédito")).not.toBeInTheDocument();
+
+    rerender(
+      <MemoryRouter>
+        <SaleDetailPreview
+          sale={sale([payment({ gateway: "HOTMART", billingType: "BOLETO" })])}
+          readOnly
+        />
+      </MemoryRouter>,
+    );
+    expect(screen.getByText("Cobrança: Boleto")).toBeInTheDocument();
+
+    for (const billingType of [null, undefined, "UNDEFINED"] as const) {
+      rerender(
+        <MemoryRouter>
+          <SaleDetailPreview
+            sale={sale([payment({ gateway: "HOTMART", billingType, stripePaymentMethod: undefined })])}
+            readOnly
+          />
+        </MemoryRouter>,
+      );
+      expect(screen.queryByText(/Cobrança:/)).not.toBeInTheDocument();
+      expect(screen.queryByText("Cobrança: PIX")).not.toBeInTheDocument();
+    }
+  });
 });

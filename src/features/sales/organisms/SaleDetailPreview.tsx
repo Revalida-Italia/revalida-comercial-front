@@ -1,10 +1,11 @@
 import type { CommissionBreakdownResult } from "@/services/commissionApi";
 import { buildCommissionBreakdown } from "@/services/commissionApi";
-import type { SaleRecord } from "@/services/commercialApi";
+import type { SalePayment, SaleRecord } from "@/services/commercialApi";
 import { toNumberOrZero } from "@/shared/utils/number";
 import { getPaymentGrossValue, isMonthlySubscriptionPayment } from "@/shared/utils/payment";
 import type { ConfiguredSalePayment, FilledSaleCustomer } from "@/features/new-sale/types";
 import { readStripePaymentMethod } from "@/features/sales/utils/stripePaymentMethod";
+import { isCancelledStatus, type CommissionPayView } from "@/features/sales/utils/commissionStatus";
 import { getSaleCommissionValue } from "../utils";
 import SaleSummary from "@/features/new-sale/organisms/SaleSummary";
 import { useMemo } from "react";
@@ -17,7 +18,24 @@ type SaleDetailPreviewProps = {
   onMarkPaymentPaid?: (paymentId: string) => void;
   onMarkPaymentPending?: (paymentId: string) => void;
   onOpenStripeCheckout?: (paymentId: string) => void;
+  canPayCommission?: boolean;
+  payingCommissionPaymentId?: string | null;
+  onPayCommission?: (paymentId: string) => void;
 };
+
+function toCommissionView(payment: SalePayment): CommissionPayView | undefined {
+  if (!payment.commission) {
+    return undefined;
+  }
+
+  const cancelled = isCancelledStatus(payment.status) || isCancelledStatus(payment.commission.status);
+  return {
+    status: cancelled ? "CANCELLED" : payment.commission.status,
+    paidAt: payment.commission.paidAt ?? null,
+    eligibleAt: cancelled ? null : payment.commission.eligibleAt ?? null,
+    canPay: cancelled ? false : Boolean(payment.commission.canPay),
+  };
+}
 
 const SaleDetailPreview = ({
   sale,
@@ -27,6 +45,9 @@ const SaleDetailPreview = ({
   onMarkPaymentPaid,
   onMarkPaymentPending,
   onOpenStripeCheckout,
+  canPayCommission = false,
+  payingCommissionPaymentId = null,
+  onPayCommission,
 }: SaleDetailPreviewProps) => {
   const filledCustomers: FilledSaleCustomer[] = sale.clients.map((client) => ({
     name: client.nameCiphertext || "Sem nome",
@@ -52,7 +73,10 @@ const SaleDetailPreview = ({
     dueDate: payment.dueDate?.slice(0, 10) ?? undefined,
     feeRate: toNumberOrZero(payment.gatewayFeeRateSnapshot ?? payment.gatewayFee?.feeRate),
     linkPagamento: payment.linkPagamento ?? undefined,
-    billingType: (payment.billingType as ConfiguredSalePayment["billingType"]) || "PIX",
+    billingType: payment.billingType
+      ? (String(payment.billingType).toUpperCase() as ConfiguredSalePayment["billingType"])
+      : null,
+    commission: toCommissionView(payment),
     ...(payment.gateway === "STRIPE"
       ? { stripePaymentMethod: readStripePaymentMethod(payment.stripePaymentMethod) }
       : {}),
@@ -120,6 +144,9 @@ const SaleDetailPreview = ({
       onMarkPaymentPaid={onMarkPaymentPaid}
       onMarkPaymentPending={onMarkPaymentPending}
       onOpenStripeCheckout={onOpenStripeCheckout}
+      canPayCommission={canPayCommission}
+      payingCommissionPaymentId={payingCommissionPaymentId}
+      onPayCommission={onPayCommission}
     />
   );
 };

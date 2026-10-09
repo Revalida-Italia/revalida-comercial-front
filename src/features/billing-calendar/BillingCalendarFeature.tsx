@@ -3,8 +3,10 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { AlertCircle, CalendarFold, CircleCheck, CircleDollarSign, Clock3 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { canManagePaymentStatus } from "@/lib/session";
+import { canManagePaymentStatus, canPayCommission } from "@/lib/session";
 import { getMonthlyBilling, updateSalePaymentStatus } from "@/services/billingCalendarApi";
+import { paySalePaymentCommission } from "@/services/saleCommissionApi";
+import { isCancelledStatus, translateSaleApiError } from "@/features/sales/utils/commissionStatus";
 import { listUsers } from "@/services/usersApi";
 import { formatCurrency } from "@/shared/utils/format";
 import type { BillingCalendarEvent, BillingEventStatus } from "./types";
@@ -21,6 +23,7 @@ import BillingEventDetailsDialog from "./organisms/BillingEventDetailsDialog";
 const BillingCalendarFeature = () => {
   const queryClient = useQueryClient();
   const canUpdatePaymentStatus = canManagePaymentStatus();
+  const canMarkCommissionPaid = canPayCommission();
   const canFilterBySeller = canUpdatePaymentStatus;
   const [currentMonthDate, setCurrentMonthDate] = useState(() => {
     const now = new Date();
@@ -85,7 +88,20 @@ const BillingCalendarFeature = () => {
       }
     },
     onError: (error: unknown) => {
-      toast.error(error instanceof Error ? error.message : "Erro ao atualizar status do pagamento.");
+      toast.error(translateSaleApiError(error, "Erro ao atualizar status do pagamento."));
+    },
+  });
+
+  const payCommissionMutation = useMutation({
+    mutationFn: (input: { saleId: string; paymentId: string }) =>
+      paySalePaymentCommission(input.saleId, input.paymentId),
+    onSuccess: async () => {
+      toast.success("Comissão marcada como paga.");
+      await queryClient.invalidateQueries({ queryKey: ["billingCalendar", "monthly"] });
+      await queryClient.invalidateQueries({ queryKey: ["sales"] });
+    },
+    onError: (error: unknown) => {
+      toast.error(translateSaleApiError(error, "Não foi possível marcar a comissão como paga."));
     },
   });
 
@@ -148,6 +164,11 @@ const BillingCalendarFeature = () => {
       return;
     }
 
+    if (isCancelledStatus(selectedEvent?.status)) {
+      toast.error(translateSaleApiError(new Error("PAYMENT_CANCELLED"), "Erro ao atualizar status do pagamento."));
+      return;
+    }
+
     updateStatusMutation.mutate({
       ...ids,
       status: "PAID",
@@ -165,6 +186,15 @@ const BillingCalendarFeature = () => {
       ...ids,
       status: "PENDING",
     });
+  };
+
+  const handlePayCommission = () => {
+    const ids = resolvePaymentIds();
+    if (!ids) {
+      return;
+    }
+
+    payCommissionMutation.mutate(ids);
   };
 
   return (
@@ -264,6 +294,9 @@ const BillingCalendarFeature = () => {
         onOpenChange={setEventDetailsOpen}
         onMarkPaid={handleMarkPaid}
         onMarkPending={handleMarkPending}
+        canPayCommission={canMarkCommissionPaid}
+        isPayingCommission={payCommissionMutation.isPending}
+        onPayCommission={handlePayCommission}
       />
     </div>
   );

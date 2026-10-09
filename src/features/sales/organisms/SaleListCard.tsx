@@ -11,12 +11,15 @@ import { hasRole, getProfile } from "@/lib/session";
 import { canMutateSales } from "@/services/usersApi";
 import {
   formatSalePaymentsProgress,
+  getInstallmentPaymentsProgress,
   getSaleCommissionValue,
   getSaleContractValue,
   getSaleCustomerNames,
   getSaleNetContractValue,
   getSaleProductName,
   getSaleSellerInfo,
+  getSubscriptionPaymentsProgress,
+  saleStatusLabel,
 } from "../utils";
 import { saleHasPaymentLink } from "@/features/sales/utils/paymentLink";
 import { saleOffersHotmartCheckout } from "@/features/sales/utils/hotmartCheckout";
@@ -45,6 +48,8 @@ const SaleListCard = ({ sale }: SaleListCardProps) => {
   const netContractValue = getSaleNetContractValue(sale);
   const commissionValue = getSaleCommissionValue(sale);
   const paymentsProgress = formatSalePaymentsProgress(sale);
+  const subscriptionProgress = getSubscriptionPaymentsProgress(sale);
+  const installmentProgress = getInstallmentPaymentsProgress(sale);
   const sellerInfo = getSaleSellerInfo(sale);
   const hasPaymentLink = saleHasPaymentLink(sale);
   const hasPayments = (sale.payments?.length ?? 0) > 0;
@@ -85,7 +90,23 @@ const SaleListCard = ({ sale }: SaleListCardProps) => {
             <div>
               <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Pagamentos</p>
               <p className="text-xs font-medium">{paymentsProgress}</p>
-              {subscriptionSummary && subscriptionSummary.subscriptionTotal > 0 ? (
+              {subscriptionProgress ? (
+                <p className="mt-0.5 text-[10px] leading-tight text-muted-foreground">
+                  {subscriptionProgress.total === 0
+                    ? "Assinatura cancelada"
+                    : subscriptionProgress.pending > 0
+                      ? `${subscriptionProgress.pending} parcela(s) pendente(s)`
+                      : "Assinatura quitada"}
+                </p>
+              ) : installmentProgress ? (
+                <p className="mt-0.5 text-[10px] leading-tight text-muted-foreground">
+                  {installmentProgress.total === 0
+                    ? "Parcelamento cancelado"
+                    : installmentProgress.pending > 0
+                      ? `${installmentProgress.pending} parcela(s) pendente(s)`
+                      : "Parcelamento quitado"}
+                </p>
+              ) : subscriptionSummary && subscriptionSummary.subscriptionTotal > 0 ? (
                 <p className="mt-0.5 text-[10px] leading-tight text-muted-foreground">
                   {subscriptionSummary.subscriptionPending > 0
                     ? `${subscriptionSummary.subscriptionPending} parcela(s) pendente(s)`
@@ -126,7 +147,7 @@ const SaleListCard = ({ sale }: SaleListCardProps) => {
                 variant="outline"
                 className={`h-6 px-2 text-[10px] ${isArchived ? "border-amber-500/40 text-amber-700" : ""}`}
               >
-                {sale.status}
+                {saleStatusLabel(sale.status)}
               </Badge>
               <div className="flex flex-wrap items-center justify-end gap-1.5">
                 {canMutate && !isArchived && hasStripePayment && (

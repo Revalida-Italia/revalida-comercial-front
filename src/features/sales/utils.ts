@@ -1,6 +1,55 @@
-import type { SaleRecord } from "@/services/commercialApi";
+import { SALE_STATUS_OPTIONS } from "@/features/new-sale/constants";
+import type { SalePayment, SaleRecord } from "@/services/commercialApi";
 import { toNumberOrZero } from "@/shared/utils/number";
 import { getPaymentGrossValue, toPaymentGrossValueContext } from "@/shared/utils/payment";
+import { isCancelledStatus } from "@/features/sales/utils/commissionStatus";
+
+const SALE_STATUS_LABELS = Object.fromEntries(
+  SALE_STATUS_OPTIONS.map((option) => [option.value, option.label]),
+) as Record<string, string>;
+
+export function saleStatusLabel(status?: string | null): string {
+  const normalized = String(status ?? "").toUpperCase();
+  return SALE_STATUS_LABELS[normalized] ?? (status?.trim() || "—");
+}
+
+export type SalePaymentsProgress = {
+  paid: number;
+  total: number;
+  pending: number;
+};
+
+function progressExcludingCancelled(payments: SalePayment[]): SalePaymentsProgress {
+  const active = payments.filter((payment) => !isCancelledStatus(payment.status));
+  const paid = active.filter((payment) => String(payment.status).toUpperCase() === "PAID").length;
+  return {
+    paid,
+    total: active.length,
+    pending: active.length - paid,
+  };
+}
+
+export function getSubscriptionPaymentsProgress(sale: SaleRecord): SalePaymentsProgress | null {
+  const subscriptions = (sale.payments ?? []).filter(
+    (payment) => String(payment.type).toUpperCase() === "SUBSCRIPTION",
+  );
+  if (subscriptions.length === 0) {
+    return null;
+  }
+
+  return progressExcludingCancelled(subscriptions);
+}
+
+export function getInstallmentPaymentsProgress(sale: SaleRecord): SalePaymentsProgress | null {
+  const installments = (sale.payments ?? []).filter(
+    (payment) => String(payment.type).toUpperCase() === "INSTALLMENT",
+  );
+  if (installments.length === 0) {
+    return null;
+  }
+
+  return progressExcludingCancelled(installments);
+}
 
 export const isPaymentEligibleForMonthBilling = (payment: SaleRecord["payments"][number]): boolean => {
   if (!payment.commission) {
@@ -35,6 +84,16 @@ export const getSaleNetContractValue = (sale: SaleRecord): number => {
 };
 
 export const formatSalePaymentsProgress = (sale: SaleRecord): string => {
+  const installments = getInstallmentPaymentsProgress(sale);
+  if (installments) {
+    return `${installments.paid}/${installments.total} parcelas pagas`;
+  }
+
+  const subscription = getSubscriptionPaymentsProgress(sale);
+  if (subscription) {
+    return `${subscription.paid}/${subscription.total} assin. pagas`;
+  }
+
   const summary = sale.financialSummary?.payments;
   if (!summary) {
     return String(sale.payments?.length ?? 0);
@@ -65,12 +124,35 @@ export const getSaleContractValue = (sale: SaleRecord): number => {
   );
 };
 
+function commissionCountsTowardTotal(
+  status: string | null | undefined,
+  paymentStatus?: string | null,
+): boolean {
+  return !isCancelledStatus(status) && !isCancelledStatus(paymentStatus);
+}
+
 export const getSaleCommissionValue = (sale: SaleRecord): number => {
-  const fromCommissions = (sale.commissions ?? []).reduce((acc, commission) => acc + toNumberOrZero(commission.amount), 0);
-  if (fromCommissions > 0) {
-    return fromCommissions;
+  const payments = sale.payments ?? [];
+  const paymentStatusById = new Map(payments.map((payment) => [payment.id, payment.status]));
+  const commissions = sale.commissions ?? [];
+
+  if (commissions.length > 0) {
+    return commissions.reduce((acc, commission) => {
+      if (!commissionCountsTowardTotal(commission.status, paymentStatusById.get(commission.paymentId))) {
+        return acc;
+      }
+
+      return acc + toNumberOrZero(commission.amount);
+    }, 0);
   }
-  return (sale.payments ?? []).reduce((acc, payment) => acc + toNumberOrZero(payment.commission?.amount), 0);
+
+  return payments.reduce((acc, payment) => {
+    if (!payment.commission || !commissionCountsTowardTotal(payment.commission.status, payment.status)) {
+      return acc;
+    }
+
+    return acc + toNumberOrZero(payment.commission?.amount);
+  }, 0);
 };
 
 export const getPrimaryClientName = (sale: SaleRecord): string =>

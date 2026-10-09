@@ -1,3 +1,4 @@
+import type { CommissionPayView } from "@/features/sales/utils/commissionStatus";
 import type { StripePaymentMethod } from "@/features/sales/utils/stripePaymentMethod";
 import type { BillingType, CreateSaleCustomer, SubscriptionCycle } from "@/services/commercialApi";
 import type { DisplayCurrency } from "@/services/exchangeRatesApi";
@@ -40,10 +41,11 @@ export type ConfiguredSalePayment = {
   installmentNumber?: number;
   dueDate?: string;
   feeRate: number;
-  billingType: BillingType;
+  billingType?: BillingType | null;
   stripePaymentMethod?: StripePaymentMethod | null;
   ciclo?: SubscriptionCycle;
   linkPagamento?: string;
+  commission?: CommissionPayView | null;
 };
 
 export type FilledSaleCustomer = Required<Pick<CreateSaleCustomer, "name" | "telefone">> &
