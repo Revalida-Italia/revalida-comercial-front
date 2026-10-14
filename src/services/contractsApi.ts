@@ -65,28 +65,12 @@ export interface RevalidaContractPayload {
     phone: string;
     nationality?: string | null;
   }>;
-  financialResponsibles?: Array<{
-    fullName: string;
-    document: string;
-    email?: string | null;
-    phone?: string | null;
-  }>;
   liabilityRegime: "INDIVIDUAL" | "JOINT";
-  modules: Array<{
-    code: string;
-    name: string;
-    beneficiaryPartyIds: string[];
-    activationCondition?: string | null;
-    plannedReleaseOrTrigger?: string | null;
-    effectiveReleaseDate?: string | null;
-    accessPeriod?: string | null;
-  }>;
+  decreeIncluded: boolean;
   expenses: {
     translationsIncluded: boolean;
     apostillesIncluded: boolean;
-    notaryServicesIncluded: boolean;
     postalExpensesIncluded: boolean;
-    expensesScope?: string | null;
   };
   totalAmount: number;
   paymentDescription: string;
@@ -99,13 +83,14 @@ export interface RevalidaContractPayload {
   }>;
   contractTerm: string;
   officialChannel: string;
-  cancellationChannel: string;
+  disputesChannel: string;
   privacyNoticeUrl: string;
   signaturePlatform: string;
   contractVersion: string;
   graceDays?: number;
   terminationDays?: number;
   witnesses?: Array<{ fullName: string; document: string }>;
+  notes?: string | null;
 }
 
 export interface SchoolContractPayload {

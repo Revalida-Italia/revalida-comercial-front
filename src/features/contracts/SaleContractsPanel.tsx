@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
@@ -17,6 +17,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -29,7 +30,6 @@ import { isSignedContract } from "@/features/contracts/signedContract";
 import {
   downloadContractPdf,
   generateContract,
-  listContractModules,
   listSaleContracts,
   prefillContract,
   refreshContractSignatureStatus,
@@ -75,20 +75,13 @@ function contractStatusLabel(status: SaleContract["status"]): string {
   return labels[status];
 }
 
-function syncFinancialResponsibles(payload: RevalidaContractPayload): RevalidaContractPayload {
-  return {
-    ...payload,
-    financialResponsibles: payload.parties.map((party, idx) => {
-      const existing = payload.financialResponsibles?.[idx];
-      return {
-        fullName: party.fullName,
-        document: party.document,
-        email: party.email || existing?.email || null,
-        phone: party.phone || existing?.phone || null,
-      };
-    }),
-  };
-}
+type RevalidaExtraKey = keyof RevalidaContractPayload["expenses"];
+
+const REVALIDA_EXTRAS: Array<{ key: RevalidaExtraKey; label: string }> = [
+  { key: "translationsIncluded", label: "Tradução juramentada" },
+  { key: "apostillesIncluded", label: "Apostilamento de Haia" },
+  { key: "postalExpensesIncluded", label: "Envio postal" },
+];
 
 function validateBeforeGenerate(payload: ContractFormPayload): string | null {
   if (isRevalida(payload)) {
@@ -98,12 +91,6 @@ function validateBeforeGenerate(payload: ContractFormPayload): string | null {
       if (!party.profession.trim()) return `Informe a profissão da parte ${idx + 1}.`;
       if (!party.email?.trim()) return `Informe o e-mail da parte ${idx + 1}.`;
       if (!party.phone?.trim()) return `Informe o telefone da parte ${idx + 1}.`;
-    }
-    if (!payload.modules.length) return "Selecione ao menos um módulo.";
-    for (const mod of payload.modules) {
-      if (!mod.plannedReleaseOrTrigger?.trim()) {
-        return `Informe a data de liberação do módulo ${mod.code}.`;
-      }
     }
     return null;
   }
@@ -130,12 +117,6 @@ export default function SaleContractsPanel({ saleId }: Props) {
   const listQuery = useQuery({
     queryKey: ["sale-contracts", saleId],
     queryFn: () => listSaleContracts(saleId),
-  });
-
-  const modulesQuery = useQuery({
-    queryKey: ["contract-modules"],
-    queryFn: listContractModules,
-    enabled: productType === "PROGRAMA_REVALIDA_ITALIA",
   });
 
   const prefillMutation = useMutation({
@@ -168,10 +149,9 @@ export default function SaleContractsPanel({ saleId }: Props) {
   const generateMutation = useMutation({
     mutationFn: () => {
       if (!payload) throw new Error("Formulário vazio");
-      const toSend = isRevalida(payload) ? syncFinancialResponsibles(payload) : payload;
-      const validationError = validateBeforeGenerate(toSend);
+      const validationError = validateBeforeGenerate(payload);
       if (validationError) throw new Error(validationError);
-      return generateContract(saleId, toSend, productType);
+      return generateContract(saleId, payload, productType);
     },
     onSuccess: () => {
       toast.success("PDF gerado e salvo.");
@@ -183,10 +163,6 @@ export default function SaleContractsPanel({ saleId }: Props) {
   });
 
   const contracts = listQuery.data ?? [];
-  const selectedCodes = useMemo(() => {
-    if (!payload || !isRevalida(payload)) return new Set<string>();
-    return new Set(payload.modules.map((m) => m.code));
-  }, [payload]);
 
   if (!payload) {
     return (
@@ -225,7 +201,7 @@ export default function SaleContractsPanel({ saleId }: Props) {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="PROGRAMA_REVALIDA_ITALIA">
-                  Programa Revalida Italia (REVALIDA_v0.9)
+                  Programa Revalida Italia (REVALIDA_v1.0)
                 </SelectItem>
                 <SelectItem value="ESCOLA_DE_ITALIANO">
                   Escola de Italiano (SCUOLA_IT_v1.0)
@@ -238,8 +214,6 @@ export default function SaleContractsPanel({ saleId }: Props) {
             <RevalidaForm
               payload={payload}
               setPayload={setPayload}
-              modules={modulesQuery.data ?? []}
-              selectedCodes={selectedCodes}
               professionMode={professionMode}
               setProfessionMode={setProfessionMode}
             />
@@ -287,15 +261,11 @@ export default function SaleContractsPanel({ saleId }: Props) {
 function RevalidaForm({
   payload,
   setPayload,
-  modules,
-  selectedCodes,
   professionMode,
   setProfessionMode,
 }: {
   payload: RevalidaContractPayload;
   setPayload: (p: ContractFormPayload) => void;
-  modules: Array<{ code: string; name: string }>;
-  selectedCodes: Set<string>;
   professionMode: Record<string, string>;
   setProfessionMode: (m: Record<string, string>) => void;
 }) {
@@ -457,106 +427,35 @@ function RevalidaForm({
       </section>
 
       <section className="space-y-2">
-        <Label>Módulos e datas de liberação</Label>
-        <div className="max-h-80 overflow-y-auto space-y-2">
-          {modules.map((mod) => {
-            const selected = selectedCodes.has(mod.code);
-            const current = payload.modules.find((m) => m.code === mod.code);
-            return (
-              <div key={mod.code} className="rounded border p-2 space-y-2">
-                <label className="flex items-start gap-2">
-                  <Checkbox
-                    checked={selected}
-                    onCheckedChange={(checked) => {
-                      const next = [...payload.modules];
-                      if (!checked) {
-                        setPayload({
-                          ...payload,
-                          modules: next.filter((m) => m.code !== mod.code),
-                        });
-                        return;
-                      }
-                      if (next.some((m) => m.code === mod.code)) return;
-                      setPayload({
-                        ...payload,
-                        modules: [
-                          ...next,
-                          {
-                            code: mod.code,
-                            name: mod.name,
-                            beneficiaryPartyIds: payload.parties
-                              .map((c, i) => c.id ?? `c${i}`)
-                              .filter(Boolean),
-                            plannedReleaseOrTrigger: "",
-                            accessPeriod: "12 meses",
-                          },
-                        ],
-                      });
-                    }}
-                  />
-                  <span>
-                    <strong>{mod.code}</strong> — {mod.name}
-                  </span>
-                </label>
-                {selected && current && (
-                  <div className="grid gap-2 md:grid-cols-2 pl-6">
-                    <div>
-                      <Label className="text-xs">Data de liberação / gatilho *</Label>
-                      <Input
-                        type="date"
-                        value={/^\d{4}-\d{2}-\d{2}$/.test(current.plannedReleaseOrTrigger ?? "")
-                          ? current.plannedReleaseOrTrigger ?? ""
-                          : ""}
-                        onChange={(e) => {
-                          setPayload({
-                            ...payload,
-                            modules: payload.modules.map((m) =>
-                              m.code === mod.code
-                                ? { ...m, plannedReleaseOrTrigger: e.target.value }
-                                : m,
-                            ),
-                          });
-                        }}
-                      />
-                      <Input
-                        className="mt-1"
-                        placeholder="Ou descreva o gatilho (ex.: após pagamento)"
-                        value={/^\d{4}-\d{2}-\d{2}$/.test(current.plannedReleaseOrTrigger ?? "")
-                          ? ""
-                          : current.plannedReleaseOrTrigger ?? ""}
-                        onChange={(e) => {
-                          setPayload({
-                            ...payload,
-                            modules: payload.modules.map((m) =>
-                              m.code === mod.code
-                                ? { ...m, plannedReleaseOrTrigger: e.target.value }
-                                : m,
-                            ),
-                          });
-                        }}
-                      />
-                    </div>
-                    <div>
-                      <Label className="text-xs">Prazo de acesso</Label>
-                      <Input
-                        value={current.accessPeriod ?? ""}
-                        onChange={(e) => {
-                          setPayload({
-                            ...payload,
-                            modules: payload.modules.map((m) =>
-                              m.code === mod.code
-                                ? { ...m, accessPeriod: e.target.value }
-                                : m,
-                            ),
-                          });
-                        }}
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
-            );
-          })}
+        <Label>Decreto</Label>
+        <label className="flex items-center gap-2">
+          <Checkbox
+            checked={payload.decreeIncluded}
+            onCheckedChange={(checked) =>
+              setPayload({ ...payload, decreeIncluded: checked === true })
+            }
+          />
+          <span>Acompanhamento do decreto</span>
+        </label>
+      </section>
+
+      <section className="space-y-2">
+        <Label>Serviços adicionais</Label>
+        <div className="flex flex-wrap gap-x-6 gap-y-2">
+          {REVALIDA_EXTRAS.map((extra) => (
+            <label key={extra.key} className="flex items-center gap-2">
+              <Checkbox
+                checked={payload.expenses[extra.key]}
+                onCheckedChange={(checked) =>
+                  setPayload({
+                    ...payload,
+                    expenses: { ...payload.expenses, [extra.key]: checked === true },
+                  })
+                }
+              />
+              <span>{extra.label}</span>
+            </label>
+          ))}
         </div>
       </section>
 
@@ -601,6 +500,16 @@ function RevalidaForm({
             <SelectItem value="JOINT">Solidária entre as partes</SelectItem>
           </SelectContent>
         </Select>
+      </section>
+
+      <section className="space-y-2">
+        <Label htmlFor="contract-notes">Observações</Label>
+        <Textarea
+          id="contract-notes"
+          rows={3}
+          value={payload.notes ?? ""}
+          onChange={(e) => setPayload({ ...payload, notes: e.target.value })}
+        />
       </section>
     </>
   );
