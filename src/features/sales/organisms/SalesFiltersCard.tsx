@@ -12,6 +12,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { listGatewayFees } from "@/services/commercialApi";
+import { saleStatusLabel } from "../utils";
 import { SalesFiltersCardProps } from "../types";
 import { cn } from "@/lib/utils";
 
@@ -71,9 +72,9 @@ const SalesFiltersCard = ({
       </SelectTrigger>
       <SelectContent>
         <SelectItem value="all">Todos os status</SelectItem>
-        <SelectItem value="PENDING">PENDING</SelectItem>
-        <SelectItem value="CONCLUDED">CONCLUDED</SelectItem>
-        <SelectItem value="ARCHIVED">ARCHIVED</SelectItem>
+        <SelectItem value="PENDING">{saleStatusLabel("PENDING")}</SelectItem>
+        <SelectItem value="CONCLUDED">{saleStatusLabel("CONCLUDED")}</SelectItem>
+        <SelectItem value="ARCHIVED">{saleStatusLabel("ARCHIVED")}</SelectItem>
       </SelectContent>
     </Select>
   ) : null;

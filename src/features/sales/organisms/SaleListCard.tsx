@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import type { SaleRecord } from "@/services/commercialApi";
 import { formatCurrency, formatDate } from "@/shared/utils/format";
 import { Badge } from "@/components/ui/badge";
+import StripeMark from "@/components/icons/StripeMark";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { CalendarDays, CircleDollarSign, Eye, HandCoins, Link2, MessageCircle, Pencil, Users, UserCircle } from "lucide-react";
@@ -10,16 +11,23 @@ import { hasRole, getProfile } from "@/lib/session";
 import { canMutateSales } from "@/services/usersApi";
 import {
   formatSalePaymentsProgress,
+  getInstallmentPaymentsProgress,
   getSaleCommissionValue,
   getSaleContractValue,
   getSaleCustomerNames,
   getSaleNetContractValue,
   getSaleProductName,
   getSaleSellerInfo,
+  getSubscriptionPaymentsProgress,
+  saleHasCancelledPayments,
+  saleStatusLabel,
 } from "../utils";
 import { saleHasPaymentLink } from "@/features/sales/utils/paymentLink";
+import { saleOffersHotmartCheckout } from "@/features/sales/utils/hotmartCheckout";
 import CreatePaymentLinkDialog from "./CreatePaymentLinkDialog";
+import { HotmartCheckoutLinkDialog } from "./HotmartCheckoutLink";
 import SendPaymentLinkDialog from "./SendPaymentLinkDialog";
+import StripeCheckoutLinkDialog from "./StripeCheckoutLinkDialog";
 import SaleArchiveDeleteActions from "./SaleArchiveDeleteActions";
 import ViewPaymentLinkDialog from "./ViewPaymentLinkDialog";
 
@@ -34,15 +42,25 @@ const SaleListCard = ({ sale }: SaleListCardProps) => {
   const [whatsappOpen, setWhatsappOpen] = useState(false);
   const [createLinkOpen, setCreateLinkOpen] = useState(false);
   const [viewLinkOpen, setViewLinkOpen] = useState(false);
+  const [stripeOpen, setStripeOpen] = useState(false);
+  const [hotmartOpen, setHotmartOpen] = useState(false);
   const customerNames = getSaleCustomerNames(sale);
   const contractValue = getSaleContractValue(sale);
   const netContractValue = getSaleNetContractValue(sale);
   const commissionValue = getSaleCommissionValue(sale);
   const paymentsProgress = formatSalePaymentsProgress(sale);
+  const subscriptionProgress = getSubscriptionPaymentsProgress(sale);
+  const installmentProgress = getInstallmentPaymentsProgress(sale);
   const sellerInfo = getSaleSellerInfo(sale);
   const hasPaymentLink = saleHasPaymentLink(sale);
   const hasPayments = (sale.payments?.length ?? 0) > 0;
+  const hasStripePayment = sale.payments?.some((payment) => payment.gateway === "STRIPE") ?? false;
+  const hasHotmartCheckout = saleOffersHotmartCheckout(sale);
   const isArchived = String(sale.status).toUpperCase() === "ARCHIVED";
+  const subscriptionCancelled =
+    subscriptionProgress != null
+    && subscriptionProgress.pending === 0
+    && saleHasCancelledPayments(sale, "SUBSCRIPTION");
   const subscriptionSummary = sale.financialSummary?.payments;
 
   return (
@@ -77,7 +95,23 @@ const SaleListCard = ({ sale }: SaleListCardProps) => {
             <div>
               <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Pagamentos</p>
               <p className="text-xs font-medium">{paymentsProgress}</p>
-              {subscriptionSummary && subscriptionSummary.subscriptionTotal > 0 ? (
+              {subscriptionProgress ? (
+                <p className="mt-0.5 text-[10px] leading-tight text-muted-foreground">
+                  {subscriptionProgress.pending > 0
+                    ? `${subscriptionProgress.pending} parcela(s) pendente(s)`
+                    : saleHasCancelledPayments(sale, "SUBSCRIPTION")
+                      ? "Assinatura cancelada"
+                      : "Assinatura quitada"}
+                </p>
+              ) : installmentProgress ? (
+                <p className="mt-0.5 text-[10px] leading-tight text-muted-foreground">
+                  {installmentProgress.pending > 0
+                    ? `${installmentProgress.pending} parcela(s) pendente(s)`
+                    : saleHasCancelledPayments(sale, "INSTALLMENT")
+                      ? "Parcelamento cancelado"
+                      : "Parcelamento quitado"}
+                </p>
+              ) : subscriptionSummary && subscriptionSummary.subscriptionTotal > 0 ? (
                 <p className="mt-0.5 text-[10px] leading-tight text-muted-foreground">
                   {subscriptionSummary.subscriptionPending > 0
                     ? `${subscriptionSummary.subscriptionPending} parcela(s) pendente(s)`
@@ -114,14 +148,30 @@ const SaleListCard = ({ sale }: SaleListCardProps) => {
             </div>
 
             <div className="flex flex-col items-end justify-end gap-2">
-              <Badge
-                variant="outline"
-                className={`h-6 px-2 text-[10px] ${isArchived ? "border-amber-500/40 text-amber-700" : ""}`}
-              >
-                {sale.status}
-              </Badge>
+              {!(subscriptionCancelled && saleStatusLabel(sale.status) === "Pendente") && (
+                <Badge
+                  variant="outline"
+                  className={`h-6 px-2 text-[10px] ${isArchived ? "border-amber-500/40 text-amber-700" : ""}`}
+                >
+                  {saleStatusLabel(sale.status)}
+                </Badge>
+              )}
               <div className="flex flex-wrap items-center justify-end gap-1.5">
-                {hasPaymentLink && (
+                {canMutate && !isArchived && hasStripePayment && !subscriptionCancelled && (
+                  <Button
+                    type="button"
+                    variant="success"
+                    size="sm"
+                    className="h-7 gap-1 px-2 text-[11px]"
+                    title="Gerar ou atualizar o link de pagamento Stripe"
+                    aria-label="Link de pagamento Stripe"
+                    onClick={() => setStripeOpen(true)}
+                  >
+                    <StripeMark className="h-3.5 w-3.5" />
+                    Link Stripe
+                  </Button>
+                )}
+                {hasPaymentLink && !subscriptionCancelled && (
                   <Button
                     type="button"
                     variant="outline"
@@ -134,7 +184,7 @@ const SaleListCard = ({ sale }: SaleListCardProps) => {
                     Ver link
                   </Button>
                 )}
-                {canMutate && !hasPaymentLink && !isArchived && (
+                {canMutate && !hasPaymentLink && !isArchived && !subscriptionCancelled && (
                   <Button
                     type="button"
                     variant="outline"
@@ -146,6 +196,20 @@ const SaleListCard = ({ sale }: SaleListCardProps) => {
                   >
                     <Link2 className="h-3.5 w-3.5" />
                     Link de pagamento
+                  </Button>
+                )}
+                {hasHotmartCheckout && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 gap-1 px-2 text-[11px]"
+                    title="Link Hotmart desta venda"
+                    aria-label="Abrir link Hotmart desta venda"
+                    onClick={() => setHotmartOpen(true)}
+                  >
+                    <Link2 className="h-3.5 w-3.5" />
+                    Link Hotmart
                   </Button>
                 )}
                 {canMutate && !isArchived && (
@@ -183,6 +247,8 @@ const SaleListCard = ({ sale }: SaleListCardProps) => {
       <CreatePaymentLinkDialog sale={sale} open={createLinkOpen} onOpenChange={setCreateLinkOpen} />
       <ViewPaymentLinkDialog sale={sale} open={viewLinkOpen} onOpenChange={setViewLinkOpen} />
       <SendPaymentLinkDialog sale={sale} open={whatsappOpen} onOpenChange={setWhatsappOpen} />
+      <StripeCheckoutLinkDialog sale={sale} open={stripeOpen} onOpenChange={setStripeOpen} />
+      <HotmartCheckoutLinkDialog sale={sale} open={hotmartOpen} onOpenChange={setHotmartOpen} />
     </>
   );
 };
