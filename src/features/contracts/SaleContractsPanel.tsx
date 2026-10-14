@@ -46,16 +46,6 @@ type Props = { saleId: string };
 const DOCUSIGN_BUTTON_ENABLED =
   import.meta.env.VITE_DOCUSIGN_BUTTON_FLAG === "true";
 
-const PROFESSION_OPTIONS = [
-  "Médico",
-  "Enfermeiro(a)",
-  "Fisioterapeuta",
-  "Odontólogo(a)",
-  "Farmacêutico(a)",
-] as const;
-
-const OTHER_PROFESSION = "__OTHER__";
-
 function isRevalida(payload: ContractFormPayload): payload is RevalidaContractPayload {
   return payload.productType === "PROGRAMA_REVALIDA_ITALIA";
 }
@@ -88,7 +78,6 @@ function validateBeforeGenerate(payload: ContractFormPayload): string | null {
     for (const [idx, party] of payload.parties.entries()) {
       if (!party.fullName.trim()) return `Informe o nome da parte ${idx + 1}.`;
       if (!party.document.trim()) return `Informe o documento da parte ${idx + 1}.`;
-      if (!party.profession.trim()) return `Informe a profissão da parte ${idx + 1}.`;
       if (!party.email?.trim()) return `Informe o e-mail da parte ${idx + 1}.`;
       if (!party.phone?.trim()) return `Informe o telefone da parte ${idx + 1}.`;
     }
@@ -112,7 +101,6 @@ export default function SaleContractsPanel({ saleId }: Props) {
   const queryClient = useQueryClient();
   const [productType, setProductType] = useState<ContractProductType>("PROGRAMA_REVALIDA_ITALIA");
   const [payload, setPayload] = useState<ContractFormPayload | null>(null);
-  const [professionMode, setProfessionMode] = useState<Record<string, string>>({});
 
   const listQuery = useQuery({
     queryKey: ["sale-contracts", saleId],
@@ -123,16 +111,6 @@ export default function SaleContractsPanel({ saleId }: Props) {
     mutationFn: (type: ContractProductType) => prefillContract(saleId, type),
     onSuccess: (data) => {
       setPayload(data);
-      if (isRevalida(data)) {
-        const modes: Record<string, string> = {};
-        for (const party of data.parties) {
-          const key = party.id ?? party.fullName;
-          modes[key] = PROFESSION_OPTIONS.includes(party.profession as (typeof PROFESSION_OPTIONS)[number])
-            ? party.profession
-            : OTHER_PROFESSION;
-        }
-        setProfessionMode(modes);
-      }
       toast.success("Formulário pré-preenchido com dados da venda.");
     },
     onError: (error: unknown) => {
@@ -214,8 +192,6 @@ export default function SaleContractsPanel({ saleId }: Props) {
             <RevalidaForm
               payload={payload}
               setPayload={setPayload}
-              professionMode={professionMode}
-              setProfessionMode={setProfessionMode}
             />
           ) : isSchool(payload) ? (
             <SchoolForm payload={payload} setPayload={setPayload} />
@@ -261,13 +237,9 @@ export default function SaleContractsPanel({ saleId }: Props) {
 function RevalidaForm({
   payload,
   setPayload,
-  professionMode,
-  setProfessionMode,
 }: {
   payload: RevalidaContractPayload;
   setPayload: (p: ContractFormPayload) => void;
-  professionMode: Record<string, string>;
-  setProfessionMode: (m: Record<string, string>) => void;
 }) {
   return (
     <>
@@ -275,11 +247,6 @@ function RevalidaForm({
         <Label>Partes (contratantes)</Label>
         {payload.parties.map((party, idx) => {
           const partyKey = party.id ?? `p${idx}`;
-          const mode = professionMode[partyKey] ?? (
-            PROFESSION_OPTIONS.includes(party.profession as (typeof PROFESSION_OPTIONS)[number])
-              ? party.profession
-              : OTHER_PROFESSION
-          );
           return (
             <div key={partyKey} className="grid gap-2 md:grid-cols-2 rounded-md border p-3">
               <div>
@@ -303,43 +270,6 @@ function RevalidaForm({
                     setPayload({ ...payload, parties });
                   }}
                 />
-              </div>
-              <div>
-                <Label className="text-xs">Profissão</Label>
-                <Select
-                  value={mode}
-                  onValueChange={(value) => {
-                    setProfessionMode({ ...professionMode, [partyKey]: value });
-                    const parties = [...payload.parties];
-                    parties[idx] = {
-                      ...party,
-                      profession: value === OTHER_PROFESSION ? "" : value,
-                    };
-                    setPayload({ ...payload, parties });
-                  }}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {PROFESSION_OPTIONS.map((opt) => (
-                      <SelectItem key={opt} value={opt}>{opt}</SelectItem>
-                    ))}
-                    <SelectItem value={OTHER_PROFESSION}>Outra (texto livre)</SelectItem>
-                  </SelectContent>
-                </Select>
-                {mode === OTHER_PROFESSION && (
-                  <Input
-                    className="mt-2"
-                    placeholder="Digite a profissão"
-                    value={party.profession}
-                    onChange={(e) => {
-                      const parties = [...payload.parties];
-                      parties[idx] = { ...party, profession: e.target.value };
-                      setPayload({ ...payload, parties });
-                    }}
-                  />
-                )}
               </div>
               <div>
                 <Label className="text-xs">Nacionalidade</Label>
@@ -403,7 +333,6 @@ function RevalidaForm({
           className="gap-1"
           onClick={() => {
             const id = crypto.randomUUID();
-            setProfessionMode({ ...professionMode, [id]: "Médico" });
             setPayload({
               ...payload,
               parties: [
@@ -412,7 +341,6 @@ function RevalidaForm({
                   id,
                   fullName: "",
                   document: "",
-                  profession: "Médico",
                   email: "",
                   phone: "",
                   nationality: "Brasileira",

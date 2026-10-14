@@ -60,7 +60,7 @@ export interface RevalidaContractPayload {
     id?: string;
     fullName: string;
     document: string;
-    profession: string;
+    profession?: string | null;
     email: string;
     phone: string;
     nationality?: string | null;
