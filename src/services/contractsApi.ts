@@ -84,7 +84,6 @@ export interface RevalidaContractPayload {
   contractTerm: string;
   officialChannel: string;
   disputesChannel: string;
-  privacyNoticeUrl: string;
   signaturePlatform: string;
   contractVersion: string;
   graceDays?: number;
