@@ -1,3 +1,4 @@
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -27,6 +28,8 @@ import { Package2, Pencil, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import ProductAutonomyFields from "./ProductAutonomyFields";
+import { buildProductUpdateInput } from "./productPayload";
 
 const AdminProductsFeature = () => {
   const navigate = useNavigate();
@@ -34,6 +37,9 @@ const AdminProductsFeature = () => {
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [editName, setEditName] = useState("");
   const [editDescription, setEditDescription] = useState("");
+  const [editHotmartProductId, setEditHotmartProductId] = useState("");
+  const [editHotmartOfferCode, setEditHotmartOfferCode] = useState("");
+  const [editIsAutonomy, setEditIsAutonomy] = useState(false);
   const [deletingProduct, setDeletingProduct] = useState<Product | null>(null);
 
   const productsQuery = useQuery({
@@ -75,6 +81,9 @@ const AdminProductsFeature = () => {
     setEditingProduct(product);
     setEditName(product.name ?? "");
     setEditDescription(product.description ?? "");
+    setEditHotmartProductId(product.hotmartProductId ?? "");
+    setEditHotmartOfferCode(product.hotmartOfferCode ?? "");
+    setEditIsAutonomy(Boolean(product.isAutonomy));
   };
 
   const handleEditSubmit = () => {
@@ -82,22 +91,18 @@ const AdminProductsFeature = () => {
       return;
     }
 
-    const normalizedName = editName.trim();
-    const normalizedDescription = editDescription.trim();
-    const originalDescription = (editingProduct.description ?? "").trim();
-
-    if (!normalizedName) {
+    if (!editName.trim()) {
       toast.error("Nome do produto e obrigatorio.");
       return;
     }
 
-    const payload: UpdateProductInput = {};
-    if (normalizedName !== editingProduct.name) {
-      payload.name = normalizedName;
-    }
-    if (normalizedDescription !== originalDescription) {
-      payload.description = normalizedDescription;
-    }
+    const payload: UpdateProductInput = buildProductUpdateInput(editingProduct, {
+      name: editName,
+      description: editDescription,
+      hotmartProductId: editHotmartProductId,
+      hotmartOfferCode: editHotmartOfferCode,
+      isAutonomy: editIsAutonomy,
+    });
 
     if (Object.keys(payload).length === 0) {
       toast.info("Nenhuma alteracao para salvar.");
@@ -150,6 +155,19 @@ const AdminProductsFeature = () => {
                       <h3 className="truncate font-semibold text-foreground">{product.name}</h3>
                     </div>
                     <p className="text-sm text-muted-foreground">{product.description || "Sem descricao cadastrada."}</p>
+                    {(product.isAutonomy || product.hotmartProductId || product.hotmartOfferCode) && (
+                      <div className="flex flex-wrap items-center gap-2 pt-1">
+                        {product.isAutonomy && (
+                          <Badge variant="outline" className="h-5 px-1.5 text-[10px]">Autonomy</Badge>
+                        )}
+                        {product.hotmartProductId && (
+                          <span className="text-xs text-muted-foreground">Hotmart {product.hotmartProductId}</span>
+                        )}
+                        {product.hotmartOfferCode && (
+                          <span className="text-xs text-muted-foreground">Oferta {product.hotmartOfferCode}</span>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   <div className="flex shrink-0 items-center gap-2">
@@ -208,6 +226,17 @@ const AdminProductsFeature = () => {
                 disabled={updateProductMutation.isPending}
               />
             </div>
+
+            <ProductAutonomyFields
+              idPrefix="edit-product"
+              hotmartProductId={editHotmartProductId}
+              hotmartOfferCode={editHotmartOfferCode}
+              isAutonomy={editIsAutonomy}
+              disabled={updateProductMutation.isPending}
+              onHotmartProductIdChange={setEditHotmartProductId}
+              onHotmartOfferCodeChange={setEditHotmartOfferCode}
+              onIsAutonomyChange={setEditIsAutonomy}
+            />
           </div>
 
           <DialogFooter>

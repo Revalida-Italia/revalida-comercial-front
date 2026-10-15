@@ -205,15 +205,30 @@ export const getSaleCustomerNames = (sale: SaleRecord): string => {
 export const getSaleProductName = (sale: SaleRecord): string =>
   sale.items?.[0]?.product?.name ?? "Produto não informado";
 
+export const SELF_SERVICE_SELLER_LABEL = "Self-service";
+
+export function isSelfServiceSale(sale: Pick<SaleRecord, "sellerId" | "channel">): boolean {
+  const channel = String(sale.channel ?? "").trim().toUpperCase();
+  if (channel === "SELF_SERVICE") {
+    return true;
+  }
+
+  return sale.sellerId == null || String(sale.sellerId).trim() === "";
+}
+
 export const getSaleSellerInfo = (sale: SaleRecord): string => {
+  if (isSelfServiceSale(sale)) {
+    return SELF_SERVICE_SELLER_LABEL;
+  }
+
   if (!sale.seller) {
     return "Vendedor não informado";
   }
-  
+
   if (sale.seller.name) {
     return `${sale.seller.name} (${sale.seller.email || "sem email"})`;
   }
-  
+
   return sale.seller.email || "Vendedor não informado";
 };
 
