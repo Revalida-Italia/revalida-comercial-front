@@ -54,6 +54,28 @@ export interface SaleContract {
   }>;
 }
 
+export type RevalidaProductCode =
+  | "START"
+  | "PREPARACAO_PROVAS"
+  | "ITALIANO_MEDICO"
+  | "ITALIANO_QUATTROMANI";
+
+/** Catalog entry from GET /contracts/revalida-products (description is the text printed in the contract). */
+export interface RevalidaProduct {
+  code: RevalidaProductCode;
+  name: string;
+  description: string;
+}
+
+/** Ticked product: release date (YYYY-MM-DD) and an optional duration in months or end date. */
+export interface RevalidaProductSelection {
+  code: RevalidaProductCode;
+  included?: boolean;
+  releaseDate?: string | null;
+  durationMonths?: number | null;
+  endDate?: string | null;
+}
+
 export interface RevalidaContractPayload {
   productType: "PROGRAMA_REVALIDA_ITALIA";
   parties: Array<{
@@ -67,6 +89,11 @@ export interface RevalidaContractPayload {
   }>;
   liabilityRegime: "INDIVIDUAL" | "JOINT";
   decreeIncluded: boolean;
+  /** YYYY-MM-DD; without it the decree counts from the payment of its installment. */
+  decreeReleaseDate?: string | null;
+  /** Months, default 6. */
+  decreeDurationMonths?: number;
+  products?: RevalidaProductSelection[];
   expenses: {
     translationsIncluded: boolean;
     apostillesIncluded: boolean;
@@ -82,6 +109,10 @@ export interface RevalidaContractPayload {
     linkedModuleCodes: string[];
   }>;
   contractTerm: string;
+  /** Total term (clause 3.1), YYYY-MM-DD: start plus end date or duration in months. */
+  contractStartDate?: string | null;
+  contractEndDate?: string | null;
+  contractDurationMonths?: number | null;
   officialChannel: string;
   disputesChannel: string;
   signaturePlatform: string;
@@ -133,6 +164,10 @@ export type ContractFormPayload = RevalidaContractPayload | SchoolContractPayloa
 
 export async function listContractModules(): Promise<ContractModule[]> {
   return apiRequest(CORE_API_URL, "/contracts/modules");
+}
+
+export async function listRevalidaProducts(): Promise<RevalidaProduct[]> {
+  return apiRequest(CORE_API_URL, "/contracts/revalida-products");
 }
 
 export async function listSaleContracts(saleId: string): Promise<SaleContract[]> {
