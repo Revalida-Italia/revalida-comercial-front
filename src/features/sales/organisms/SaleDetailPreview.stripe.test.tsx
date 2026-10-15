@@ -28,7 +28,7 @@ function payment(overrides: Partial<SalePayment> = {}): SalePayment {
   };
 }
 
-function sale(payments: SalePayment[]): SaleRecord {
+function sale(payments: SalePayment[], overrides: Partial<SaleRecord> = {}): SaleRecord {
   return {
     id: "sale_1",
     sellerId: "seller_1",
@@ -40,6 +40,7 @@ function sale(payments: SalePayment[]): SaleRecord {
     items: [],
     payments,
     commissions: [],
+    ...overrides,
   };
 }
 
@@ -109,5 +110,40 @@ describe("SaleDetailPreview Stripe charge", () => {
       expect(screen.queryByText(/Cobrança:/)).not.toBeInTheDocument();
       expect(screen.queryByText("Cobrança: PIX")).not.toBeInTheDocument();
     }
+  });
+
+  it("esconde Link Stripe no detalhe quando a origem é SELF_SERVICE e mantém para SELLER", () => {
+    const onOpenStripeCheckout = () => {};
+    const { rerender } = render(
+      <MemoryRouter>
+        <SaleDetailPreview
+          sale={sale([payment({ linkPagamento: "https://checkout.stripe.com/c/pay_1" })], { origin: "SELF_SERVICE" })}
+          onOpenStripeCheckout={onOpenStripeCheckout}
+        />
+      </MemoryRouter>,
+    );
+
+    expect(screen.queryByRole("button", { name: "Abrir link de pagamento Stripe" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Link Stripe")).not.toBeInTheDocument();
+
+    rerender(
+      <MemoryRouter>
+        <SaleDetailPreview
+          sale={sale([payment()], { channel: "SELF_SERVICE" })}
+          onOpenStripeCheckout={onOpenStripeCheckout}
+        />
+      </MemoryRouter>,
+    );
+    expect(screen.queryByRole("button", { name: "Gerar link de pagamento Stripe" })).not.toBeInTheDocument();
+
+    rerender(
+      <MemoryRouter>
+        <SaleDetailPreview
+          sale={sale([payment({ linkPagamento: "https://checkout.stripe.com/c/pay_1" })], { origin: "SELLER" })}
+          onOpenStripeCheckout={onOpenStripeCheckout}
+        />
+      </MemoryRouter>,
+    );
+    expect(screen.getByRole("button", { name: "Abrir link de pagamento Stripe" })).toHaveTextContent("Link Stripe");
   });
 });
