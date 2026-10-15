@@ -141,9 +141,15 @@ export async function apiRequest<T>(baseUrl: string, path: string, options: Requ
           message = apiError
         }
       }
-      const error = new Error(message) as Error & { code?: string; status?: number }
+      const error = new Error(message) as Error & {
+        code?: string
+        status?: number
+        errors?: Array<{ field?: string; message?: string; code?: string }>
+      }
       error.code = payload?.code
       error.status = response.status
+      // Keep the per-field list so screens can show each message next to its field.
+      error.errors = payload?.errors
       throw error
     } catch (parseError) {
       if (parseError instanceof Error && "status" in parseError) {
