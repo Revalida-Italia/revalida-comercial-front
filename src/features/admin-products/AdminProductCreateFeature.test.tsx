@@ -36,6 +36,9 @@ describe("cadastro de produto", () => {
     fireEvent.change(screen.getByLabelText("Nome"), { target: { value: "DNN Autonomy" } });
     fireEvent.change(screen.getByLabelText("Descricao (opcional)"), { target: { value: "Curso Start" } });
     fireEvent.change(screen.getByLabelText("ID do produto na Hotmart (opcional)"), { target: { value: " 555 " } });
+    fireEvent.change(screen.getByLabelText("URL de checkout Hotmart (opcional)"), {
+      target: { value: " https://pay.hotmart.com/ABC " },
+    });
     fireEvent.change(screen.getByLabelText("Código da oferta Hotmart (opcional)"), { target: { value: "oferta10" } });
     fireEvent.click(screen.getByRole("checkbox", { name: "Produto Autonomy" }));
     fireEvent.click(screen.getByRole("button", { name: "Salvar produto" }));
@@ -45,6 +48,7 @@ describe("cadastro de produto", () => {
         name: "DNN Autonomy",
         description: "Curso Start",
         hotmartProductId: "555",
+        hotmartCheckoutUrl: "https://pay.hotmart.com/ABC",
         hotmartOfferCode: "oferta10",
         isAutonomy: true,
       });
@@ -61,9 +65,21 @@ describe("cadastro de produto", () => {
       expect(createProduct).toHaveBeenCalledWith({
         name: "Mentoria",
         hotmartProductId: null,
+        hotmartCheckoutUrl: null,
         hotmartOfferCode: null,
         isAutonomy: false,
       });
     });
+  });
+
+  it("não envia a URL de checkout quando ela não é http(s)", async () => {
+    renderForm();
+
+    fireEvent.change(screen.getByLabelText("Nome"), { target: { value: "Mentoria" } });
+    fireEvent.change(screen.getByLabelText("URL de checkout Hotmart (opcional)"), { target: { value: "pay.hotmart.com/ABC" } });
+    fireEvent.click(screen.getByRole("button", { name: "Salvar produto" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Informe uma URL http ou https válida.");
+    expect(createProduct).not.toHaveBeenCalled();
   });
 });

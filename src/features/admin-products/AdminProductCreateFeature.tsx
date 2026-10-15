@@ -8,15 +8,18 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import ProductAutonomyFields from "./ProductAutonomyFields";
-import { buildCreateProductInput } from "./productPayload";
+import { buildCreateProductInput, hotmartCheckoutUrlError } from "./productPayload";
 
 const AdminProductCreateFeature = () => {
   const navigate = useNavigate();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [hotmartProductId, setHotmartProductId] = useState("");
+  const [hotmartCheckoutUrl, setHotmartCheckoutUrl] = useState("");
   const [hotmartOfferCode, setHotmartOfferCode] = useState("");
   const [isAutonomy, setIsAutonomy] = useState(false);
+  const [checkoutUrlSubmitted, setCheckoutUrlSubmitted] = useState(false);
+  const checkoutUrlError = checkoutUrlSubmitted ? hotmartCheckoutUrlError(hotmartCheckoutUrl) : null;
 
   const createProductMutation = useMutation({
     mutationFn: async () => {
@@ -31,6 +34,7 @@ const AdminProductCreateFeature = () => {
         name: normalizedName,
         description: normalizedDescription,
         hotmartProductId,
+        hotmartCheckoutUrl,
         hotmartOfferCode,
         isAutonomy,
       }));
@@ -47,6 +51,13 @@ const AdminProductCreateFeature = () => {
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    setCheckoutUrlSubmitted(true);
+    const urlError = hotmartCheckoutUrlError(hotmartCheckoutUrl);
+    if (urlError) {
+      toast.error(urlError);
+      return;
+    }
+
     createProductMutation.mutate();
   };
 
@@ -84,10 +95,13 @@ const AdminProductCreateFeature = () => {
           <ProductAutonomyFields
             idPrefix="product"
             hotmartProductId={hotmartProductId}
+            hotmartCheckoutUrl={hotmartCheckoutUrl}
+            hotmartCheckoutUrlError={checkoutUrlError}
             hotmartOfferCode={hotmartOfferCode}
             isAutonomy={isAutonomy}
             disabled={createProductMutation.isPending}
             onHotmartProductIdChange={setHotmartProductId}
+            onHotmartCheckoutUrlChange={setHotmartCheckoutUrl}
             onHotmartOfferCodeChange={setHotmartOfferCode}
             onIsAutonomyChange={setIsAutonomy}
           />

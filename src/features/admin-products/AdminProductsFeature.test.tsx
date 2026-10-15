@@ -21,6 +21,7 @@ function product(): Product {
     name: "DNN Autonomy",
     description: "Curso Start",
     hotmartProductId: "555",
+    hotmartCheckoutUrl: "https://pay.hotmart.com/ABC",
     hotmartOfferCode: "oferta10",
     isAutonomy: true,
   };
@@ -50,16 +51,22 @@ describe("edição de produto", () => {
 
     expect(await screen.findByText("DNN Autonomy")).toBeInTheDocument();
     expect(screen.getByText("Hotmart 555")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "https://pay.hotmart.com/ABC" })).toHaveAttribute(
+      "href",
+      "https://pay.hotmart.com/ABC",
+    );
     expect(screen.getByText("Oferta oferta10")).toBeInTheDocument();
     expect(screen.getByText("Autonomy")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Editar" }));
 
     const productId = screen.getByLabelText("ID do produto na Hotmart (opcional)");
+    const checkoutUrl = screen.getByLabelText("URL de checkout Hotmart (opcional)");
     const offer = screen.getByLabelText("Código da oferta Hotmart (opcional)");
     const autonomy = screen.getByRole("checkbox", { name: "Produto Autonomy" });
 
     expect(productId).toHaveValue("555");
+    expect(checkoutUrl).toHaveValue("https://pay.hotmart.com/ABC");
     expect(offer).toHaveValue("oferta10");
     expect(autonomy).toBeChecked();
 
@@ -73,6 +80,28 @@ describe("edição de produto", () => {
         hotmartProductId: null,
         hotmartOfferCode: "nova",
         isAutonomy: false,
+      });
+    });
+  });
+
+  it("não salva quando a URL de checkout é inválida e envia a URL quando ela muda", async () => {
+    renderList();
+    expect(await screen.findByText("DNN Autonomy")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Editar" }));
+    const checkoutUrl = screen.getByLabelText("URL de checkout Hotmart (opcional)");
+    fireEvent.change(checkoutUrl, { target: { value: "notaurl" } });
+    fireEvent.click(screen.getByRole("button", { name: "Salvar alteracoes" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Informe uma URL http ou https válida.");
+    expect(updateProduct).not.toHaveBeenCalled();
+
+    fireEvent.change(checkoutUrl, { target: { value: "https://pay.hotmart.com/NOVA" } });
+    fireEvent.click(screen.getByRole("button", { name: "Salvar alteracoes" }));
+
+    await waitFor(() => {
+      expect(updateProduct).toHaveBeenCalledWith("prod_autonomy", {
+        hotmartCheckoutUrl: "https://pay.hotmart.com/NOVA",
       });
     });
   });

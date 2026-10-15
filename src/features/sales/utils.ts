@@ -207,10 +207,37 @@ export const getSaleProductName = (sale: SaleRecord): string =>
 
 export const SELF_SERVICE_SELLER_LABEL = "Self-service";
 
-export function isSelfServiceSale(sale: Pick<SaleRecord, "sellerId" | "channel">): boolean {
+type SaleOriginSource = {
+  origin?: string | null;
+  channel?: string | null;
+};
+
+/** `origin` do back tem prioridade; `channel` cobre respostas antigas. */
+export function readSaleOrigin(sale: SaleOriginSource): "SELLER" | "SELF_SERVICE" | null {
+  const origin = String(sale.origin ?? "").trim().toUpperCase();
+  if (origin === "SELLER" || origin === "SELF_SERVICE") {
+    return origin;
+  }
+
   const channel = String(sale.channel ?? "").trim().toUpperCase();
-  if (channel === "SELF_SERVICE") {
+  if (channel === "SELLER" || channel === "SELF_SERVICE") {
+    return channel;
+  }
+
+  return null;
+}
+
+export function saleAllowsStripeCheckoutLink(sale: SaleOriginSource): boolean {
+  return readSaleOrigin(sale) !== "SELF_SERVICE";
+}
+
+export function isSelfServiceSale(sale: Pick<SaleRecord, "sellerId" | "origin" | "channel">): boolean {
+  const origin = readSaleOrigin(sale);
+  if (origin === "SELF_SERVICE") {
     return true;
+  }
+  if (origin === "SELLER") {
+    return false;
   }
 
   return sale.sellerId == null || String(sale.sellerId).trim() === "";

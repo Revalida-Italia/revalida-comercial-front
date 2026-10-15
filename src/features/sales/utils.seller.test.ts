@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { SaleRecord } from "@/services/commercialApi";
 import { mapSaleToForm } from "@/features/new-sale/mapSaleToForm";
-import { getSaleSellerInfo, isSelfServiceSale } from "./utils";
+import { getSaleSellerInfo, isSelfServiceSale, saleAllowsStripeCheckoutLink } from "./utils";
 
 function sale(overrides: Partial<SaleRecord> = {}): SaleRecord {
   return {
@@ -44,5 +44,21 @@ describe("vendedor da venda", () => {
   it("mantém o nome do vendedor nas vendas SELLER", () => {
     expect(getSaleSellerInfo(sale({ channel: "SELLER" }))).toBe("Ana (ana@example.com)");
     expect(getSaleSellerInfo(sale({ seller: null }))).toBe("Vendedor não informado");
+  });
+
+  it("lê origin do back e esconde Link Stripe só no self-service", () => {
+    const selfService = sale({ sellerId: "seller_1", origin: "SELF_SERVICE", channel: "SELLER" });
+    expect(isSelfServiceSale(selfService)).toBe(true);
+    expect(getSaleSellerInfo(selfService)).toBe("Self-service");
+    expect(saleAllowsStripeCheckoutLink(selfService)).toBe(false);
+
+    const byChannel = sale({ origin: undefined, channel: "SELF_SERVICE" });
+    expect(saleAllowsStripeCheckoutLink(byChannel)).toBe(false);
+
+    const seller = sale({ sellerId: null, origin: "SELLER", seller: null });
+    expect(isSelfServiceSale(seller)).toBe(false);
+    expect(saleAllowsStripeCheckoutLink(seller)).toBe(true);
+    expect(saleAllowsStripeCheckoutLink(sale({ channel: "SELLER" }))).toBe(true);
+    expect(saleAllowsStripeCheckoutLink(sale({}))).toBe(true);
   });
 });
