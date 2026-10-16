@@ -1,10 +1,13 @@
 import { addMonthsIso, isoToDisplay } from "@/features/contracts/contractDates";
 import type {
+  ContractPaymentPhase,
   RevalidaContractPayload,
+  RevalidaGeneratePayload,
   RevalidaProduct,
   RevalidaProductCode,
   RevalidaProductSelection,
   SchoolContractPayload,
+  SchoolGeneratePayload,
 } from "@/services/contractsApi";
 
 export const PRODUCT_ORDER: RevalidaProductCode[] = [
@@ -54,6 +57,8 @@ export interface RevalidaFormState {
   decreeMonths: string;
   products: Record<RevalidaProductCode, ProductState>;
   extras: Record<ExtraKey, boolean>;
+  /** Start of the contract term (ISO); starts as the sale date. */
+  termStart: string;
   termEnd: string;
   notes: string;
 }
@@ -116,6 +121,7 @@ export function createInitialRevalidaState(prefill: RevalidaContractPayload): Re
       apostillesIncluded: Boolean(prefill.expenses?.apostillesIncluded),
       postalExpensesIncluded: Boolean(prefill.expenses?.postalExpensesIncluded),
     },
+    termStart: prefill.contractStartDate ?? "",
     termEnd: prefill.contractEndDate ?? "",
     notes: prefill.notes ?? "",
   };
@@ -174,8 +180,18 @@ export function partyLabel(party: PartyState, index: number): string {
 }
 
 export interface PaymentContext {
-  total: number;
-  phases: Array<{ amount: number }>;
+  phases: ContractPaymentPhase[];
+}
+
+/** A card installment line ("12 x R$ 1.000") counts all its parcels. */
+export function phaseParcels(phase: Pick<ContractPaymentPhase, "installments">): number {
+  return phase.installments && phase.installments > 1 ? phase.installments : 1;
+}
+
+/** Whole value of the contract: the sum of the installments of the sale, rounded to cents. */
+export function paymentTotal(phases: ContractPaymentPhase[], fallback = 0): number {
+  if (phases.length === 0) return fallback;
+  return Math.round(phases.reduce((sum, phase) => sum + phase.amount * phaseParcels(phase), 0) * 100) / 100;
 }
 
 /** Latest release date among the ticked decree/products (ISO) or "". */
@@ -220,7 +236,7 @@ export const MSG = {
   afterRelease: "Escolha uma data depois da liberação.",
   inclusion: "Escolha o que está incluso.",
   noPayment: "Cadastre o pagamento da venda para gerar o contrato.",
-  paymentMismatch: "O valor total não confere com as parcelas. Ajuste o pagamento da venda.",
+  paymentMismatch: "O pagamento da venda não confere com o contrato. Ajuste o pagamento da venda.",
   termMissing: "Escolha a data de fim da vigência.",
   generic: "Não foi possível gerar o contrato. Tente novamente.",
 } as const;
@@ -233,7 +249,6 @@ export function validateRevalidaForm(
   state: RevalidaFormState,
   catalog: RevalidaProduct[],
   payment: PaymentContext,
-  termStart: string | null,
 ): FormIssue[] {
   const issues: FormIssue[] = [];
   const add = (fieldId: string, message: string, summary: string) =>
@@ -255,7 +270,7 @@ export function validateRevalidaForm(
   }
 
   if (state.decreeOn) {
-    if (!state.decreeRelease) add("contract-decree-release", MSG.release, "Falta: liberação do decreto");
+    // The release date is optional: without it the contract says the start is "a combinar".
     if (parseMonths(state.decreeMonths) === null) {
       add("contract-decree-duration", MSG.months, "Confira: duração do decreto");
     }
@@ -271,11 +286,12 @@ export function validateRevalidaForm(
     }
   }
 
-  // Term: required, after every release and not before the end of any period.
+  // Term: the end is required, after the start, after every release and not before the end of any period.
   if (!state.termEnd) {
     add("contract-term-end", MSG.termMissing, "Falta: fim da vigência");
   } else {
     const release = latestRelease(state);
+    const termStart = state.termStart;
     if (termStart && state.termEnd <= termStart) {
       add("contract-term-end", `Escolha uma data depois de ${isoToDisplay(termStart)}.`, "Confira: fim da vigência");
     } else if (release && state.termEnd <= release) {
@@ -294,18 +310,29 @@ export function validateRevalidaForm(
 
   if (payment.phases.length === 0) {
     add("contract-section-payment", MSG.noPayment, MSG.noPayment);
-  } else {
-    const sum = payment.phases.reduce((acc, phase) => acc + phase.amount, 0);
-    if (Math.abs(sum - payment.total) > 0.02) {
-      add("contract-section-payment", MSG.paymentMismatch, MSG.paymentMismatch);
-    }
   }
 
   return issues;
 }
 
+/**
+ * Payment is read-only: the API takes total, installments and wording from the sale, so none of it
+ * is sent (including the payment method the prefill carries).
+ */
+function withoutPayment<T extends { totalAmount?: number; paymentDescription?: string; phases?: unknown }>(
+  payload: T,
+): Omit<T, "totalAmount" | "paymentDescription" | "phases"> {
+  const { totalAmount, paymentDescription, phases, paymentMethod, ...rest } = payload as T & { paymentMethod?: unknown };
+  void [totalAmount, paymentDescription, phases, paymentMethod];
+  return rest;
+}
+
+export function buildSchoolPayload(payload: SchoolContractPayload): SchoolGeneratePayload {
+  return withoutPayment(payload);
+}
+
 export interface BuiltPayload {
-  payload: RevalidaContractPayload;
+  payload: RevalidaGeneratePayload;
   /** Product codes in the order they were sent (the API reports errors by position). */
   sentProductCodes: RevalidaProductCode[];
 }
@@ -341,8 +368,8 @@ export function buildRevalidaPayload(
     };
   });
 
-  const payload: RevalidaContractPayload = {
-    ...prefill,
+  const payload: RevalidaGeneratePayload = {
+    ...withoutPayment(prefill),
     parties,
     liabilityRegime: parties.length > 1 ? state.liabilityRegime : "INDIVIDUAL",
     decreeIncluded: state.decreeOn,
@@ -354,6 +381,7 @@ export function buildRevalidaPayload(
       apostillesIncluded: state.extras.apostillesIncluded,
       postalExpensesIncluded: state.extras.postalExpensesIncluded,
     },
+    contractStartDate: state.termStart || null,
     contractEndDate: state.termEnd || null,
     contractDurationMonths: null,
     notes: state.notes.trim() ? state.notes.trim() : null,
@@ -367,6 +395,7 @@ export interface SummaryContent {
   included: string[];
   notIncluded: string[];
   term: string | null;
+  termStart: string | null;
 }
 
 export function buildRevalidaSummary(
@@ -376,7 +405,8 @@ export function buildRevalidaSummary(
   const included: string[] = [];
   if (state.decreeOn) {
     const months = parseMonths(state.decreeMonths);
-    included.push(months ? `Decreto · ${months} ${months === 1 ? "mês" : "meses"}` : "Decreto");
+    const label = months ? `Decreto · ${months} ${months === 1 ? "mês" : "meses"}` : "Decreto";
+    included.push(state.decreeRelease ? label : `${label} · início a combinar`);
   }
   for (const code of PRODUCT_ORDER) {
     const p = state.products[code];
@@ -394,6 +424,7 @@ export function buildRevalidaSummary(
     included,
     notIncluded,
     term: state.termEnd ? isoToDisplay(state.termEnd) : null,
+    termStart: state.termStart ? isoToDisplay(state.termStart) : null,
   };
 }
 
@@ -422,11 +453,6 @@ export function validateSchoolForm(
   }
   if (payment.phases.length === 0) {
     add("contract-section-payment", MSG.noPayment, MSG.noPayment);
-  } else {
-    const sum = payment.phases.reduce((acc, phase) => acc + phase.amount, 0);
-    if (Math.abs(sum - payment.total) > 0.02) {
-      add("contract-section-payment", MSG.paymentMismatch, MSG.paymentMismatch);
-    }
   }
   return issues;
 }

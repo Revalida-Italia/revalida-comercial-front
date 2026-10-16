@@ -101,7 +101,11 @@ export function mapGenerateError(error: unknown, ctx: GenerateErrorContext): Map
       push("contract-decree-duration", MSG.months, "Confira: duração do decreto");
       continue;
     }
-    if (field === "contractEndDate" || field === "contractStartDate" || field === "contractDurationMonths") {
+    if (field === "contractStartDate") {
+      push("contract-term-start", "Escolha uma data de início válida para a vigência.", "Confira: início da vigência");
+      continue;
+    }
+    if (field === "contractEndDate" || field === "contractDurationMonths") {
       push("contract-term-end", "Escolha uma data de fim válida para a vigência.", "Confira: fim da vigência");
       continue;
     }

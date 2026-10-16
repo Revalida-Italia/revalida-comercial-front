@@ -76,6 +76,17 @@ export interface RevalidaProductSelection {
   endDate?: string | null;
 }
 
+/** One installment line of the sale. A card installment line ("12 x R$ 1.000") has `installments` > 1. */
+export interface ContractPaymentPhase {
+  number: number;
+  name: string;
+  amount: number;
+  /** Equal parcels this line stands for; the line is worth amount x installments. */
+  installments?: number;
+  dueDateOrTrigger: string;
+  linkedModuleCodes: string[];
+}
+
 export interface RevalidaContractPayload {
   productType: "PROGRAMA_REVALIDA_ITALIA";
   parties: Array<{
@@ -89,7 +100,7 @@ export interface RevalidaContractPayload {
   }>;
   liabilityRegime: "INDIVIDUAL" | "JOINT";
   decreeIncluded: boolean;
-  /** YYYY-MM-DD; without it the decree counts from the payment of its installment. */
+  /** YYYY-MM-DD; without it the start of the decree is left "a combinar" in the contract. */
   decreeReleaseDate?: string | null;
   /** Months, default 6. */
   decreeDurationMonths?: number;
@@ -99,15 +110,10 @@ export interface RevalidaContractPayload {
     apostillesIncluded: boolean;
     postalExpensesIncluded: boolean;
   };
-  totalAmount: number;
-  paymentDescription: string;
-  phases: Array<{
-    number: number;
-    name: string;
-    amount: number;
-    dueDateOrTrigger: string;
-    linkedModuleCodes: string[];
-  }>;
+  /** Read-only: the API derives total and wording from the installments of the sale. Not sent. */
+  totalAmount?: number;
+  paymentDescription?: string;
+  phases: ContractPaymentPhase[];
   contractTerm: string;
   /** Total term (clause 3.1), YYYY-MM-DD: start plus end date or duration in months. */
   contractStartDate?: string | null;
@@ -145,15 +151,9 @@ export interface SchoolContractPayload {
     targetLevel: string;
   };
   distanceContract: boolean;
-  totalAmount: number;
-  paymentDescription: string;
-  phases: Array<{
-    number: number;
-    name: string;
-    amount: number;
-    dueDateOrTrigger: string;
-    linkedModuleCodes: string[];
-  }>;
+  totalAmount?: number;
+  paymentDescription?: string;
+  phases: ContractPaymentPhase[];
   officialChannel: string;
   cancellationChannel: string;
   signaturePlatform: string;
@@ -161,6 +161,11 @@ export interface SchoolContractPayload {
 }
 
 export type ContractFormPayload = RevalidaContractPayload | SchoolContractPayload;
+
+/** What the form sends: payment is left out because the API takes it from the sale. */
+export type PaymentFields = "totalAmount" | "paymentDescription" | "phases";
+export type RevalidaGeneratePayload = Omit<RevalidaContractPayload, PaymentFields>;
+export type SchoolGeneratePayload = Omit<SchoolContractPayload, PaymentFields>;
 
 export async function listContractModules(): Promise<ContractModule[]> {
   return apiRequest(CORE_API_URL, "/contracts/modules");
