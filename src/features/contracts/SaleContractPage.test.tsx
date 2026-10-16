@@ -256,6 +256,40 @@ describe("Gerar contrato page", () => {
     expect(within(resumo).getByText(/12\.000,00/)).toBeInTheDocument();
   });
 
+  it("shows the Escola contract in reais, with the five installments and the total, and no euro sign", async () => {
+    const schoolPhases = [1, 2, 3, 4, 5].map((n) => ({
+      number: n,
+      name: `Parcela ${n}`,
+      amount: 5000,
+      dueDateOrTrigger: `2026-${String(7 + n).padStart(2, "0")}-20`,
+      linkedModuleCodes: [] as string[],
+    }));
+    vi.mocked(prefillContract).mockImplementation((async (_saleId: string, productType: string) =>
+      productType === "ESCOLA_DE_ITALIANO"
+        ? {
+            productType: "ESCOLA_DE_ITALIANO",
+            student: { fullName: "Billy Willy", birthDate: "", birthPlace: "", nationality: "Brasileira", passport: null, fullAddress: "", email: "", phone: "" },
+            course: { purpose: "LANGUAGE", durationMonths: 4, startDate: "", endDate: "", weeklyHours: 20, initialLevel: "A1", targetLevel: "A2" },
+            distanceContract: true,
+            totalAmount: 25000,
+            phases: schoolPhases,
+            officialChannel: "a@b.com",
+            cancellationChannel: "c@d.com",
+            signaturePlatform: "DocuSign",
+            contractVersion: "1.0",
+          }
+        : makePrefill()) as never);
+    await ready();
+    fireEvent.keyDown(screen.getByRole("button", { name: /Trocar modelo/ }), { key: "Enter" });
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Escola de Italiano" }));
+    await screen.findByLabelText("Nome completo");
+    const section = document.getElementById("contract-section-payment") as HTMLElement;
+    await waitFor(() => expect(within(section).getAllByText(/^R\$\s*5\.000,00$/)).toHaveLength(5));
+    expect(section.textContent).toMatch(/Total\s*R\$\s*25\.000,00/);
+    expect(document.body.textContent).not.toMatch(/€|EUR/);
+    expect(document.body.textContent).toMatch(/R\$\s*25\.000,00/);
+  });
+
   it("suggests the end of the term, applies it on request and never overwrites what was typed", async () => {
     await ready();
     fireEvent.click(screen.getByRole("switch", { name: "Decreto" }));

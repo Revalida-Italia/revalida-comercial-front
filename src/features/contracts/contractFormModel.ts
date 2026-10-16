@@ -324,7 +324,7 @@ function withoutPayment<T extends { totalAmount?: number; paymentDescription?: s
 ): Omit<T, "totalAmount" | "paymentDescription" | "phases"> {
   const { totalAmount, paymentDescription, phases, paymentMethod, ...rest } = payload as T & { paymentMethod?: unknown };
   void [totalAmount, paymentDescription, phases, paymentMethod];
-  return rest;
+  return rest as Omit<T, "totalAmount" | "paymentDescription" | "phases">;
 }
 
 export function buildSchoolPayload(payload: SchoolContractPayload): SchoolGeneratePayload {

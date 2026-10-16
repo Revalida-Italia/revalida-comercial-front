@@ -314,14 +314,13 @@ function SchoolBody({
             saleId={saleId}
             phases={payload.phases}
             total={total}
-            currency="EUR"
             error={feedback.errorFor("contract-section-payment")}
           />
         </>
       }
       summary={
         <ContractSummary
-          totalLabel={formatCurrency(total, "EUR")}
+          totalLabel={formatCurrency(total)}
           contractors="1 estudante"
           rows={rows}
           issues={feedback.allIssues}
