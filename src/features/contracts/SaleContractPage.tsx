@@ -38,8 +38,10 @@ import {
   MSG,
   buildRevalidaPayload,
   buildRevalidaSummary,
+  buildSchoolPayload,
   createInitialRevalidaState,
   partyLabel,
+  paymentTotal,
   validateRevalidaForm,
   validateSchoolForm,
   type FormIssue,
@@ -156,12 +158,11 @@ function RevalidaBody({
 }) {
   const isDesktop = useIsDesktop();
   const [state, setState] = useState<RevalidaFormState>(() => createInitialRevalidaState(prefill));
-  const termStart = prefill.contractStartDate ?? null;
+  const total = paymentTotal(prefill.phases, prefill.totalAmount ?? 0);
 
   const issues = useMemo(
-    () =>
-      validateRevalidaForm(state, catalog, { total: prefill.totalAmount, phases: prefill.phases }, termStart),
-    [state, catalog, prefill.totalAmount, prefill.phases, termStart],
+    () => validateRevalidaForm(state, catalog, { phases: prefill.phases }),
+    [state, catalog, prefill.phases],
   );
   const feedback = useFormFeedback(issues);
   const { run, generating } = useGenerate(saleId, "PROGRAMA_REVALIDA_ITALIA");
@@ -210,12 +211,12 @@ function RevalidaBody({
       bar={isDesktop ? null : <GenerateBar issues={feedback.allIssues} generating={generating} onGenerate={onGenerate} />}
       form={
         <>
-          <RevalidaFormFields state={state} update={update} catalog={catalog} form={form} termStart={termStart} />
+          <RevalidaFormFields state={state} update={update} catalog={catalog} form={form} />
           <ContractPaymentSection
             number={4}
             saleId={saleId}
             phases={prefill.phases}
-            total={prefill.totalAmount}
+            total={total}
             error={paymentError}
           />
           <ObservationsSection
@@ -228,11 +229,12 @@ function RevalidaBody({
       }
       summary={
         <ContractSummary
-          totalLabel={formatCurrency(prefill.totalAmount)}
+          totalLabel={formatCurrency(total)}
           contractors={summary.contractors}
           included={summary.included}
           notIncluded={summary.notIncluded}
           termLabel={summary.term}
+          termStartLabel={summary.termStart}
           issues={feedback.allIssues}
           banner={feedback.banner}
           generating={generating}
@@ -256,9 +258,10 @@ function SchoolBody({
   const isDesktop = useIsDesktop();
   const [payload, setPayload] = useState<SchoolContractPayload>(prefill);
   const issues = useMemo(
-    () => validateSchoolForm(payload, { total: payload.totalAmount, phases: payload.phases }),
+    () => validateSchoolForm(payload, { phases: payload.phases }),
     [payload],
   );
+  const total = paymentTotal(payload.phases, payload.totalAmount ?? 0);
   const feedback = useFormFeedback(issues);
   const { run, generating } = useGenerate(saleId, "ESCOLA_DE_ITALIANO");
 
@@ -280,7 +283,7 @@ function SchoolBody({
       focusField(feedback.allIssues[0].fieldId);
       return;
     }
-    run(payload, (error) => {
+    run(buildSchoolPayload(payload), (error) => {
       const mapped = mapGenerateError(error, { productCodes: [], catalog: [], partyLabels: [] });
       feedback.setServerIssues([]);
       feedback.setBanner(mapped.banner ?? MSG.generic);
@@ -310,7 +313,7 @@ function SchoolBody({
             number={3}
             saleId={saleId}
             phases={payload.phases}
-            total={payload.totalAmount}
+            total={total}
             currency="EUR"
             error={feedback.errorFor("contract-section-payment")}
           />
@@ -318,7 +321,7 @@ function SchoolBody({
       }
       summary={
         <ContractSummary
-          totalLabel={formatCurrency(payload.totalAmount, "EUR")}
+          totalLabel={formatCurrency(total, "EUR")}
           contractors="1 estudante"
           rows={rows}
           issues={feedback.allIssues}

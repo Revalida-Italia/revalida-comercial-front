@@ -17,7 +17,10 @@ export interface ContractSummaryProps {
   notIncluded?: string[];
   /** Rows such as "Início do curso", used by the school contract. */
   rows?: SummaryRow[];
+  /** End of the term, dd/mm/aaaa. */
   termLabel?: string | null;
+  /** Start of the term, dd/mm/aaaa. */
+  termStartLabel?: string | null;
   issues: FormIssue[];
   banner: string | null;
   generating: boolean;
@@ -97,7 +100,7 @@ export default function ContractSummary(props: ContractSummaryProps) {
           <List title="Não incluso" items={props.notIncluded ?? []} />
           {props.termLabel !== undefined && (
             <p className="text-sm">
-              {props.termLabel ? `Vigência até ${props.termLabel}` : <span className="text-muted-foreground">Vigência não definida</span>}
+              {props.termLabel ? (props.termStartLabel ? `Vigência de ${props.termStartLabel} até ${props.termLabel}` : `Vigência até ${props.termLabel}`) : <span className="text-muted-foreground">Vigência não definida</span>}
             </p>
           )}
         </div>

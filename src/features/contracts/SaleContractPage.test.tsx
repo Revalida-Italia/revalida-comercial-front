@@ -209,6 +209,53 @@ describe("Gerar contrato page", () => {
     expect(screen.getByText("até 15/10/2028")).toBeInTheDocument();
   });
 
+  it("lets the decree go without a release date and says what happens", async () => {
+    await ready();
+    fireEvent.click(screen.getByRole("switch", { name: "Decreto" }));
+    expect(screen.getByText("Opcional. Sem data, o início fica a combinar.")).toBeInTheDocument();
+    const resumo = screen.getByRole("complementary", { name: "Resumo" });
+    expect(within(resumo).getByText("Decreto · 6 meses · início a combinar")).toBeInTheDocument();
+    expect(within(resumo).queryByText(/liberação do decreto/)).toBeNull();
+  });
+
+  it("shows the start of the term filled with the sale date, next to the end, and sends both", async () => {
+    vi.mocked(generateContract).mockResolvedValue({ id: "ct_new" } as never);
+    await ready();
+    expect(byId("contract-term-start").value).toBe("15/10/2026");
+    expect(byId("contract-term-end").value).toBe("");
+    fillEverything();
+    type("contract-term-start", "01/11/2026");
+    fireEvent.click(generateButton());
+    await waitFor(() => expect(generateContract).toHaveBeenCalledTimes(1));
+    const payload = vi.mocked(generateContract).mock.calls[0][1] as Record<string, unknown>;
+    expect(payload).toMatchObject({ contractStartDate: "2026-11-01", contractEndDate: "2028-04-15" });
+  });
+
+  it("starts with the decree off and no product ticked", async () => {
+    await ready();
+    expect(screen.getByRole("switch", { name: "Decreto" })).toHaveAttribute("aria-checked", "false");
+    for (const name of ["Curso Start", "Preparação para as provas de revalidação", "Italiano Médico", "Italiano Quattromani"]) {
+      expect(screen.getByRole("checkbox", { name })).toHaveAttribute("aria-checked", "false");
+    }
+  });
+
+  it("shows a card installment line as its parcels and counts them in the total", async () => {
+    vi.mocked(prefillContract).mockResolvedValue(
+      makePrefill({
+        phases: [{ number: 1, name: "Parcela 1", amount: 1000, installments: 12, dueDateOrTrigger: "2026-11-05", linkedModuleCodes: [] }],
+        totalAmount: 999,
+      }) as never,
+    );
+    await ready();
+    const section = document.getElementById("contract-section-payment") as HTMLElement;
+    expect(within(section).getByText("12 parcelas")).toBeInTheDocument();
+    expect(within(section).getByText(/1\.000,00 cada/)).toBeInTheDocument();
+    expect(within(section).getByText("a partir de 05/11/2026")).toBeInTheDocument();
+    expect(within(section).getByText(/12\.000,00/)).toBeInTheDocument();
+    const resumo = screen.getByRole("complementary", { name: "Resumo" });
+    expect(within(resumo).getByText(/12\.000,00/)).toBeInTheDocument();
+  });
+
   it("suggests the end of the term, applies it on request and never overwrites what was typed", async () => {
     await ready();
     fireEvent.click(screen.getByRole("switch", { name: "Decreto" }));
@@ -230,7 +277,7 @@ describe("Gerar contrato page", () => {
     expect(within(resumo).getByText("Decreto · 6 meses")).toBeInTheDocument();
     expect(within(resumo).getByText("Curso Start · 15/10/2026")).toBeInTheDocument();
     expect(within(resumo).getByText("Tradução juramentada")).toBeInTheDocument();
-    expect(within(resumo).getByText("Vigência até 15/04/2028")).toBeInTheDocument();
+    expect(within(resumo).getByText("Vigência de 15/10/2026 até 15/04/2028")).toBeInTheDocument();
     expect(within(resumo).getByText("R$ 10.000,00")).toBeInTheDocument();
   });
 
@@ -251,10 +298,13 @@ describe("Gerar contrato page", () => {
       products: [{ code: "START", included: true, releaseDate: "2026-10-15", durationMonths: 12, endDate: null }],
       contractStartDate: "2026-10-15",
       contractEndDate: "2028-04-15",
-      totalAmount: 10000,
-      paymentDescription: "parcela 1: R$ 5.000,00",
       expenses: { translationsIncluded: false, apostillesIncluded: false, postalExpensesIncluded: false },
     });
+    // The payment is read only: the API takes it from the sale.
+    for (const key of ["totalAmount", "paymentDescription", "phases", "paymentMethod"]) {
+      expect(payload).not.toHaveProperty(key);
+    }
+    expect(JSON.stringify(payload)).not.toMatch(/HOTMART/i);
     expect((payload.parties as Array<Record<string, unknown>>)[0]).toMatchObject({
       email: "billy@example.com",
       phone: "+55 (11) 98888-0000",

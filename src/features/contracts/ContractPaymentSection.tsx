@@ -7,6 +7,8 @@ export interface PaymentPhase {
   number: number;
   name: string;
   amount: number;
+  /** Equal parcels this line stands for (card installments). */
+  installments?: number;
   dueDateOrTrigger: string;
 }
 
@@ -33,8 +35,9 @@ export function displayPhaseNames(sorted: PaymentPhase[]): string[] {
   });
 }
 
-export function phaseDueLabel(value: string): string {
-  return ISO_DATE.test(value) ? formatDate(value) : "Sem data definida";
+export function phaseDueLabel(value: string, installments = 1): string {
+  if (!ISO_DATE.test(value)) return "Sem data definida";
+  return installments > 1 ? `a partir de ${formatDate(value)}` : formatDate(value);
 }
 
 export default function ContractPaymentSection({
@@ -54,6 +57,7 @@ export default function ContractPaymentSection({
 }) {
   const sorted = sortPhases(phases);
   const names = displayPhaseNames(sorted);
+  const parcels = (phase: PaymentPhase) => (phase.installments && phase.installments > 1 ? phase.installments : 1);
 
   return (
     <section id="contract-section-payment" tabIndex={-1} className="outline-none" aria-labelledby="contract-payment-title">
@@ -82,9 +86,12 @@ export default function ContractPaymentSection({
             <tbody>
               {sorted.map((phase, index) => (
                 <tr key={`${phase.number}-${phase.name}`} className="border-b border-border/60 last:border-b-0">
-                  <td className="py-2.5 pr-4">{names[index]}</td>
-                  <td className="py-2.5 pr-4 text-right tabular-nums">{formatCurrency(phase.amount, currency)}</td>
-                  <td className="py-2.5 text-right tabular-nums">{phaseDueLabel(phase.dueDateOrTrigger)}</td>
+                  <td className="py-2.5 pr-4">{parcels(phase) > 1 ? `${parcels(phase)} parcelas` : names[index]}</td>
+                  <td className="py-2.5 pr-4 text-right tabular-nums">
+                    {formatCurrency(phase.amount, currency)}
+                    {parcels(phase) > 1 ? " cada" : ""}
+                  </td>
+                  <td className="py-2.5 text-right tabular-nums">{phaseDueLabel(phase.dueDateOrTrigger, parcels(phase))}</td>
                 </tr>
               ))}
             </tbody>

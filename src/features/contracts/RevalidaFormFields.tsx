@@ -36,8 +36,6 @@ type Props = {
   update: (change: (draft: RevalidaFormState) => RevalidaFormState) => void;
   catalog: RevalidaProduct[];
   form: FormControl;
-  /** Day the contract starts (the sale date), when the sale has one. */
-  termStart: string | null;
 };
 
 function capitalize(text: string): string {
@@ -132,6 +130,7 @@ function PeriodFields({
   onRelease,
   onMonths,
   monthsPlaceholder,
+  releaseHint,
   form,
 }: {
   idBase: string;
@@ -140,6 +139,8 @@ function PeriodFields({
   onRelease: (iso: string) => void;
   onMonths: (value: string) => void;
   monthsPlaceholder?: string;
+  /** Text under the release date (the decree date is optional). */
+  releaseHint?: string;
   form: FormControl;
 }) {
   const releaseId = `${idBase}-release`;
@@ -149,7 +150,7 @@ function PeriodFields({
   const durationError = form.error(durationId);
   return (
     <Expand className="mt-3 grid gap-4 sm:grid-cols-2">
-      <Field id={releaseId} label="Liberação" error={releaseError}>
+      <Field id={releaseId} label="Liberação" error={releaseError} hint={releaseHint}>
         <DateField
           id={releaseId}
           value={releaseValue}
@@ -186,10 +187,11 @@ function PeriodFields({
   );
 }
 
-export default function RevalidaFormFields({ state, update, catalog, form, termStart }: Props) {
+export default function RevalidaFormFields({ state, update, catalog, form }: Props) {
   const inclusionError = form.error("contract-decree-toggle");
   const suggestion = suggestTermEnd(state);
   const termError = form.error("contract-term-end");
+  const termStartError = form.error("contract-term-start");
 
   const patchProduct = (code: RevalidaProductCode, change: Partial<ProductState>) =>
     update((s) => ({ ...s, products: { ...s.products, [code]: { ...s.products[code], ...change } } }));
@@ -279,6 +281,7 @@ export default function RevalidaFormFields({ state, update, catalog, form, termS
                 monthsValue={state.decreeMonths}
                 onRelease={(iso) => update((s) => ({ ...s, decreeRelease: iso }))}
                 onMonths={(value) => update((s) => ({ ...s, decreeMonths: value }))}
+                releaseHint="Opcional. Sem data, o início fica a combinar."
                 form={form}
               />
             )}
@@ -352,8 +355,19 @@ export default function RevalidaFormFields({ state, update, catalog, form, termS
 
       <section aria-labelledby="contract-term-title">
         <SectionHeading number={3} title="Vigência do contrato" id="contract-term-title" />
-        <div className="max-w-xs">
-          <Field id="contract-term-end" label="Até" error={termError}>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field id="contract-term-start" label="Início" error={termStartError}>
+            <DateField
+              id="contract-term-start"
+              value={state.termStart}
+              onChange={(iso) => update((s) => ({ ...s, termStart: iso }))}
+              onBlur={() => form.touch("contract-term-start")}
+              invalid={Boolean(termStartError)}
+              describedBy={termStartError ? errorId("contract-term-start") : undefined}
+              disabled={form.disabled}
+            />
+          </Field>
+          <Field id="contract-term-end" label="Fim" error={termError}>
             <DateField
               id="contract-term-end"
               value={state.termEnd}
@@ -378,9 +392,6 @@ export default function RevalidaFormFields({ state, update, catalog, form, termS
               Usar
             </button>
           </p>
-        )}
-        {termStart && (
-          <p className="mt-2 text-[13px] text-muted-foreground">Início em {isoToDisplay(termStart)}.</p>
         )}
       </section>
     </>
