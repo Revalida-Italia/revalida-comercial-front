@@ -36,6 +36,8 @@ export interface SaleContract {
   docusignEnvelopeId?: string | null;
   docusignUpdatedAt?: string | null;
   signerEmail?: string | null;
+  /** Internal team note. Never printed on the contract. */
+  internalNotes?: string | null;
   coreUserId?: string | null;
   signedContract?: {
     id: string;

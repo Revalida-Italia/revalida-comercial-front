@@ -412,11 +412,11 @@ export function ObservationsSection({
   const [open, setOpen] = useState(value.trim() !== "");
   return (
     <section aria-labelledby="contract-notes-title">
-      <SectionHeading number={number} title="Observações" id="contract-notes-title" />
+      <SectionHeading number={number} title="Observações internas (não vão no contrato)" id="contract-notes-title" />
       {open ? (
         <Expand>
           <Label htmlFor="contract-notes" className="sr-only">
-            Observações
+            Observações internas (não vão no contrato)
           </Label>
           <Textarea
             id="contract-notes"
@@ -436,7 +436,7 @@ export function ObservationsSection({
           onClick={() => setOpen(true)}
         >
           <Plus className="h-4 w-4" />
-          Adicionar observação
+          Adicionar observação interna
         </Button>
       )}
     </section>

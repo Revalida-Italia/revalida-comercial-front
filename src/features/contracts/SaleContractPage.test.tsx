@@ -134,7 +134,7 @@ describe("Gerar contrato page", () => {
     await ready();
     expect(screen.getByRole("heading", { name: "Gerar contrato", level: 1 })).toBeInTheDocument();
     expect(await screen.findByText("Billy Willy e mais 1")).toBeInTheDocument();
-    for (const title of ["Contratantes", "O que está incluso", "Vigência do contrato", "Pagamento", "Observações"]) {
+    for (const title of ["Contratantes", "O que está incluso", "Vigência do contrato", "Pagamento", "Observações internas \\(não vão no contrato\\)"]) {
       expect(screen.getByRole("heading", { name: new RegExp(title) })).toBeInTheDocument();
     }
     expect(screen.getByRole("link", { name: /Venda/ })).toHaveAttribute("href", "/vendas/s1");

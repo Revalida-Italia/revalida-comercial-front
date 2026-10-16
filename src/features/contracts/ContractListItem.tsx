@@ -202,6 +202,12 @@ export default function ContractListItem({ contract, saleId, highlight, onChange
             {[contractors, generated ? `Gerado em ${generated}` : ""].filter(Boolean).join(" · ")}
           </p>
           {contract.signerEmail && <p className="text-[13px] text-muted-foreground">{contract.signerEmail}</p>}
+          {contract.internalNotes?.trim() && (
+            <p className="mt-1 text-[13px] text-muted-foreground">
+              <span className="font-medium">Observações internas (não vão no contrato): </span>
+              {contract.internalNotes.trim()}
+            </p>
+          )}
         </div>
       </div>
 
