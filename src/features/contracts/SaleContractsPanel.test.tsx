@@ -5,14 +5,16 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import type { SaleContract } from "@/services/contractsApi";
 
-vi.hoisted(() => {
+const who = vi.hoisted(() => {
   vi.stubEnv("VITE_DOCUSIGN_BUTTON_FLAG", "true");
+  return { admin: true };
 });
 
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 vi.mock("@/features/contracts/access", () => ({
   canGenerateContracts: () => true,
-  canCreateStudentAccess: () => true,
+  canCreateStudentAccess: () => who.admin,
+  canManageSignature: () => who.admin,
 }));
 vi.mock("@/services/contractsApi", async () => {
   const actual = await vi.importActual<typeof import("@/services/contractsApi")>("@/services/contractsApi");
@@ -70,7 +72,10 @@ beforeAll(() => {
   };
 });
 
-beforeEach(() => vi.clearAllMocks());
+beforeEach(() => {
+  vi.clearAllMocks();
+  who.admin = true;
+});
 
 describe("Contratos list", () => {
   it("shows the empty state with the button to generate", async () => {
@@ -173,5 +178,21 @@ describe("Contratos list", () => {
     await screen.findAllByRole("listitem");
     expect(container.querySelectorAll("li svg.lucide").length).toBeGreaterThanOrEqual(5);
     expect(container.textContent).not.toMatch(/\p{Extended_Pictographic}/u);
+  });
+});
+
+describe("Contratos list for a seller", () => {
+  it("offers only the download: no send for signature, no status refresh, no student access", async () => {
+    who.admin = false;
+    vi.mocked(listSaleContracts).mockResolvedValue([
+      contract("c1", { status: "GENERATED" }),
+      contract("c2", { status: "SENT", docusignEnvelopeId: "env-1" }),
+    ]);
+    renderPanel();
+    await screen.findAllByText("Programa Revalida Itália");
+    expect(screen.queryByRole("button", { name: "Enviar para assinatura" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Atualizar status" })).toBeNull();
+    expect(screen.getAllByRole("button", { name: "Baixar PDF" })).toHaveLength(2);
+    expect(screen.getByRole("link", { name: "Gerar contrato" })).toBeInTheDocument();
   });
 });

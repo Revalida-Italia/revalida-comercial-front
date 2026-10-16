@@ -23,7 +23,7 @@ import {
   type SaleContract,
 } from "@/services/contractsApi";
 import { cn } from "@/lib/utils";
-import { canCreateStudentAccess } from "@/features/contracts/access";
+import { canCreateStudentAccess, canManageSignature } from "@/features/contracts/access";
 import { MODEL_NAMES } from "@/features/contracts/contractFormModel";
 import {
   CONTRACT_STATUS,
@@ -130,7 +130,7 @@ export default function ContractListItem({ contract, saleId, highlight, onChange
       </>
     );
   } else if (contract.status === "GENERATED") {
-    actions = SEND_ENABLED ? (
+    actions = SEND_ENABLED && canManageSignature() ? (
       <>
         {download}
         <Button
@@ -159,7 +159,7 @@ export default function ContractListItem({ contract, saleId, highlight, onChange
     actions = (
       <>
         {download}
-        {contract.docusignEnvelopeId && (
+        {contract.docusignEnvelopeId && canManageSignature() && (
           <Button
             size="sm"
             variant="outline"
