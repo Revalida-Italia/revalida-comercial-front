@@ -1,6 +1,8 @@
+import { t, tCount } from "@/i18n";
 import { addMonthsIso, isoToDisplay } from "@/features/contracts/contractDates";
 import type {
   ContractPaymentPhase,
+  ContractProductType,
   RevalidaContractPayload,
   RevalidaGeneratePayload,
   RevalidaProduct,
@@ -8,6 +10,7 @@ import type {
   RevalidaProductSelection,
   SchoolContractPayload,
   SchoolGeneratePayload,
+  SchoolStudent,
 } from "@/services/contractsApi";
 
 export const PRODUCT_ORDER: RevalidaProductCode[] = [
@@ -17,21 +20,39 @@ export const PRODUCT_ORDER: RevalidaProductCode[] = [
   "ITALIANO_QUATTROMANI",
 ];
 
-export const DEFAULT_DECREE_MONTHS = 6;
 export const MAX_MONTHS = 60;
 
 export type ExtraKey = keyof RevalidaContractPayload["expenses"];
 
-export const EXTRAS: Array<{ key: ExtraKey; label: string }> = [
-  { key: "translationsIncluded", label: "Tradução juramentada" },
-  { key: "apostillesIncluded", label: "Apostilamento de Haia" },
-  { key: "postalExpensesIncluded", label: "Envio postal" },
-];
+export const EXTRA_KEYS: ExtraKey[] = ["translationsIncluded", "apostillesIncluded", "postalExpensesIncluded"];
 
-export const MODEL_NAMES: Record<string, string> = {
-  PROGRAMA_REVALIDA_ITALIA: "Programa Revalida Itália",
-  ESCOLA_DE_ITALIANO: "Escola de Italiano",
-};
+export function extraLabel(key: ExtraKey): string {
+  return t(`contract.extras.${key}`);
+}
+
+export function modelName(productType: ContractProductType): string {
+  return productType === "ESCOLA_DE_ITALIANO" ? t("contract.models.school") : t("contract.models.revalida");
+}
+
+/**
+ * Professions offered for each contracting party. `value` is what the contract prints
+ * ("profissão Médico"), so it stays the same whatever the screen language.
+ */
+export const PROFESSIONS = [
+  { id: "doctor", value: "Médico" },
+  { id: "nurse", value: "Enfermeiro(a)" },
+  { id: "physiotherapist", value: "Fisioterapeuta" },
+  { id: "dentist", value: "Odontólogo(a)" },
+  { id: "pharmacist", value: "Farmacêutico(a)" },
+] as const;
+
+export type ProfessionChoice = (typeof PROFESSIONS)[number]["id"] | "other";
+
+export const DEFAULT_PROFESSION = PROFESSIONS[0].value;
+
+export function professionChoice(value: string): ProfessionChoice {
+  return PROFESSIONS.find((option) => option.value === value)?.id ?? "other";
+}
 
 export interface PartyState {
   key: string;
@@ -41,6 +62,10 @@ export interface PartyState {
   nationality: string;
   email: string;
   phone: string;
+  /** Printed value: one of PROFESSIONS or what was typed under "Outra". */
+  profession: string;
+  /** "Outra" picked: the typed text is the profession. */
+  professionIsOther: boolean;
 }
 
 export interface ProductState {
@@ -49,17 +74,21 @@ export interface ProductState {
   durationMonths: string;
 }
 
+export interface WitnessState {
+  fullName: string;
+  document: string;
+}
+
 export interface RevalidaFormState {
   parties: PartyState[];
-  liabilityRegime: "INDIVIDUAL" | "JOINT";
   decreeOn: boolean;
-  decreeRelease: string;
-  decreeMonths: string;
   products: Record<RevalidaProductCode, ProductState>;
   extras: Record<ExtraKey, boolean>;
   /** Start of the contract term (ISO); starts as the sale date. */
   termStart: string;
   termEnd: string;
+  referenceCity: string;
+  witnesses: [WitnessState, WitnessState];
   notes: string;
 }
 
@@ -89,6 +118,20 @@ export function emptyProductState(): ProductState {
   return { selected: false, releaseDate: "", durationMonths: "" };
 }
 
+export function newPartyState(): PartyState {
+  return {
+    key: newPartyKey(),
+    id: newPartyId(),
+    fullName: "",
+    document: "",
+    nationality: "Brasileira",
+    email: "",
+    phone: "",
+    profession: DEFAULT_PROFESSION,
+    professionIsOther: false,
+  };
+}
+
 export function createInitialRevalidaState(prefill: RevalidaContractPayload): RevalidaFormState {
   const products = {} as Record<RevalidaProductCode, ProductState>;
   for (const code of PRODUCT_ORDER) products[code] = emptyProductState();
@@ -100,21 +143,27 @@ export function createInitialRevalidaState(prefill: RevalidaContractPayload): Re
       durationMonths: sel.durationMonths ? String(sel.durationMonths) : "",
     };
   }
+  const witness = (index: number): WitnessState => ({
+    fullName: prefill.witnesses?.[index]?.fullName ?? "",
+    document: prefill.witnesses?.[index]?.document ?? "",
+  });
 
   return {
-    parties: prefill.parties.map((party) => ({
-      key: newPartyKey(),
-      id: party.id,
-      fullName: party.fullName ?? "",
-      document: party.document ?? "",
-      nationality: party.nationality ?? "",
-      email: party.email ?? "",
-      phone: party.phone ?? "",
-    })),
-    liabilityRegime: prefill.liabilityRegime ?? "INDIVIDUAL",
+    parties: prefill.parties.map((party) => {
+      const profession = party.profession?.trim() || DEFAULT_PROFESSION;
+      return {
+        key: newPartyKey(),
+        id: party.id,
+        fullName: party.fullName ?? "",
+        document: party.document ?? "",
+        nationality: party.nationality ?? "",
+        email: party.email ?? "",
+        phone: party.phone ?? "",
+        profession,
+        professionIsOther: professionChoice(profession) === "other",
+      };
+    }),
     decreeOn: Boolean(prefill.decreeIncluded),
-    decreeRelease: prefill.decreeReleaseDate ?? "",
-    decreeMonths: String(prefill.decreeDurationMonths ?? DEFAULT_DECREE_MONTHS),
     products,
     extras: {
       translationsIncluded: Boolean(prefill.expenses?.translationsIncluded),
@@ -123,6 +172,8 @@ export function createInitialRevalidaState(prefill: RevalidaContractPayload): Re
     },
     termStart: prefill.contractStartDate ?? "",
     termEnd: prefill.contractEndDate ?? "",
+    referenceCity: prefill.referenceCity ?? "",
+    witnesses: [witness(0), witness(1)],
     notes: prefill.notes ?? "",
   };
 }
@@ -175,8 +226,12 @@ function phoneDigits(value: string): number {
   return value.replace(/\D/g, "").length;
 }
 
-export function partyLabel(party: PartyState, index: number): string {
-  return party.fullName.trim() || `contratante ${index + 1}`;
+export function partyLabel(party: Pick<PartyState, "fullName">, index: number): string {
+  return party.fullName.trim() || t("contract.party.fallbackName", { n: index + 1 });
+}
+
+export function studentLabel(student: Pick<SchoolStudent, "fullName">, index: number): string {
+  return student.fullName.trim() || t("contract.student.fallbackName", { n: index + 1 });
 }
 
 export interface PaymentContext {
@@ -194,10 +249,9 @@ export function paymentTotal(phases: ContractPaymentPhase[], fallback = 0): numb
   return Math.round(phases.reduce((sum, phase) => sum + phase.amount * phaseParcels(phase), 0) * 100) / 100;
 }
 
-/** Latest release date among the ticked decree/products (ISO) or "". */
+/** Latest release date among the ticked products (ISO) or "". */
 function latestRelease(state: RevalidaFormState): string {
   const dates: string[] = [];
-  if (state.decreeOn && state.decreeRelease) dates.push(state.decreeRelease);
   for (const code of PRODUCT_ORDER) {
     const p = state.products[code];
     if (p.selected && p.releaseDate) dates.push(p.releaseDate);
@@ -206,13 +260,9 @@ function latestRelease(state: RevalidaFormState): string {
   return sorted[sorted.length - 1] ?? "";
 }
 
-/** Latest end among decree and products that have a duration; null when none does. */
+/** Latest end among the ticked products that have a duration; null when none does. */
 export function suggestTermEnd(state: RevalidaFormState): string | null {
   const ends: string[] = [];
-  if (state.decreeOn) {
-    const end = periodEnd(state.decreeRelease, state.decreeMonths);
-    if (end) ends.push(end);
-  }
   for (const code of PRODUCT_ORDER) {
     const p = state.products[code];
     if (!p.selected) continue;
@@ -223,26 +273,23 @@ export function suggestTermEnd(state: RevalidaFormState): string | null {
   return sorted[sorted.length - 1] ?? null;
 }
 
+/** Clause 3.2 lists the ticked products and extras: at least one is needed. */
 export function hasInclusion(state: RevalidaFormState): boolean {
-  return state.decreeOn || PRODUCT_ORDER.some((code) => state.products[code].selected);
+  return PRODUCT_ORDER.some((code) => state.products[code].selected) || EXTRA_KEYS.some((key) => state.extras[key]);
 }
 
-export const MSG = {
-  required: "Obrigatório",
-  email: "Digite um e-mail válido.",
-  phone: "Digite um telefone válido.",
-  release: "Escolha a data de liberação.",
-  months: `Digite de 1 a ${MAX_MONTHS} meses.`,
-  afterRelease: "Escolha uma data depois da liberação.",
-  inclusion: "Escolha o que está incluso.",
-  noPayment: "Cadastre o pagamento da venda para gerar o contrato.",
-  paymentMismatch: "O pagamento da venda não confere com o contrato. Ajuste o pagamento da venda.",
-  termMissing: "Escolha a data de fim da vigência.",
-  generic: "Não foi possível gerar o contrato. Tente novamente.",
-} as const;
+/** Field that gets focus when nothing is included. */
+export const INCLUDED_FIELD_ID = `contract-product-${PRODUCT_ORDER[0]}-toggle`;
 
 export function productName(code: RevalidaProductCode, catalog: RevalidaProduct[]): string {
   return catalog.find((p) => p.code === code)?.name ?? code;
+}
+
+function issueList() {
+  const issues: FormIssue[] = [];
+  const add = (fieldId: string, message: string, summary: string) =>
+    issues.push({ id: `${fieldId}:${message}`, fieldId, message, summary });
+  return { issues, add };
 }
 
 export function validateRevalidaForm(
@@ -250,85 +297,102 @@ export function validateRevalidaForm(
   catalog: RevalidaProduct[],
   payment: PaymentContext,
 ): FormIssue[] {
-  const issues: FormIssue[] = [];
-  const add = (fieldId: string, message: string, summary: string) =>
-    issues.push({ id: `${fieldId}:${message}`, fieldId, message, summary });
+  const { issues, add } = issueList();
+  const required = t("contract.errors.required");
 
   state.parties.forEach((party, i) => {
     const who = partyLabel(party, i);
     const base = `contract-party-${i}`;
-    if (!party.fullName.trim()) add(`${base}-fullName`, MSG.required, `Falta: nome do contratante ${i + 1}`);
-    if (!party.document.trim()) add(`${base}-document`, MSG.required, `Falta: documento de ${who}`);
-    if (!party.email.trim()) add(`${base}-email`, MSG.required, `Falta: e-mail de ${who}`);
-    else if (!isValidEmail(party.email)) add(`${base}-email`, MSG.email, `Falta: e-mail válido de ${who}`);
-    if (!party.phone.trim()) add(`${base}-phone`, MSG.required, `Falta: telefone de ${who}`);
-    else if (phoneDigits(party.phone) < 8) add(`${base}-phone`, MSG.phone, `Falta: telefone válido de ${who}`);
+    if (!party.fullName.trim()) add(`${base}-fullName`, required, t("contract.missing.partyName", { n: i + 1 }));
+    if (!party.document.trim()) add(`${base}-document`, required, t("contract.missing.partyDocument", { who }));
+    if (!party.profession.trim()) add(`${base}-profession`, required, t("contract.missing.partyProfession", { who }));
+    if (!party.email.trim()) add(`${base}-email`, required, t("contract.missing.partyEmail", { who }));
+    else if (!isValidEmail(party.email)) {
+      add(`${base}-email`, t("contract.errors.email"), t("contract.missing.partyEmailValid", { who }));
+    }
+    if (!party.phone.trim()) add(`${base}-phone`, required, t("contract.missing.partyPhone", { who }));
+    else if (phoneDigits(party.phone) < 8) {
+      add(`${base}-phone`, t("contract.errors.phone"), t("contract.missing.partyPhoneValid", { who }));
+    }
   });
 
   if (!hasInclusion(state)) {
-    add("contract-decree-toggle", MSG.inclusion, MSG.inclusion);
-  }
-
-  if (state.decreeOn) {
-    // The release date is optional: without it the contract says the start is "a combinar".
-    if (parseMonths(state.decreeMonths) === null) {
-      add("contract-decree-duration", MSG.months, "Confira: duração do decreto");
-    }
+    add(INCLUDED_FIELD_ID, t("contract.errors.inclusion"), t("contract.errors.inclusion"));
   }
 
   for (const code of PRODUCT_ORDER) {
     const p = state.products[code];
     if (!p.selected) continue;
     const name = productName(code, catalog);
-    if (!p.releaseDate) add(`contract-product-${code}-release`, MSG.release, `Falta: liberação de ${name}`);
-    if (p.durationMonths.trim() !== "" && parseMonths(p.durationMonths) === null) {
-      add(`contract-product-${code}-duration`, MSG.months, `Confira: duração de ${name}`);
+    if (!p.releaseDate) {
+      add(`contract-product-${code}-release`, t("contract.errors.release"), t("contract.missing.productRelease", { name }));
+    }
+    if (p.durationMonths.trim() === "") {
+      add(`contract-product-${code}-duration`, t("contract.errors.months", { max: MAX_MONTHS }), t("contract.missing.productDuration", { name }));
+    } else if (parseMonths(p.durationMonths) === null) {
+      add(`contract-product-${code}-duration`, t("contract.errors.months", { max: MAX_MONTHS }), t("contract.missing.checkProductDuration", { name }));
     }
   }
 
   // Term: the end is required, after the start, after every release and not before the end of any period.
+  const checkTermEnd = t("contract.missing.checkTermEnd");
   if (!state.termEnd) {
-    add("contract-term-end", MSG.termMissing, "Falta: fim da vigência");
+    add("contract-term-end", t("contract.errors.termMissing"), t("contract.missing.termEnd"));
   } else {
     const release = latestRelease(state);
     const termStart = state.termStart;
     if (termStart && state.termEnd <= termStart) {
-      add("contract-term-end", `Escolha uma data depois de ${isoToDisplay(termStart)}.`, "Confira: fim da vigência");
+      add("contract-term-end", t("contract.errors.termAfter", { date: isoToDisplay(termStart) }), checkTermEnd);
     } else if (release && state.termEnd <= release) {
-      add("contract-term-end", MSG.afterRelease, "Confira: fim da vigência");
+      add("contract-term-end", t("contract.errors.afterRelease"), checkTermEnd);
     } else {
       const suggestion = suggestTermEnd(state);
       if (suggestion && state.termEnd < suggestion) {
-        add(
-          "contract-term-end",
-          `Essa data é antes do fim de um período. Escolha ${isoToDisplay(suggestion)} ou depois.`,
-          "Confira: fim da vigência",
-        );
+        add("contract-term-end", t("contract.errors.termBeforePeriod", { date: isoToDisplay(suggestion) }), checkTermEnd);
       }
     }
   }
 
   if (payment.phases.length === 0) {
-    add("contract-section-payment", MSG.noPayment, MSG.noPayment);
+    add("contract-section-payment", t("contract.errors.noPayment"), t("contract.errors.noPayment"));
   }
+
+  if (!state.referenceCity.trim()) add("contract-reference-city", required, t("contract.missing.city"));
+  state.witnesses.forEach((witness, i) => {
+    const n = i + 1;
+    if (!witness.fullName.trim()) add(`contract-witness-${i}-fullName`, required, t("contract.missing.witnessName", { n }));
+    if (!witness.document.trim()) add(`contract-witness-${i}-document`, required, t("contract.missing.witnessDocument", { n }));
+  });
 
   return issues;
 }
 
-/**
- * Payment is read-only: the API takes total, installments and wording from the sale, so none of it
- * is sent (including the payment method the prefill carries).
- */
-function withoutPayment<T extends { totalAmount?: number; paymentDescription?: string; phases?: unknown }>(
+/** Payment is read-only: the API takes currency, total and installments from the sale. */
+function withoutPayment<T extends { currency?: unknown; totalAmount?: number; phases?: unknown }>(
   payload: T,
-): Omit<T, "totalAmount" | "paymentDescription" | "phases"> {
-  const { totalAmount, paymentDescription, phases, paymentMethod, ...rest } = payload as T & { paymentMethod?: unknown };
-  void [totalAmount, paymentDescription, phases, paymentMethod];
-  return rest as Omit<T, "totalAmount" | "paymentDescription" | "phases">;
+): Omit<T, "currency" | "totalAmount" | "phases"> {
+  const { currency, totalAmount, phases, ...rest } = payload;
+  void [currency, totalAmount, phases];
+  return rest;
 }
 
 export function buildSchoolPayload(payload: SchoolContractPayload): SchoolGeneratePayload {
-  return withoutPayment(payload);
+  const sent = withoutPayment(payload);
+  return {
+    ...sent,
+    students: payload.students.map((student) => ({
+      ...student,
+      fullName: student.fullName.trim(),
+      birthPlace: student.birthPlace.trim(),
+      nationality: student.nationality.trim(),
+      passport: student.passport?.trim() || null,
+      fullAddress: student.fullAddress.trim(),
+      email: student.email.trim(),
+      phone: student.phone.trim(),
+    })),
+    referenceCity: payload.referenceCity.trim(),
+    notes: payload.notes?.trim() ? payload.notes.trim() : null,
+  };
 }
 
 export interface BuiltPayload {
@@ -362,6 +426,7 @@ export function buildRevalidaPayload(
       id: party.id ?? party.key,
       fullName: party.fullName.trim(),
       document: party.document.trim(),
+      profession: party.profession.trim(),
       email: party.email.trim(),
       phone: party.phone.trim(),
       nationality: party.nationality.trim() || null,
@@ -371,19 +436,17 @@ export function buildRevalidaPayload(
   const payload: RevalidaGeneratePayload = {
     ...withoutPayment(prefill),
     parties,
-    liabilityRegime: parties.length > 1 ? state.liabilityRegime : "INDIVIDUAL",
     decreeIncluded: state.decreeOn,
-    decreeReleaseDate: state.decreeOn ? state.decreeRelease || null : null,
-    decreeDurationMonths: parseMonths(state.decreeMonths) ?? DEFAULT_DECREE_MONTHS,
     products: sentProducts,
-    expenses: {
-      translationsIncluded: state.extras.translationsIncluded,
-      apostillesIncluded: state.extras.apostillesIncluded,
-      postalExpensesIncluded: state.extras.postalExpensesIncluded,
-    },
+    expenses: { ...state.extras },
     contractStartDate: state.termStart || null,
     contractEndDate: state.termEnd || null,
     contractDurationMonths: null,
+    referenceCity: state.referenceCity.trim(),
+    witnesses: state.witnesses.map((witness) => ({
+      fullName: witness.fullName.trim(),
+      document: witness.document.trim(),
+    })),
     notes: state.notes.trim() ? state.notes.trim() : null,
   };
 
@@ -403,24 +466,19 @@ export function buildRevalidaSummary(
   catalog: RevalidaProduct[],
 ): SummaryContent {
   const included: string[] = [];
-  if (state.decreeOn) {
-    const months = parseMonths(state.decreeMonths);
-    const label = months ? `Decreto · ${months} ${months === 1 ? "mês" : "meses"}` : "Decreto";
-    included.push(state.decreeRelease ? label : `${label} · início a combinar`);
-  }
+  if (state.decreeOn) included.push(t("contract.summary.decree"));
   for (const code of PRODUCT_ORDER) {
     const p = state.products[code];
     if (!p.selected) continue;
     const name = productName(code, catalog);
-    included.push(p.releaseDate ? `${name} · ${isoToDisplay(p.releaseDate)}` : name);
+    included.push(p.releaseDate ? t("contract.summary.productWithDate", { name, date: isoToDisplay(p.releaseDate) }) : name);
   }
   const notIncluded: string[] = [];
-  for (const extra of EXTRAS) {
-    (state.extras[extra.key] ? included : notIncluded).push(extra.label);
+  for (const key of EXTRA_KEYS) {
+    (state.extras[key] ? included : notIncluded).push(extraLabel(key));
   }
-  const n = state.parties.length;
   return {
-    contractors: `${n} ${n === 1 ? "contratante" : "contratantes"}`,
+    contractors: tCount("contract.summary.contractors", state.parties.length),
     included,
     notIncluded,
     term: state.termEnd ? isoToDisplay(state.termEnd) : null,
@@ -430,29 +488,76 @@ export function buildRevalidaSummary(
 
 // ---- Escola de Italiano -------------------------------------------------
 
+export function newStudent(): SchoolStudent {
+  return {
+    id: newPartyId(),
+    fullName: "",
+    birthDate: "",
+    birthPlace: "",
+    nationality: "",
+    passport: null,
+    fullAddress: "",
+    email: "",
+    phone: "",
+  };
+}
+
 export function validateSchoolForm(
   payload: SchoolContractPayload,
   payment: PaymentContext,
 ): FormIssue[] {
-  const issues: FormIssue[] = [];
-  const add = (fieldId: string, message: string, summary: string) =>
-    issues.push({ id: `${fieldId}:${message}`, fieldId, message, summary });
-  const s = payload.student;
-  if (!s.fullName.trim()) add("contract-school-fullName", MSG.required, "Falta: nome do estudante");
-  if (!s.birthDate) add("contract-school-birthDate", "Escolha a data de nascimento.", "Falta: data de nascimento");
-  if (!s.birthPlace.trim()) add("contract-school-birthPlace", MSG.required, "Falta: local de nascimento");
-  if (!s.fullAddress.trim()) add("contract-school-fullAddress", MSG.required, "Falta: endereço completo");
-  if (!s.email.trim()) add("contract-school-email", MSG.required, "Falta: e-mail do estudante");
-  else if (!isValidEmail(s.email)) add("contract-school-email", MSG.email, "Falta: e-mail válido do estudante");
-  if (!s.phone.trim()) add("contract-school-phone", MSG.required, "Falta: telefone do estudante");
-  else if (phoneDigits(s.phone) < 8) add("contract-school-phone", MSG.phone, "Falta: telefone válido do estudante");
-  if (!payload.course.startDate) add("contract-school-startDate", "Escolha a data de início.", "Falta: início do curso");
-  if (!payload.course.endDate) add("contract-school-endDate", "Escolha a data de fim.", "Falta: fim do curso");
-  else if (payload.course.startDate && payload.course.endDate <= payload.course.startDate) {
-    add("contract-school-endDate", "Escolha uma data depois do início.", "Confira: fim do curso");
+  const { issues, add } = issueList();
+  const required = t("contract.errors.required");
+
+  payload.students.forEach((s, i) => {
+    const who = studentLabel(s, i);
+    const base = `contract-school-${i}`;
+    if (!s.fullName.trim()) add(`${base}-fullName`, required, t("contract.missing.studentName", { n: i + 1 }));
+    if (!s.birthDate) add(`${base}-birthDate`, t("contract.errors.birthDate"), t("contract.missing.studentBirthDate", { who }));
+    if (!s.birthPlace.trim()) add(`${base}-birthPlace`, required, t("contract.missing.studentBirthPlace", { who }));
+    if (!s.nationality.trim()) add(`${base}-nationality`, required, t("contract.missing.studentNationality", { who }));
+    if (!s.fullAddress.trim()) add(`${base}-fullAddress`, required, t("contract.missing.studentAddress", { who }));
+    if (!s.email.trim()) add(`${base}-email`, required, t("contract.missing.studentEmail", { who }));
+    else if (!isValidEmail(s.email)) {
+      add(`${base}-email`, t("contract.errors.email"), t("contract.missing.studentEmailValid", { who }));
+    }
+    if (!s.phone.trim()) add(`${base}-phone`, required, t("contract.missing.studentPhone", { who }));
+    else if (phoneDigits(s.phone) < 8) {
+      add(`${base}-phone`, t("contract.errors.phone"), t("contract.missing.studentPhoneValid", { who }));
+    }
+  });
+
+  const months = payload.course.durationMonths;
+  if (!Number.isInteger(months) || months < 1 || months > MAX_MONTHS) {
+    add("contract-school-durationMonths", t("contract.errors.months", { max: MAX_MONTHS }), t("contract.missing.courseMonths"));
+  }
+  if (!payload.course.startDate) {
+    add("contract-school-startDate", t("contract.errors.startDate"), t("contract.missing.courseStart"));
   }
   if (payment.phases.length === 0) {
-    add("contract-section-payment", MSG.noPayment, MSG.noPayment);
+    add("contract-section-payment", t("contract.errors.noPayment"), t("contract.errors.noPayment"));
   }
+  if (!payload.referenceCity.trim()) add("contract-reference-city", required, t("contract.missing.city"));
   return issues;
+}
+
+export function buildSchoolSummaryRows(payload: SchoolContractPayload): Array<{ label: string; value: string }> {
+  const rows: Array<{ label: string; value: string }> = [];
+  const names = payload.students.map((s) => s.fullName.trim()).filter(Boolean);
+  if (names.length > 0) {
+    rows.push({
+      label: t("contract.summary.student"),
+      value: names.length === 1 ? names[0] : t("contract.summary.andMore", { first: names[0], count: names.length - 1 }),
+    });
+  }
+  if (payload.course.startDate && payload.course.durationMonths > 0) {
+    rows.push({
+      label: t("contract.summary.course"),
+      value: t("contract.summary.courseValue", {
+        months: tCount("contract.summary.months", payload.course.durationMonths),
+        date: isoToDisplay(payload.course.startDate),
+      }),
+    });
+  }
+  return rows;
 }

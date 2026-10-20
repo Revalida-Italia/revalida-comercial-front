@@ -1,5 +1,6 @@
+import { t } from "@/i18n";
 import type { RevalidaProduct, RevalidaProductCode } from "@/services/contractsApi";
-import { MSG, productName, type FormIssue } from "@/features/contracts/contractFormModel";
+import { INCLUDED_FIELD_ID, MAX_MONTHS, productName, type FormIssue } from "@/features/contracts/contractFormModel";
 
 export interface ApiIssue {
   code?: string;
@@ -13,6 +14,8 @@ export interface GenerateErrorContext {
   catalog: RevalidaProduct[];
   /** Display names of the parties in the order they were sent. */
   partyLabels: string[];
+  /** Display names of the students (Escola) in the order they were sent. */
+  studentLabels?: string[];
 }
 
 export interface MappedGenerateError {
@@ -27,13 +30,26 @@ function readIssues(error: unknown): ApiIssue[] {
   return Array.isArray(errors) ? (errors as ApiIssue[]) : [];
 }
 
+const PARTY_MISSING = {
+  document: "contract.missing.partyDocument",
+  profession: "contract.missing.partyProfession",
+} as const;
+
+const STUDENT_MISSING = {
+  birthDate: "contract.missing.studentBirthDate",
+  birthPlace: "contract.missing.studentBirthPlace",
+  nationality: "contract.missing.studentNationality",
+  fullAddress: "contract.missing.studentAddress",
+} as const;
+
 /**
- * Turns the API validation errors into text in Portuguese, attached to the field they belong to.
+ * Turns the API validation errors into the screen language, attached to the field they belong to.
  * The raw API text is never shown: whatever cannot be mapped becomes the generic banner.
  */
 export function mapGenerateError(error: unknown, ctx: GenerateErrorContext): MappedGenerateError {
   const issues: FormIssue[] = [];
   let unmapped = false;
+  const required = t("contract.errors.required");
 
   const push = (fieldId: string, message: string, summary: string) => {
     if (!issues.some((issue) => issue.fieldId === fieldId && issue.message === message)) {
@@ -48,74 +64,97 @@ export function mapGenerateError(error: unknown, ctx: GenerateErrorContext): Map
     const field = item.field ?? "";
     const code = item.code ?? "";
     const raw = (item.message ?? "").toLowerCase();
-    const overTerm = raw.includes("vig") || raw.includes("term");
+    const overTerm = raw.includes("past the end") || raw.includes("vig");
 
     let match = /^parties\.(\d+)\.(\w+)/.exec(field);
     if (match) {
       const i = Number(match[1]);
-      const who = ctx.partyLabels[i] ?? `contratante ${i + 1}`;
+      const who = ctx.partyLabels[i] ?? t("contract.party.fallbackName", { n: i + 1 });
       const prop = match[2];
       const id = `contract-party-${i}-${prop}`;
-      if (prop === "email") push(id, MSG.email, `Falta: e-mail válido de ${who}`);
-      else if (prop === "phone") push(id, MSG.phone, `Falta: telefone válido de ${who}`);
-      else if (prop === "fullName" || prop === "document") {
-        push(id, MSG.required, `Falta: ${prop === "fullName" ? "nome" : "documento"} de ${who}`);
-      } else unmapped = true;
+      if (prop === "email") push(id, t("contract.errors.email"), t("contract.missing.partyEmailValid", { who }));
+      else if (prop === "phone") push(id, t("contract.errors.phone"), t("contract.missing.partyPhoneValid", { who }));
+      else if (prop === "fullName") push(id, required, t("contract.missing.partyName", { n: i + 1 }));
+      else if (prop in PARTY_MISSING) push(id, required, t(PARTY_MISSING[prop as keyof typeof PARTY_MISSING], { who }));
+      else unmapped = true;
+      continue;
+    }
+
+    match = /^students\.(\d+)\.(\w+)/.exec(field);
+    if (match) {
+      const i = Number(match[1]);
+      const who = ctx.studentLabels?.[i] ?? t("contract.student.fallbackName", { n: i + 1 });
+      const prop = match[2];
+      const id = `contract-school-${i}-${prop}`;
+      if (prop === "email") push(id, t("contract.errors.email"), t("contract.missing.studentEmailValid", { who }));
+      else if (prop === "phone") push(id, t("contract.errors.phone"), t("contract.missing.studentPhoneValid", { who }));
+      else if (prop === "fullName") push(id, required, t("contract.missing.studentName", { n: i + 1 }));
+      else if (prop in STUDENT_MISSING) push(id, required, t(STUDENT_MISSING[prop as keyof typeof STUDENT_MISSING], { who }));
+      else unmapped = true;
+      continue;
+    }
+
+    match = /^witnesses\.(\d+)\.(fullName|document)$/.exec(field);
+    if (match) {
+      const n = Number(match[1]) + 1;
+      const id = `contract-witness-${match[1]}-${match[2]}`;
+      push(id, required, t(match[2] === "fullName" ? "contract.missing.witnessName" : "contract.missing.witnessDocument", { n }));
+      continue;
+    }
+
+    if (field === "products" && code === "V_SERVICES") {
+      push(INCLUDED_FIELD_ID, t("contract.errors.inclusion"), t("contract.errors.inclusion"));
       continue;
     }
 
     match = /^products\.(\d+)(?:\.(\w+))?$/.exec(field);
     if (match) {
-      const code0 = ctx.productCodes[Number(match[1])];
-      if (!code0) {
+      const productCode = ctx.productCodes[Number(match[1])];
+      if (!productCode) {
         unmapped = true;
         continue;
       }
-      const name = productName(code0, ctx.catalog);
+      const name = productName(productCode, ctx.catalog);
       const prop = match[2];
       if (prop === "releaseDate") {
-        push(
-          `contract-product-${code0}-release`,
-          raw.includes("antes do fim") ? "Escolha uma data de liberação antes do fim da vigência." : MSG.release,
-          `Confira: liberação de ${name}`,
-        );
+        push(`contract-product-${productCode}-release`, t("contract.errors.release"), t("contract.missing.checkProductRelease", { name }));
       } else {
         push(
-          `contract-product-${code0}-duration`,
-          overTerm ? "Esse período passa do fim da vigência." : "Confira a duração e a data de fim.",
-          `Confira: duração de ${name}`,
+          `contract-product-${productCode}-duration`,
+          overTerm ? t("contract.errors.periodOverTerm") : t("contract.errors.checkDuration"),
+          t("contract.missing.checkProductDuration", { name }),
         );
       }
       continue;
     }
 
-    if (field === "decreeReleaseDate") {
-      push(
-        "contract-decree-release",
-        overTerm ? "O período do decreto passa do fim da vigência." : MSG.release,
-        "Confira: liberação do decreto",
-      );
-      continue;
-    }
-    if (field === "decreeDurationMonths") {
-      push("contract-decree-duration", MSG.months, "Confira: duração do decreto");
-      continue;
-    }
     if (field === "contractStartDate") {
-      push("contract-term-start", "Escolha uma data de início válida para a vigência.", "Confira: início da vigência");
+      push("contract-term-start", t("contract.errors.termStartInvalid"), t("contract.missing.checkTermStart"));
       continue;
     }
     if (field === "contractEndDate" || field === "contractDurationMonths") {
-      push("contract-term-end", "Escolha uma data de fim válida para a vigência.", "Confira: fim da vigência");
+      push("contract-term-end", t("contract.errors.termEndInvalid"), t("contract.missing.checkTermEnd"));
       continue;
     }
-    if (field === "phases" || field === "totalAmount" || code === "V-M8") {
-      push("contract-section-payment", MSG.paymentMismatch, MSG.paymentMismatch);
+    if (field === "referenceCity") {
+      push("contract-reference-city", required, t("contract.missing.city"));
+      continue;
+    }
+    if (field === "course.durationMonths") {
+      push("contract-school-durationMonths", t("contract.errors.months", { max: MAX_MONTHS }), t("contract.missing.courseMonths"));
+      continue;
+    }
+    if (field === "course.startDate") {
+      push("contract-school-startDate", t("contract.errors.startDate"), t("contract.missing.courseStart"));
+      continue;
+    }
+    if (field === "phases" || field === "totalAmount" || code === "V-M8" || code === "V_PAYMENT") {
+      push("contract-section-payment", t("contract.errors.paymentMismatch"), t("contract.errors.paymentMismatch"));
       continue;
     }
 
     unmapped = true;
   }
 
-  return { issues, banner: unmapped ? MSG.generic : null };
+  return { issues, banner: unmapped ? t("contract.errors.generic") : null };
 }
