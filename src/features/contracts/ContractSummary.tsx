@@ -1,5 +1,6 @@
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { t } from "@/i18n";
 import type { FormIssue } from "@/features/contracts/contractFormModel";
 import { focusField } from "@/features/contracts/contractFormParts";
 import { cn } from "@/lib/utils";
@@ -67,7 +68,7 @@ export function GenerateButton({
       }}
     >
       {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-      {generating ? "Gerando…" : "Gerar contrato"}
+      {generating ? t("contract.summary.generating") : t("contract.summary.generate")}
     </Button>
   );
 }
@@ -78,10 +79,10 @@ export default function ContractSummary(props: ContractSummaryProps) {
   return (
     <>
       <aside
-        aria-label="Resumo"
+        aria-label={t("contract.summary.title")}
         className="rounded-lg bg-card p-6 shadow-[0_4px_24px_rgba(15,40,60,0.07)] lg:max-h-[calc(100dvh-3rem)] lg:overflow-y-auto"
       >
-        <h2 className="text-[13px] font-medium text-muted-foreground">Resumo</h2>
+        <h2 className="text-[13px] font-medium text-muted-foreground">{t("contract.summary.title")}</h2>
         <p className="mt-1 text-[28px] font-bold leading-tight tabular-nums">{props.totalLabel}</p>
         <p className="mt-1 text-sm text-muted-foreground">{props.contractors}</p>
 
@@ -96,11 +97,17 @@ export default function ContractSummary(props: ContractSummaryProps) {
               ))}
             </ul>
           )}
-          <List title="Incluso" items={props.included ?? []} />
-          <List title="Não incluso" items={props.notIncluded ?? []} />
+          <List title={t("contract.summary.included")} items={props.included ?? []} />
+          <List title={t("contract.summary.notIncluded")} items={props.notIncluded ?? []} />
           {props.termLabel !== undefined && (
             <p className="text-sm">
-              {props.termLabel ? (props.termStartLabel ? `Vigência de ${props.termStartLabel} até ${props.termLabel}` : `Vigência até ${props.termLabel}`) : <span className="text-muted-foreground">Vigência não definida</span>}
+              {props.termLabel ? (
+                props.termStartLabel
+                  ? t("contract.summary.termRange", { start: props.termStartLabel, end: props.termLabel })
+                  : t("contract.summary.termUntil", { end: props.termLabel })
+              ) : (
+                <span className="text-muted-foreground">{t("contract.summary.termMissing")}</span>
+              )}
             </p>
           )}
         </div>
@@ -148,8 +155,9 @@ export function GenerateBar({
     <div className="sticky bottom-0 z-10 -mx-4 mt-6 border-t border-border bg-background/95 px-4 py-3 backdrop-blur md:-mx-5 md:px-5">
       {first && (
         <p className="mb-2 text-[13px] text-muted-foreground">
-          {first.summary}
-          {issues.length > 1 ? ` e mais ${issues.length - 1}` : ""}
+          {issues.length > 1
+            ? t("contract.summary.andMore", { first: first.summary, count: issues.length - 1 })
+            : first.summary}
         </p>
       )}
       <GenerateButton issues={issues} generating={generating} onGenerate={onGenerate} />

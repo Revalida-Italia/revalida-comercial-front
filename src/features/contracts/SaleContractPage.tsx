@@ -31,17 +31,18 @@ import {
   type RevalidaProduct,
   type SchoolContractPayload,
 } from "@/services/contractsApi";
+import { t, tCount } from "@/i18n";
 import { formatCurrency } from "@/shared/utils/format";
-import { isoToDisplay } from "@/features/contracts/contractDates";
 import {
-  MODEL_NAMES,
-  MSG,
   buildRevalidaPayload,
   buildRevalidaSummary,
   buildSchoolPayload,
+  buildSchoolSummaryRows,
   createInitialRevalidaState,
+  modelName,
   partyLabel,
   paymentTotal,
+  studentLabel,
   validateRevalidaForm,
   validateSchoolForm,
   type FormIssue,
@@ -51,14 +52,14 @@ import { mapGenerateError } from "@/features/contracts/contractErrors";
 import { focusField, type FormControl } from "@/features/contracts/contractFormParts";
 import ContractPaymentSection from "@/features/contracts/ContractPaymentSection";
 import ContractSummary, { GenerateBar } from "@/features/contracts/ContractSummary";
-import RevalidaFormFields, { ObservationsSection } from "@/features/contracts/RevalidaFormFields";
-import SchoolFormFields from "@/features/contracts/SchoolFormFields";
+import RevalidaFormFields, { ObservationsSection, RevalidaSignaturesSection } from "@/features/contracts/RevalidaFormFields";
+import SchoolFormFields, { SchoolSignaturesSection } from "@/features/contracts/SchoolFormFields";
 import { useIsDesktop } from "@/features/contracts/useIsDesktop";
 
 export function saleClientsLabel(sale: SaleRecord | undefined): string {
   const names = (sale?.clients ?? []).map((c) => c.nameCiphertext?.trim()).filter(Boolean);
   if (names.length === 0) return "";
-  return names.length === 1 ? names[0] : `${names[0]} e mais ${names.length - 1}`;
+  return names.length === 1 ? names[0] : t("contract.page.clientsMore", { first: names[0], count: names.length - 1 });
 }
 
 /** Shared by both models: which fields were left, which errors came back, what the button does. */
@@ -109,7 +110,7 @@ function useGenerate(saleId: string, productType: ContractProductType) {
     mutation.mutate(payload, {
       onSuccess: (created) => {
         void queryClient.invalidateQueries({ queryKey: ["sale-contracts", saleId] });
-        toast.success("Contrato gerado.");
+        toast.success(t("contract.page.generated"));
         navigate(`/vendas/${saleId}`, { state: { newContractId: created?.id } });
       },
       onError,
@@ -159,6 +160,7 @@ function RevalidaBody({
   const isDesktop = useIsDesktop();
   const [state, setState] = useState<RevalidaFormState>(() => createInitialRevalidaState(prefill));
   const total = paymentTotal(prefill.phases, prefill.totalAmount ?? 0);
+  const currency = prefill.currency ?? "BRL";
 
   const issues = useMemo(
     () => validateRevalidaForm(state, catalog, { phases: prefill.phases }),
@@ -217,10 +219,12 @@ function RevalidaBody({
             saleId={saleId}
             phases={prefill.phases}
             total={total}
+            currency={currency}
             error={paymentError}
           />
+          <RevalidaSignaturesSection number={5} state={state} update={update} form={form} />
           <ObservationsSection
-            number={5}
+            number={6}
             value={state.notes}
             disabled={generating}
             onChange={(notes) => update((s) => ({ ...s, notes }))}
@@ -229,7 +233,7 @@ function RevalidaBody({
       }
       summary={
         <ContractSummary
-          totalLabel={formatCurrency(total)}
+          totalLabel={formatCurrency(total, currency)}
           contractors={summary.contractors}
           included={summary.included}
           notIncluded={summary.notIncluded}
@@ -262,6 +266,7 @@ function SchoolBody({
     [payload],
   );
   const total = paymentTotal(payload.phases, payload.totalAmount ?? 0);
+  const currency = payload.currency ?? "BRL";
   const feedback = useFormFeedback(issues);
   const { run, generating } = useGenerate(saleId, "ESCOLA_DE_ITALIANO");
 
@@ -284,23 +289,19 @@ function SchoolBody({
       return;
     }
     run(buildSchoolPayload(payload), (error) => {
-      const mapped = mapGenerateError(error, { productCodes: [], catalog: [], partyLabels: [] });
-      feedback.setServerIssues([]);
-      feedback.setBanner(mapped.banner ?? MSG.generic);
+      const mapped = mapGenerateError(error, {
+        productCodes: [],
+        catalog: [],
+        partyLabels: [],
+        studentLabels: payload.students.map((student, i) => studentLabel(student, i)),
+      });
+      feedback.setServerIssues(mapped.issues);
+      feedback.setBanner(mapped.banner);
+      if (mapped.issues[0]) focusField(mapped.issues[0].fieldId);
     });
   };
 
-  const rows = [
-    ...(payload.student.fullName ? [{ label: "Estudante", value: payload.student.fullName }] : []),
-    ...(payload.course.startDate && payload.course.endDate
-      ? [
-          {
-            label: "Curso",
-            value: `${isoToDisplay(payload.course.startDate)} a ${isoToDisplay(payload.course.endDate)}`,
-          },
-        ]
-      : []),
-  ];
+  const rows = buildSchoolSummaryRows(payload);
 
   return (
     <ContractLayout
@@ -314,14 +315,22 @@ function SchoolBody({
             saleId={saleId}
             phases={payload.phases}
             total={total}
+            currency={currency}
             error={feedback.errorFor("contract-section-payment")}
+          />
+          <SchoolSignaturesSection number={4} payload={payload} update={update} form={form} />
+          <ObservationsSection
+            number={5}
+            value={payload.notes ?? ""}
+            disabled={generating}
+            onChange={(notes) => update((p) => ({ ...p, notes }))}
           />
         </>
       }
       summary={
         <ContractSummary
-          totalLabel={formatCurrency(total)}
-          contractors="1 estudante"
+          totalLabel={formatCurrency(total, currency)}
+          contractors={tCount("contract.summary.students", payload.students.length)}
           rows={rows}
           issues={feedback.allIssues}
           banner={feedback.banner}
@@ -336,7 +345,7 @@ function SchoolBody({
 
 function LoadingState() {
   return (
-    <div className="grid gap-8 lg:grid-cols-[minmax(0,720px)_320px]" aria-busy="true" aria-label="Carregando">
+    <div className="grid gap-8 lg:grid-cols-[minmax(0,720px)_320px]" aria-busy="true" aria-label={t("common.loading")}>
       <div className="space-y-6 rounded-lg bg-card p-8">
         <Skeleton className="h-6 w-40" />
         <Skeleton className="h-10 w-full" />
@@ -354,7 +363,7 @@ function ErrorState({ message, onRetry }: { message: string; onRetry: () => void
     <div className="rounded-lg bg-card p-8 shadow-[0_4px_24px_rgba(15,40,60,0.07)]">
       <p className="mb-4 text-sm">{message}</p>
       <Button variant="outline" size="sm" onClick={onRetry}>
-        Tentar novamente
+        {t("common.retry")}
       </Button>
     </div>
   );
@@ -405,11 +414,11 @@ export default function SaleContractPage() {
   let body: ReactNode;
   if (prefillQuery.isError) {
     body = (
-      <ErrorState message="Não foi possível carregar os dados do contrato." onRetry={() => void prefillQuery.refetch()} />
+      <ErrorState message={t("contract.page.loadError")} onRetry={() => void prefillQuery.refetch()} />
     );
   } else if (productType === "PROGRAMA_REVALIDA_ITALIA" && catalogQuery.isError) {
     body = (
-      <ErrorState message="Não foi possível carregar os produtos." onRetry={() => void catalogQuery.refetch()} />
+      <ErrorState message={t("contract.page.productsError")} onRetry={() => void catalogQuery.refetch()} />
     );
   } else if (!prefill || prefillQuery.isFetching || (productType === "PROGRAMA_REVALIDA_ITALIA" && !catalog)) {
     body = <LoadingState />;
@@ -439,9 +448,9 @@ export default function SaleContractPage() {
         className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         <ChevronLeft className="h-4 w-4" />
-        Venda
+        {t("contract.page.back")}
       </Link>
-      <h1 className="mt-3 text-[28px] font-bold leading-tight text-foreground">Gerar contrato</h1>
+      <h1 className="mt-3 text-[28px] font-bold leading-tight text-foreground">{t("contract.page.title")}</h1>
       <div className="mb-8 mt-1 flex flex-col gap-y-1 text-muted-foreground sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-3">
         {saleQuery.isLoading ? <Skeleton className="h-5 w-40" /> : clients ? <span>{clients}</span> : null}
         <DropdownMenu>
@@ -450,8 +459,8 @@ export default function SaleContractPage() {
               type="button"
               className="inline-flex items-center gap-1 rounded text-sm hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
-              {MODEL_NAMES[productType]}
-              <span className="text-primary underline underline-offset-4">Trocar modelo</span>
+              {modelName(productType)}
+              <span className="text-primary underline underline-offset-4">{t("contract.page.switchModel")}</span>
               <ChevronDown className="h-3.5 w-3.5" />
             </button>
           </DropdownMenuTrigger>
@@ -462,7 +471,7 @@ export default function SaleContractPage() {
                 else switchModel(otherModel);
               }}
             >
-              {MODEL_NAMES[otherModel]}
+              {modelName(otherModel)}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -474,12 +483,14 @@ export default function SaleContractPage() {
       <AlertDialog open={pendingModel !== null} onOpenChange={(open) => !open && setPendingModel(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Trocar modelo?</AlertDialogTitle>
-            <AlertDialogDescription>O que você preencheu será perdido.</AlertDialogDescription>
+            <AlertDialogTitle>{t("contract.page.switchTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>{t("contract.page.switchBody")}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={() => pendingModel && switchModel(pendingModel)}>Trocar</AlertDialogAction>
+            <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
+            <AlertDialogAction onClick={() => pendingModel && switchModel(pendingModel)}>
+              {t("contract.page.switchConfirm")}
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

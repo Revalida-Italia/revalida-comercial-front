@@ -1,14 +1,10 @@
+import { Plus, Trash2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import type { SchoolContractPayload } from "@/services/contractsApi";
+import { t } from "@/i18n";
+import type { SchoolContractPayload, SchoolStudent } from "@/services/contractsApi";
 import { DateField } from "@/features/contracts/DateField";
-import { formatPhone } from "@/features/contracts/contractFormModel";
+import { formatPhone, newStudent } from "@/features/contracts/contractFormModel";
 import { Field, SectionHeading, errorId, type FormControl } from "@/features/contracts/contractFormParts";
 
 type Props = {
@@ -17,26 +13,23 @@ type Props = {
   form: FormControl;
 };
 
-export default function SchoolFormFields({ payload, update, form }: Props) {
-  const student = payload.student;
-  const course = payload.course;
-  const setStudent = (change: Partial<SchoolContractPayload["student"]>) =>
-    update((p) => ({ ...p, student: { ...p.student, ...change } }));
-  const setCourse = (change: Partial<SchoolContractPayload["course"]>) =>
-    update((p) => ({ ...p, course: { ...p.course, ...change } }));
+type TextProp = "fullName" | "birthPlace" | "nationality" | "passport" | "fullAddress" | "email" | "phone";
 
+function fieldHelpers(form: FormControl) {
   const text = (
-    prop: keyof SchoolContractPayload["student"],
+    id: string,
     label: string,
-    options?: { className?: string; inputMode?: "email" | "tel"; format?: (v: string, prev: string) => string; placeholder?: string },
+    value: string,
+    onChange: (value: string) => void,
+    options?: { className?: string; inputMode?: "email" | "tel" | "numeric"; format?: (v: string, prev: string) => string; placeholder?: string; type?: string },
   ) => {
-    const id = `contract-school-${prop}`;
     const error = form.error(id);
     return (
       <Field id={id} label={label} error={error} className={options?.className}>
         <Input
           id={id}
-          value={(student[prop] as string | null | undefined) ?? ""}
+          type={options?.type}
+          value={value}
           disabled={form.disabled}
           inputMode={options?.inputMode}
           placeholder={options?.placeholder}
@@ -45,9 +38,7 @@ export default function SchoolFormFields({ payload, update, form }: Props) {
           className={error ? "border-destructive focus-visible:ring-destructive" : undefined}
           onChange={(event) => {
             const raw = event.target.value;
-            setStudent({
-              [prop]: options?.format ? options.format(raw, (student[prop] as string) ?? "") : raw,
-            } as Partial<SchoolContractPayload["student"]>);
+            onChange(options?.format ? options.format(raw, value) : raw);
           }}
           onBlur={() => form.touch(id)}
         />
@@ -79,92 +70,138 @@ export default function SchoolFormFields({ payload, update, form }: Props) {
     );
   };
 
+  return { text, date };
+}
+
+function StudentFields({
+  student,
+  index,
+  total,
+  update,
+  form,
+}: {
+  student: SchoolStudent;
+  index: number;
+  total: number;
+  update: Props["update"];
+  form: FormControl;
+}) {
+  const { text, date } = fieldHelpers(form);
+  const base = `contract-school-${index}`;
+  const patch = (change: Partial<SchoolStudent>) =>
+    update((p) => ({ ...p, students: p.students.map((s, i) => (i === index ? { ...s, ...change } : s)) }));
+  const field = (prop: TextProp, label: string, options?: Parameters<typeof text>[4]) =>
+    text(`${base}-${prop}`, label, student[prop] ?? "", (value) => patch({ [prop]: value }), options);
+  const now = new Date().getFullYear();
+
+  return (
+    <div className="space-y-4 py-5 first:pt-0 last:pb-0">
+      {total > 1 && (
+        <div className="flex items-center justify-between">
+          <h3 className="text-[15px] font-semibold">{t("contract.student.title", { n: index + 1 })}</h3>
+          {index > 0 && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="gap-1.5 text-muted-foreground"
+              disabled={form.disabled}
+              onClick={() => update((p) => ({ ...p, students: p.students.filter((_, i) => i !== index) }))}
+            >
+              <Trash2 className="h-4 w-4" />
+              {t("common.remove")}
+              <span className="sr-only"> {t("contract.student.removeWho", { n: index + 1 })}</span>
+            </Button>
+          )}
+        </div>
+      )}
+      <div className="grid gap-4 sm:grid-cols-2">
+        {field("fullName", t("contract.student.fullName"), { className: "sm:col-span-2" })}
+        {date(`${base}-birthDate`, t("contract.student.birthDate"), student.birthDate, (iso) => patch({ birthDate: iso }), {
+          fromYear: 1930,
+          toYear: now,
+        })}
+        {field("birthPlace", t("contract.student.birthPlace"))}
+        {field("nationality", t("contract.student.nationality"))}
+        {field("passport", t("contract.student.passport"))}
+        {field("fullAddress", t("contract.student.fullAddress"), { className: "sm:col-span-2" })}
+        {field("email", t("contract.student.email"), { inputMode: "email" })}
+        {field("phone", t("contract.student.phone"), {
+          inputMode: "tel",
+          format: formatPhone,
+          placeholder: t("contract.party.phonePlaceholder"),
+        })}
+      </div>
+    </div>
+  );
+}
+
+export default function SchoolFormFields({ payload, update, form }: Props) {
+  const { text, date } = fieldHelpers(form);
+  const course = payload.course;
+  const setCourse = (change: Partial<SchoolContractPayload["course"]>) =>
+    update((p) => ({ ...p, course: { ...p.course, ...change } }));
   const now = new Date().getFullYear();
 
   return (
     <>
       <section aria-labelledby="contract-student-title">
-        <SectionHeading number={1} title="Estudante" id="contract-student-title" />
-        <div className="grid gap-4 sm:grid-cols-2">
-          {text("fullName", "Nome completo", { className: "sm:col-span-2" })}
-          {date("contract-school-birthDate", "Data de nascimento", student.birthDate, (iso) => setStudent({ birthDate: iso }), {
-            fromYear: 1930,
-            toYear: now,
-          })}
-          {text("birthPlace", "Local de nascimento")}
-          {text("nationality", "Nacionalidade")}
-          {text("passport", "Passaporte")}
-          {text("fullAddress", "Endereço completo", { className: "sm:col-span-2" })}
-          {text("email", "E-mail", { inputMode: "email" })}
-          {text("phone", "Telefone", { inputMode: "tel", format: formatPhone, placeholder: "+55 (11) 99999-9999" })}
+        <SectionHeading number={1} title={t("contract.sections.students")} id="contract-student-title" />
+        <div className="divide-y divide-border/60">
+          {payload.students.map((student, index) => (
+            <StudentFields
+              key={student.id ?? index}
+              student={student}
+              index={index}
+              total={payload.students.length}
+              update={update}
+              form={form}
+            />
+          ))}
         </div>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="mt-4 gap-1.5"
+          disabled={form.disabled}
+          onClick={() => update((p) => ({ ...p, students: [...p.students, newStudent()] }))}
+        >
+          <Plus className="h-4 w-4" />
+          {t("contract.student.add")}
+        </Button>
       </section>
 
       <section aria-labelledby="contract-course-title">
-        <SectionHeading number={2} title="Curso" id="contract-course-title" />
+        <SectionHeading number={2} title={t("contract.sections.course")} id="contract-course-title" />
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field id="contract-school-purpose" label="Finalidade do curso">
-            <Select
-              value={course.purpose}
-              disabled={form.disabled}
-              onValueChange={(value) => setCourse({ purpose: value as "LANGUAGE" | "LANGUAGE_STUDY_VISA" })}
-            >
-              <SelectTrigger id="contract-school-purpose" className="h-10">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="LANGUAGE">Aperfeiçoamento linguístico</SelectItem>
-                <SelectItem value="LANGUAGE_STUDY_VISA">Visto de estudo</SelectItem>
-              </SelectContent>
-            </Select>
-          </Field>
-          <Field id="contract-school-durationMonths" label="Duração (meses)">
-            <Input
-              id="contract-school-durationMonths"
-              type="number"
-              min={1}
-              value={course.durationMonths}
-              disabled={form.disabled}
-              onChange={(event) => setCourse({ durationMonths: Number(event.target.value) || 0 })}
-            />
-          </Field>
-          {date("contract-school-startDate", "Início", course.startDate, (iso) => setCourse({ startDate: iso }), {
+          {text(
+            "contract-school-durationMonths",
+            t("contract.course.months"),
+            course.durationMonths ? String(course.durationMonths) : "",
+            (value) => setCourse({ durationMonths: Number(value) || 0 }),
+            { type: "number", inputMode: "numeric" },
+          )}
+          {date("contract-school-startDate", t("contract.course.start"), course.startDate, (iso) => setCourse({ startDate: iso }), {
             fromYear: now - 1,
             toYear: now + 5,
           })}
-          {date("contract-school-endDate", "Fim", course.endDate, (iso) => setCourse({ endDate: iso }), {
-            fromYear: now - 1,
-            toYear: now + 5,
-          })}
-          <Field id="contract-school-weeklyHours" label="Horas semanais">
-            <Input
-              id="contract-school-weeklyHours"
-              type="number"
-              min={1}
-              value={course.weeklyHours}
-              disabled={form.disabled}
-              onChange={(event) => setCourse({ weeklyHours: Number(event.target.value) || 0 })}
-            />
-          </Field>
-          <div>
-            <span className="mb-1.5 block text-sm font-medium">Nível inicial e objetivo</span>
-            <div className="flex gap-2">
-              <Input
-                aria-label="Nível inicial"
-                value={course.initialLevel}
-                disabled={form.disabled}
-                onChange={(event) => setCourse({ initialLevel: event.target.value })}
-              />
-              <Input
-                aria-label="Nível objetivo"
-                value={course.targetLevel}
-                disabled={form.disabled}
-                onChange={(event) => setCourse({ targetLevel: event.target.value })}
-              />
-            </div>
-          </div>
         </div>
       </section>
     </>
+  );
+}
+
+export function SchoolSignaturesSection({ number, payload, update, form }: Props & { number: number }) {
+  const { text } = fieldHelpers(form);
+  return (
+    <section aria-labelledby="contract-signatures-title">
+      <SectionHeading number={number} title={t("contract.sections.signatures")} id="contract-signatures-title" />
+      <div className="grid gap-4 sm:grid-cols-2">
+        {text("contract-reference-city", t("contract.signatures.city"), payload.referenceCity, (referenceCity) =>
+          update((p) => ({ ...p, referenceCity })),
+        )}
+      </div>
+    </section>
   );
 }

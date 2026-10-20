@@ -6,20 +6,27 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import { t } from "@/i18n";
 import type { RevalidaProduct, RevalidaProductCode } from "@/services/contractsApi";
 import { isoToDisplay } from "@/features/contracts/contractDates";
 import { DateField } from "@/features/contracts/DateField";
 import {
-  EXTRAS,
+  EXTRA_KEYS,
+  INCLUDED_FIELD_ID,
+  MAX_MONTHS,
   PRODUCT_ORDER,
+  PROFESSIONS,
+  extraLabel,
   formatPhone,
-  newPartyId,
-  newPartyKey,
+  newPartyState,
   periodEnd,
+  professionChoice,
   suggestTermEnd,
   type PartyState,
   type ProductState,
+  type ProfessionChoice,
   type RevalidaFormState,
+  type WitnessState,
 } from "@/features/contracts/contractFormModel";
 import {
   Expand,
@@ -42,6 +49,105 @@ function capitalize(text: string): string {
   return text ? text.charAt(0).toUpperCase() + text.slice(1) : text;
 }
 
+type TextOptions = {
+  className?: string;
+  inputMode?: "email" | "tel" | "text";
+  autoComplete?: string;
+  placeholder?: string;
+  format?: (value: string, previous: string) => string;
+};
+
+/** Text input with label, error and touch handling. */
+function TextField({
+  id,
+  label,
+  value,
+  onChange,
+  form,
+  options,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  form: FormControl;
+  options?: TextOptions;
+}) {
+  const error = form.error(id);
+  return (
+    <Field id={id} label={label} error={error} className={options?.className}>
+      <Input
+        id={id}
+        value={value}
+        disabled={form.disabled}
+        inputMode={options?.inputMode}
+        autoComplete={options?.autoComplete ?? "off"}
+        placeholder={options?.placeholder}
+        aria-invalid={error ? true : undefined}
+        aria-describedby={error ? errorId(id) : undefined}
+        className={error ? "border-destructive focus-visible:ring-destructive" : undefined}
+        onChange={(event) => {
+          const raw = event.target.value;
+          onChange(options?.format ? options.format(raw, value) : raw);
+        }}
+        onBlur={() => form.touch(id)}
+      />
+    </Field>
+  );
+}
+
+function ProfessionField({
+  party,
+  base,
+  patch,
+  form,
+}: {
+  party: PartyState;
+  base: string;
+  patch: (change: Partial<PartyState>) => void;
+  form: FormControl;
+}) {
+  const choice: ProfessionChoice = party.professionIsOther ? "other" : professionChoice(party.profession);
+  const fieldId = `${base}-profession`;
+  const error = form.error(fieldId);
+  return (
+    <div className="sm:col-span-2">
+      <Label className="mb-1.5 block text-sm font-medium">{t("contract.party.profession")}</Label>
+      <SegmentedChoice<ProfessionChoice>
+        label={t("contract.party.profession")}
+        value={choice}
+        disabled={form.disabled}
+        className="flex-wrap"
+        options={[
+          ...PROFESSIONS.map((option) => ({ value: option.id, label: t(`contract.profession.${option.id}`) })),
+          { value: "other" as const, label: t("contract.profession.other") },
+        ]}
+        onChange={(next) => {
+          if (next === "other") {
+            patch({ professionIsOther: true, profession: "" });
+            return;
+          }
+          const option = PROFESSIONS.find((item) => item.id === next);
+          if (option) patch({ professionIsOther: false, profession: option.value });
+        }}
+      />
+      {choice === "other" ? (
+        <Expand className="mt-3 sm:max-w-sm">
+          <TextField
+            id={fieldId}
+            label={t("contract.party.professionOther")}
+            value={party.profession}
+            onChange={(profession) => patch({ profession })}
+            form={form}
+          />
+        </Expand>
+      ) : (
+        <FieldError fieldId={fieldId} message={error} />
+      )}
+    </div>
+  );
+}
+
 function PartyFields({
   party,
   index,
@@ -61,36 +167,22 @@ function PartyFields({
       ...s,
       parties: s.parties.map((p, i) => (i === index ? { ...p, ...change } : p)),
     }));
-  const err = (prop: string) => form.error(`${base}-${prop}`);
-  const text = (prop: keyof PartyState & string, label: string, extra?: { className?: string; inputMode?: "email" | "tel" | "text"; autoComplete?: string; placeholder?: string; format?: (v: string, prev: string) => string }) => {
-    const fieldId = `${base}-${prop}`;
-    return (
-      <Field id={fieldId} label={label} error={err(prop)} className={extra?.className}>
-        <Input
-          id={fieldId}
-          value={party[prop] as string}
-          disabled={form.disabled}
-          inputMode={extra?.inputMode}
-          autoComplete={extra?.autoComplete ?? "off"}
-          placeholder={extra?.placeholder}
-          aria-invalid={err(prop) ? true : undefined}
-          aria-describedby={err(prop) ? errorId(fieldId) : undefined}
-          className={err(prop) ? "border-destructive focus-visible:ring-destructive" : undefined}
-          onChange={(event) => {
-            const raw = event.target.value;
-            patch({ [prop]: extra?.format ? extra.format(raw, party[prop] as string) : raw } as Partial<PartyState>);
-          }}
-          onBlur={() => form.touch(fieldId)}
-        />
-      </Field>
-    );
-  };
+  const text = (prop: "fullName" | "document" | "nationality" | "email" | "phone", label: string, options?: TextOptions) => (
+    <TextField
+      id={`${base}-${prop}`}
+      label={label}
+      value={party[prop]}
+      onChange={(value) => patch({ [prop]: value })}
+      form={form}
+      options={options}
+    />
+  );
 
   return (
     <div className="space-y-4 py-5 first:pt-0 last:pb-0">
       {total > 1 && (
         <div className="flex items-center justify-between">
-          <h3 className="text-[15px] font-semibold">Contratante {index + 1}</h3>
+          <h3 className="text-[15px] font-semibold">{t("contract.party.title", { n: index + 1 })}</h3>
           {index > 0 && (
             <Button
               type="button"
@@ -101,21 +193,22 @@ function PartyFields({
               onClick={() => update((s) => ({ ...s, parties: s.parties.filter((_, i) => i !== index) }))}
             >
               <Trash2 className="h-4 w-4" />
-              Remover
-              <span className="sr-only"> contratante {index + 1}</span>
+              {t("common.remove")}
+              <span className="sr-only"> {t("contract.party.removeWho", { n: index + 1 })}</span>
             </Button>
           )}
         </div>
       )}
       <div className="grid gap-4 sm:grid-cols-2">
-        {text("fullName", "Nome completo", { className: "sm:col-span-2", autoComplete: "name" })}
-        {text("document", "Documento")}
-        {text("nationality", "Nacionalidade")}
-        {text("email", "E-mail", { inputMode: "email", autoComplete: "email" })}
-        {text("phone", "Telefone", {
+        {text("fullName", t("contract.party.fullName"), { className: "sm:col-span-2", autoComplete: "name" })}
+        {text("document", t("contract.party.document"))}
+        {text("nationality", t("contract.party.nationality"))}
+        <ProfessionField party={party} base={base} patch={patch} form={form} />
+        {text("email", t("contract.party.email"), { inputMode: "email", autoComplete: "email" })}
+        {text("phone", t("contract.party.phone"), {
           inputMode: "tel",
           autoComplete: "tel",
-          placeholder: "+55 (11) 99999-9999",
+          placeholder: t("contract.party.phonePlaceholder"),
           format: formatPhone,
         })}
       </div>
@@ -129,8 +222,6 @@ function PeriodFields({
   monthsValue,
   onRelease,
   onMonths,
-  monthsPlaceholder,
-  releaseHint,
   form,
 }: {
   idBase: string;
@@ -138,9 +229,6 @@ function PeriodFields({
   monthsValue: string;
   onRelease: (iso: string) => void;
   onMonths: (value: string) => void;
-  monthsPlaceholder?: string;
-  /** Text under the release date (the decree date is optional). */
-  releaseHint?: string;
   form: FormControl;
 }) {
   const releaseId = `${idBase}-release`;
@@ -150,7 +238,7 @@ function PeriodFields({
   const durationError = form.error(durationId);
   return (
     <Expand className="mt-3 grid gap-4 sm:grid-cols-2">
-      <Field id={releaseId} label="Liberação" error={releaseError} hint={releaseHint}>
+      <Field id={releaseId} label={t("contract.included.release")} error={releaseError}>
         <DateField
           id={releaseId}
           value={releaseValue}
@@ -163,17 +251,16 @@ function PeriodFields({
       </Field>
       <Field
         id={durationId}
-        label="Duração (meses)"
+        label={t("contract.included.duration")}
         error={durationError}
-        hint={end ? `até ${isoToDisplay(end)}` : null}
+        hint={end ? t("contract.included.until", { date: isoToDisplay(end) }) : null}
       >
         <Input
           id={durationId}
           type="number"
           inputMode="numeric"
           min={1}
-          max={60}
-          placeholder={monthsPlaceholder}
+          max={MAX_MONTHS}
           value={monthsValue}
           disabled={form.disabled}
           aria-invalid={durationError ? true : undefined}
@@ -188,7 +275,7 @@ function PeriodFields({
 }
 
 export default function RevalidaFormFields({ state, update, catalog, form }: Props) {
-  const inclusionError = form.error("contract-decree-toggle");
+  const inclusionError = form.error(INCLUDED_FIELD_ID);
   const suggestion = suggestTermEnd(state);
   const termError = form.error("contract-term-end");
   const termStartError = form.error("contract-term-start");
@@ -199,7 +286,7 @@ export default function RevalidaFormFields({ state, update, catalog, form }: Pro
   return (
     <>
       <section aria-labelledby="contract-parties-title">
-        <SectionHeading number={1} title="Contratantes" id="contract-parties-title" />
+        <SectionHeading number={1} title={t("contract.sections.parties")} id="contract-parties-title" />
         <div className="divide-y divide-border/60">
           {state.parties.map((party, index) => (
             <PartyFields
@@ -218,75 +305,16 @@ export default function RevalidaFormFields({ state, update, catalog, form }: Pro
           size="sm"
           className="mt-4 gap-1.5"
           disabled={form.disabled}
-          onClick={() =>
-            update((s) => ({
-              ...s,
-              parties: [
-                ...s.parties,
-                {
-                  key: newPartyKey(),
-                  id: newPartyId(),
-                  fullName: "",
-                  document: "",
-                  nationality: "Brasileira",
-                  email: "",
-                  phone: "",
-                },
-              ],
-            }))
-          }
+          onClick={() => update((s) => ({ ...s, parties: [...s.parties, newPartyState()] }))}
         >
           <Plus className="h-4 w-4" />
-          Adicionar contratante
+          {t("contract.party.add")}
         </Button>
-
-        {state.parties.length > 1 && (
-          <div className="mt-6">
-            <Label className="mb-1.5 block text-sm font-medium">Quem responde pelo pagamento</Label>
-            <SegmentedChoice
-              label="Quem responde pelo pagamento"
-              value={state.liabilityRegime}
-              onChange={(liabilityRegime) => update((s) => ({ ...s, liabilityRegime }))}
-              disabled={form.disabled}
-              options={[
-                { value: "INDIVIDUAL", label: "Cada um responde pela sua parte" },
-                { value: "JOINT", label: "Todos respondem pelo total" },
-              ]}
-              className="flex-wrap"
-            />
-          </div>
-        )}
       </section>
 
       <section aria-labelledby="contract-included-title">
-        <SectionHeading number={2} title="O que está incluso" id="contract-included-title" />
+        <SectionHeading number={2} title={t("contract.sections.included")} id="contract-included-title" />
         <div className="border-t border-border/60">
-          <div className="border-b border-border/60 py-3.5">
-            <div className="flex min-h-[40px] items-center justify-between gap-4">
-              <label htmlFor="contract-decree-toggle" className="cursor-pointer text-[15px] font-semibold">
-                Decreto
-              </label>
-              <Switch
-                id="contract-decree-toggle"
-                checked={state.decreeOn}
-                disabled={form.disabled}
-                aria-describedby={inclusionError ? errorId("contract-decree-toggle") : undefined}
-                onCheckedChange={(checked) => update((s) => ({ ...s, decreeOn: checked }))}
-              />
-            </div>
-            {state.decreeOn && (
-              <PeriodFields
-                idBase="contract-decree"
-                releaseValue={state.decreeRelease}
-                monthsValue={state.decreeMonths}
-                onRelease={(iso) => update((s) => ({ ...s, decreeRelease: iso }))}
-                onMonths={(value) => update((s) => ({ ...s, decreeMonths: value }))}
-                releaseHint="Opcional. Sem data, o início fica a combinar."
-                form={form}
-              />
-            )}
-          </div>
-
           {PRODUCT_ORDER.map((code) => {
             const product = catalog.find((p) => p.code === code);
             const p = state.products[code];
@@ -299,6 +327,7 @@ export default function RevalidaFormFields({ state, update, catalog, form }: Pro
                     className="mt-1"
                     checked={p.selected}
                     disabled={form.disabled}
+                    aria-describedby={toggleId === INCLUDED_FIELD_ID && inclusionError ? errorId(INCLUDED_FIELD_ID) : undefined}
                     onCheckedChange={(checked) => patchProduct(code, { selected: checked === true })}
                   />
                   <div className="min-w-0 flex-1">
@@ -320,7 +349,6 @@ export default function RevalidaFormFields({ state, update, catalog, form }: Pro
                       monthsValue={p.durationMonths}
                       onRelease={(iso) => patchProduct(code, { releaseDate: iso })}
                       onMonths={(value) => patchProduct(code, { durationMonths: value })}
-                      monthsPlaceholder="Opcional"
                       form={form}
                     />
                   </div>
@@ -329,34 +357,44 @@ export default function RevalidaFormFields({ state, update, catalog, form }: Pro
             );
           })}
 
-          {EXTRAS.map((extra) => (
+          {EXTRA_KEYS.map((key) => (
             <div
-              key={extra.key}
+              key={key}
               className="flex min-h-[56px] items-center justify-between gap-4 border-b border-border/60 py-2"
             >
-              <span className="text-[15px] font-semibold">{extra.label}</span>
+              <span className="text-[15px] font-semibold">{extraLabel(key)}</span>
               <SegmentedChoice
-                label={extra.label}
-                value={state.extras[extra.key] ? "yes" : "no"}
-                onChange={(value) =>
-                  update((s) => ({ ...s, extras: { ...s.extras, [extra.key]: value === "yes" } }))
-                }
+                label={extraLabel(key)}
+                value={state.extras[key] ? "yes" : "no"}
+                onChange={(value) => update((s) => ({ ...s, extras: { ...s.extras, [key]: value === "yes" } }))}
                 disabled={form.disabled}
                 options={[
-                  { value: "yes", label: "Sim" },
-                  { value: "no", label: "Não" },
+                  { value: "yes", label: t("common.yes") },
+                  { value: "no", label: t("common.no") },
                 ]}
               />
             </div>
           ))}
+
+          <div className="flex min-h-[56px] items-center justify-between gap-4 border-b border-border/60 py-2">
+            <label htmlFor="contract-decree-toggle" className="cursor-pointer text-[15px] font-semibold">
+              {t("contract.included.decree")}
+            </label>
+            <Switch
+              id="contract-decree-toggle"
+              checked={state.decreeOn}
+              disabled={form.disabled}
+              onCheckedChange={(checked) => update((s) => ({ ...s, decreeOn: checked }))}
+            />
+          </div>
         </div>
-        <FieldError fieldId="contract-decree-toggle" message={inclusionError} />
+        <FieldError fieldId={INCLUDED_FIELD_ID} message={inclusionError} />
       </section>
 
       <section aria-labelledby="contract-term-title">
-        <SectionHeading number={3} title="Vigência do contrato" id="contract-term-title" />
+        <SectionHeading number={3} title={t("contract.sections.term")} id="contract-term-title" />
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field id="contract-term-start" label="Início" error={termStartError}>
+          <Field id="contract-term-start" label={t("contract.term.start")} error={termStartError}>
             <DateField
               id="contract-term-start"
               value={state.termStart}
@@ -367,7 +405,7 @@ export default function RevalidaFormFields({ state, update, catalog, form }: Pro
               disabled={form.disabled}
             />
           </Field>
-          <Field id="contract-term-end" label="Fim" error={termError}>
+          <Field id="contract-term-end" label={t("contract.term.end")} error={termError}>
             <DateField
               id="contract-term-end"
               value={state.termEnd}
@@ -382,19 +420,74 @@ export default function RevalidaFormFields({ state, update, catalog, form }: Pro
         </div>
         {suggestion && suggestion !== state.termEnd && (
           <p className="mt-2 text-[13px] text-muted-foreground">
-            Sugerido: {isoToDisplay(suggestion)} ·{" "}
+            {t("contract.term.suggested", { date: isoToDisplay(suggestion) })} ·{" "}
             <button
               type="button"
               className="font-medium text-primary underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               disabled={form.disabled}
               onClick={() => update((s) => ({ ...s, termEnd: suggestion }))}
             >
-              Usar
+              {t("contract.term.useSuggestion")}
             </button>
           </p>
         )}
       </section>
     </>
+  );
+}
+
+/** City of the signatures and the two witnesses. */
+export function RevalidaSignaturesSection({
+  number,
+  state,
+  update,
+  form,
+}: {
+  number: number;
+  state: RevalidaFormState;
+  update: Props["update"];
+  form: FormControl;
+}) {
+  const patchWitness = (index: number, change: Partial<WitnessState>) =>
+    update((s) => ({
+      ...s,
+      witnesses: s.witnesses.map((w, i) => (i === index ? { ...w, ...change } : w)) as RevalidaFormState["witnesses"],
+    }));
+  return (
+    <section aria-labelledby="contract-signatures-title">
+      <SectionHeading number={number} title={t("contract.sections.signatures")} id="contract-signatures-title" />
+      <div className="grid gap-4 sm:grid-cols-2">
+        <TextField
+          id="contract-reference-city"
+          label={t("contract.signatures.city")}
+          value={state.referenceCity}
+          onChange={(referenceCity) => update((s) => ({ ...s, referenceCity }))}
+          form={form}
+          options={{ autoComplete: "address-level2" }}
+        />
+      </div>
+      {state.witnesses.map((witness, index) => (
+        <fieldset key={index} className="mt-5">
+          <legend className="mb-3 text-[15px] font-semibold">{t("contract.signatures.witness", { n: index + 1 })}</legend>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <TextField
+              id={`contract-witness-${index}-fullName`}
+              label={t("contract.signatures.witnessName")}
+              value={witness.fullName}
+              onChange={(fullName) => patchWitness(index, { fullName })}
+              form={form}
+            />
+            <TextField
+              id={`contract-witness-${index}-document`}
+              label={t("contract.signatures.witnessDocument")}
+              value={witness.document}
+              onChange={(document) => patchWitness(index, { document })}
+              form={form}
+            />
+          </div>
+        </fieldset>
+      ))}
+    </section>
   );
 }
 
@@ -412,11 +505,11 @@ export function ObservationsSection({
   const [open, setOpen] = useState(value.trim() !== "");
   return (
     <section aria-labelledby="contract-notes-title">
-      <SectionHeading number={number} title="Observações internas (não vão no contrato)" id="contract-notes-title" />
+      <SectionHeading number={number} title={t("contract.sections.notes")} id="contract-notes-title" />
       {open ? (
         <Expand>
           <Label htmlFor="contract-notes" className="sr-only">
-            Observações internas (não vão no contrato)
+            {t("contract.sections.notes")}
           </Label>
           <Textarea
             id="contract-notes"
@@ -436,7 +529,7 @@ export function ObservationsSection({
           onClick={() => setOpen(true)}
         >
           <Plus className="h-4 w-4" />
-          Adicionar observação interna
+          {t("contract.notes.add")}
         </Button>
       )}
     </section>

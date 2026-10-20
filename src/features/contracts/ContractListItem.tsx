@@ -24,7 +24,7 @@ import {
 } from "@/services/contractsApi";
 import { cn } from "@/lib/utils";
 import { canCreateStudentAccess, canManageSignature } from "@/features/contracts/access";
-import { MODEL_NAMES } from "@/features/contracts/contractFormModel";
+import { modelName } from "@/features/contracts/contractFormModel";
 import {
   CONTRACT_STATUS,
   contractorsLabel,
@@ -195,7 +195,7 @@ export default function ContractListItem({ contract, saleId, highlight, onChange
         <status.Icon className={cn("mt-0.5 h-5 w-5 shrink-0", status.iconClass)} aria-hidden="true" />
         <div className="min-w-0">
           <p className="flex flex-wrap items-baseline gap-x-2">
-            <span className="text-[15px] font-semibold">{MODEL_NAMES[contract.productType] ?? "Contrato"}</span>
+            <span className="text-[15px] font-semibold">{modelName(contract.productType)}</span>
             <span className="text-[13px] text-muted-foreground">{status.label}</span>
           </p>
           <p className="text-sm text-muted-foreground">
