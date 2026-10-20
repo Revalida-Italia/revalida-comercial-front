@@ -34,31 +34,23 @@ function makePrefill(overrides: Record<string, unknown> = {}) {
   return {
     productType: "PROGRAMA_REVALIDA_ITALIA",
     parties: [
-      { id: "p1", clientId: "c1", fullName: "Billy Willy", document: "123.456.789-00", email: "", phone: "", nationality: "Brasileira", address: null },
+      { id: "p1", clientId: "c1", fullName: "Billy Willy", document: "123.456.789-00", profession: "Médico", email: "", phone: "", nationality: "Brasileira", address: null },
     ],
-    financialResponsibles: [],
-    liabilityRegime: "INDIVIDUAL",
-    modules: [],
     decreeIncluded: false,
-    decreeReleaseDate: null,
-    decreeDurationMonths: 6,
     products: [],
     expenses: { translationsIncluded: false, apostillesIncluded: false, postalExpensesIncluded: false },
+    currency: "BRL",
     totalAmount: 10000,
-    paymentDescription: "parcela 1: R$ 5.000,00",
     phases,
-    contractTerm: "Conforme descrito neste contrato",
     contractStartDate: "2026-10-15",
     contractEndDate: null,
     contractDurationMonths: null,
-    officialChannel: "a@b.com",
-    disputesChannel: "c@d.com",
-    signaturePlatform: "DocuSign",
+    referenceCity: "",
+    witnesses: [
+      { fullName: "", document: "" },
+      { fullName: "", document: "" },
+    ],
     contractVersion: "1.0",
-    graceDays: 5,
-    terminationDays: 30,
-    paymentMethod: "HOTMART",
-    witnesses: [],
     notes: null,
     ...overrides,
   };
@@ -100,11 +92,15 @@ function fillEverything() {
   type("contract-party-0-email", "billy@example.com");
   type("contract-party-0-phone", "11988880000");
   fireEvent.click(screen.getByRole("switch", { name: "Decreto" }));
-  type("contract-decree-release", "15/10/2027");
   fireEvent.click(screen.getByRole("checkbox", { name: "Curso Start" }));
   type("contract-product-START-release", "15/10/2026");
   type("contract-product-START-duration", "12");
   type("contract-term-end", "15/04/2028");
+  type("contract-reference-city", "São Paulo");
+  type("contract-witness-0-fullName", "Ana Rocha");
+  type("contract-witness-0-document", "111.222.333-96");
+  type("contract-witness-1-fullName", "Carlos Nunes");
+  type("contract-witness-1-document", "444.555.666-55");
 }
 
 beforeAll(() => {
@@ -130,11 +126,11 @@ beforeEach(() => {
 });
 
 describe("Gerar contrato page", () => {
-  it("shows the title, the client and the five sections", async () => {
+  it("shows the title, the client and the six sections", async () => {
     await ready();
     expect(screen.getByRole("heading", { name: "Gerar contrato", level: 1 })).toBeInTheDocument();
     expect(await screen.findByText("Billy Willy e mais 1")).toBeInTheDocument();
-    for (const title of ["Contratantes", "O que está incluso", "Vigência do contrato", "Pagamento", "Observações internas \\(não vão no contrato\\)"]) {
+    for (const title of ["Contratantes", "O que está incluso", "Vigência do contrato", "Pagamento", "Assinaturas", "Observações internas \\(não vão no contrato\\)"]) {
       expect(screen.getByRole("heading", { name: new RegExp(title) })).toBeInTheDocument();
     }
     expect(screen.getByRole("link", { name: /Venda/ })).toHaveAttribute("href", "/vendas/s1");
@@ -143,7 +139,7 @@ describe("Gerar contrato page", () => {
   it("shows each product with the description from the catalog, read only, and Não as the default for extras", async () => {
     await ready();
     expect(screen.getByText("Curso de entrada do programa, com o conteúdo da parte documental do processo de revalidação")).toBeInTheDocument();
-    for (const name of ["Tradução juramentada", "Apostilamento de Haia", "Envio postal"]) {
+    for (const name of ["Tradução juramentada", "Apostila de Haia", "Despesas postais"]) {
       const group = screen.getByRole("radiogroup", { name });
       expect(within(group).getByRole("radio", { name: "Não" })).toBeChecked();
     }
@@ -158,7 +154,7 @@ describe("Gerar contrato page", () => {
     const reason = screen.getByRole("button", { name: "Falta: e-mail de Billy Willy" });
     fireEvent.click(reason);
     expect(document.activeElement).toBe(byId("contract-party-0-email"));
-    expect(screen.getByRole("button", { name: "Escolha o que está incluso." })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Escolha pelo menos um produto ou serviço." })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Falta: fim da vigência" })).toBeInTheDocument();
     // not shown as an error before the user touches anything
     expect(byId("contract-party-0-email")).not.toHaveAttribute("aria-invalid");
@@ -197,25 +193,35 @@ describe("Gerar contrato page", () => {
     expect(generateButton()).toHaveAttribute("aria-disabled", "true");
   });
 
-  it("opens the decree with release and a duration of 6, and a product with an optional duration", async () => {
+  it("has the decree as a switch with no dates, and asks for release and duration of a product", async () => {
     await ready();
     fireEvent.click(screen.getByRole("switch", { name: "Decreto" }));
-    expect(byId("contract-decree-duration").value).toBe("6");
-    expect(byId("contract-decree-release")).toBeInTheDocument();
+    expect(document.getElementById("contract-decree-release")).toBeNull();
+    expect(document.getElementById("contract-decree-duration")).toBeNull();
     fireEvent.click(screen.getByRole("checkbox", { name: "Italiano Médico" }));
-    expect(byId("contract-product-ITALIANO_MEDICO-duration").placeholder).toBe("Opcional");
+    expect(byId("contract-product-ITALIANO_MEDICO-duration").placeholder).toBe("");
+    fireEvent.click(generateButton());
+    expect(screen.getByRole("button", { name: "Falta: duração de Italiano Médico" })).toBeInTheDocument();
     type("contract-product-ITALIANO_MEDICO-release", "15/10/2027");
     type("contract-product-ITALIANO_MEDICO-duration", "12");
     expect(screen.getByText("até 15/10/2028")).toBeInTheDocument();
   });
 
-  it("lets the decree go without a release date and says what happens", async () => {
+  it("offers the professions with Médico picked, and a field for another one", async () => {
+    vi.mocked(generateContract).mockResolvedValue({ id: "ct_new" } as never);
     await ready();
-    fireEvent.click(screen.getByRole("switch", { name: "Decreto" }));
-    expect(screen.getByText("Opcional. Sem data, o início fica a combinar.")).toBeInTheDocument();
-    const resumo = screen.getByRole("complementary", { name: "Resumo" });
-    expect(within(resumo).getByText("Decreto · 6 meses · início a combinar")).toBeInTheDocument();
-    expect(within(resumo).queryByText(/liberação do decreto/)).toBeNull();
+    const group = screen.getByRole("radiogroup", { name: "Profissão" });
+    expect(within(group).getByRole("radio", { name: "Médico" })).toBeChecked();
+    for (const name of ["Enfermeiro(a)", "Fisioterapeuta", "Odontólogo(a)", "Farmacêutico(a)", "Outra"]) {
+      expect(within(group).getByRole("radio", { name })).toBeInTheDocument();
+    }
+    fireEvent.click(within(group).getByRole("radio", { name: "Outra" }));
+    type("contract-party-0-profession", "Biomédico");
+    fillEverything();
+    fireEvent.click(generateButton());
+    await waitFor(() => expect(generateContract).toHaveBeenCalledTimes(1));
+    const payload = vi.mocked(generateContract).mock.calls[0][1] as { parties: Array<{ profession: string }> };
+    expect(payload.parties[0].profession).toBe("Biomédico");
   });
 
   it("shows the start of the term filled with the sale date, next to the end, and sends both", async () => {
@@ -256,50 +262,90 @@ describe("Gerar contrato page", () => {
     expect(within(resumo).getByText(/12\.000,00/)).toBeInTheDocument();
   });
 
-  it("shows the Escola contract in reais, with the five installments and the total, and no euro sign", async () => {
+  it("shows the Escola contract in the currency of the sale, with several students, course and city", async () => {
+    vi.mocked(generateContract).mockResolvedValue({ id: "ct_school" } as never);
     const schoolPhases = [1, 2, 3, 4, 5].map((n) => ({
       number: n,
       name: `Parcela ${n}`,
-      amount: 5000,
+      amount: 480,
       dueDateOrTrigger: `2026-${String(7 + n).padStart(2, "0")}-20`,
       linkedModuleCodes: [] as string[],
     }));
+    const student = {
+      id: "c1",
+      clientId: "c1",
+      fullName: "Billy Willy",
+      birthDate: "1990-05-10",
+      birthPlace: "São Paulo",
+      nationality: "brasiliana",
+      passport: null,
+      fullAddress: "Rua A, 1",
+      email: "billy@example.com",
+      phone: "+55 (11) 98888-0000",
+    };
     vi.mocked(prefillContract).mockImplementation((async (_saleId: string, productType: string) =>
       productType === "ESCOLA_DE_ITALIANO"
         ? {
             productType: "ESCOLA_DE_ITALIANO",
-            student: { fullName: "Billy Willy", birthDate: "", birthPlace: "", nationality: "Brasileira", passport: null, fullAddress: "", email: "", phone: "" },
-            course: { purpose: "LANGUAGE", durationMonths: 4, startDate: "", endDate: "", weeklyHours: 20, initialLevel: "A1", targetLevel: "A2" },
-            distanceContract: true,
-            totalAmount: 25000,
+            students: [student],
+            course: { durationMonths: 4, startDate: "" },
+            referenceCity: "",
+            currency: "EUR",
+            totalAmount: 2400,
             phases: schoolPhases,
-            officialChannel: "a@b.com",
-            cancellationChannel: "c@d.com",
-            signaturePlatform: "DocuSign",
             contractVersion: "1.0",
+            notes: null,
           }
         : makePrefill()) as never);
     await ready();
     fireEvent.keyDown(screen.getByRole("button", { name: /Trocar modelo/ }), { key: "Enter" });
     fireEvent.click(await screen.findByRole("menuitem", { name: "Escola de Italiano" }));
-    await screen.findByLabelText("Nome completo");
+    await screen.findByRole("heading", { name: /Estudantes/ });
     const section = document.getElementById("contract-section-payment") as HTMLElement;
-    await waitFor(() => expect(within(section).getAllByText(/^R\$\s*5\.000,00$/)).toHaveLength(5));
-    expect(section.textContent).toMatch(/Total\s*R\$\s*25\.000,00/);
-    expect(document.body.textContent).not.toMatch(/€|EUR/);
-    expect(document.body.textContent).toMatch(/R\$\s*25\.000,00/);
+    await waitFor(() => expect(within(section).getAllByText(/^€\s*480,00$/)).toHaveLength(5));
+    expect(section.textContent).toMatch(/Total\s*€\s*2\.400,00/);
+    expect(document.body.textContent).not.toMatch(/R\$/);
+    for (const gone of ["Finalidade do curso", "Horas semanais", "Nível inicial e objetivo"]) {
+      expect(screen.queryByText(gone)).toBeNull();
+    }
+
+    fireEvent.click(screen.getByRole("button", { name: "Adicionar estudante" }));
+    expect(screen.getByRole("heading", { name: "Estudante 2" })).toBeInTheDocument();
+    type("contract-school-1-fullName", "Ana Lima");
+    type("contract-school-1-birthDate", "02/03/1992");
+    type("contract-school-1-birthPlace", "Curitiba");
+    type("contract-school-1-nationality", "brasiliana");
+    type("contract-school-1-fullAddress", "Rua B, 2");
+    type("contract-school-1-email", "ana@example.com");
+    type("contract-school-1-phone", "41977770000");
+    type("contract-school-startDate", "11/01/2027");
+    type("contract-reference-city", "Pordenone");
+    const resumo = screen.getByRole("complementary", { name: "Resumo" });
+    expect(within(resumo).getByText("2 estudantes")).toBeInTheDocument();
+    expect(within(resumo).getByText("4 meses a partir de 11/01/2027")).toBeInTheDocument();
+    fireEvent.click(generateButton());
+    await waitFor(() => expect(generateContract).toHaveBeenCalledTimes(1));
+    const [, payload, productType] = vi.mocked(generateContract).mock.calls[0] as [string, Record<string, unknown>, string];
+    expect(productType).toBe("ESCOLA_DE_ITALIANO");
+    expect(payload).toMatchObject({
+      course: { durationMonths: 4, startDate: "2027-01-11" },
+      referenceCity: "Pordenone",
+    });
+    expect((payload.students as Array<{ fullName: string }>).map((s) => s.fullName)).toEqual(["Billy Willy", "Ana Lima"]);
+    for (const key of ["currency", "totalAmount", "phases"]) expect(payload).not.toHaveProperty(key);
   });
 
   it("suggests the end of the term, applies it on request and never overwrites what was typed", async () => {
     await ready();
-    fireEvent.click(screen.getByRole("switch", { name: "Decreto" }));
-    type("contract-decree-release", "15/10/2027");
+    fireEvent.click(screen.getByRole("checkbox", { name: "Italiano Médico" }));
+    type("contract-product-ITALIANO_MEDICO-release", "15/10/2027");
+    type("contract-product-ITALIANO_MEDICO-duration", "6");
     expect(screen.getByText(/Sugerido: 15\/04\/2028/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Usar" }));
     expect(byId("contract-term-end").value).toBe("15/04/2028");
     type("contract-term-end", "15/10/2028");
     expect(byId("contract-term-end").value).toBe("15/10/2028");
-    type("contract-decree-duration", "9");
+    type("contract-product-ITALIANO_MEDICO-duration", "9");
     expect(byId("contract-term-end").value).toBe("15/10/2028");
     expect(screen.getByText(/Sugerido: 15\/07/)).toBeInTheDocument();
   });
@@ -308,7 +354,7 @@ describe("Gerar contrato page", () => {
     await ready();
     fillEverything();
     const resumo = screen.getByRole("complementary", { name: "Resumo" });
-    expect(within(resumo).getByText("Decreto · 6 meses")).toBeInTheDocument();
+    expect(within(resumo).getByText("Decreto")).toBeInTheDocument();
     expect(within(resumo).getByText("Curso Start · 15/10/2026")).toBeInTheDocument();
     expect(within(resumo).getByText("Tradução juramentada")).toBeInTheDocument();
     expect(within(resumo).getByText("Vigência de 15/10/2026 até 15/04/2028")).toBeInTheDocument();
@@ -327,15 +373,18 @@ describe("Gerar contrato page", () => {
     expect(productType).toBe("PROGRAMA_REVALIDA_ITALIA");
     expect(payload).toMatchObject({
       decreeIncluded: true,
-      decreeReleaseDate: "2027-10-15",
-      decreeDurationMonths: 6,
+      referenceCity: "São Paulo",
+      witnesses: [
+        { fullName: "Ana Rocha", document: "111.222.333-96" },
+        { fullName: "Carlos Nunes", document: "444.555.666-55" },
+      ],
       products: [{ code: "START", included: true, releaseDate: "2026-10-15", durationMonths: 12, endDate: null }],
       contractStartDate: "2026-10-15",
       contractEndDate: "2028-04-15",
       expenses: { translationsIncluded: false, apostillesIncluded: false, postalExpensesIncluded: false },
     });
     // The payment is read only: the API takes it from the sale.
-    for (const key of ["totalAmount", "paymentDescription", "phases", "paymentMethod"]) {
+    for (const key of ["currency", "totalAmount", "phases", "liabilityRegime", "decreeReleaseDate", "decreeDurationMonths"]) {
       expect(payload).not.toHaveProperty(key);
     }
     expect(JSON.stringify(payload)).not.toMatch(/HOTMART/i);
@@ -343,6 +392,7 @@ describe("Gerar contrato page", () => {
       email: "billy@example.com",
       phone: "+55 (11) 98888-0000",
       clientId: "c1",
+      profession: "Médico",
     });
     const probe = await screen.findByTestId("sale-page");
     expect(probe).toHaveTextContent("ct_new");
@@ -351,22 +401,20 @@ describe("Gerar contrato page", () => {
 
   it("shows a server error next to its field, in Portuguese, and keeps the data", async () => {
     vi.mocked(generateContract).mockRejectedValue(
-      Object.assign(new Error("START: a liberação deve ser antes do fim da vigência do contrato"), {
-        errors: [
-          { code: "V_PERIOD", field: "products.0.releaseDate", message: "START: a liberação deve ser antes do fim da vigência do contrato" },
-        ],
+      Object.assign(new Error("Release date of START is required"), {
+        errors: [{ code: "V_PERIOD", field: "products.0.releaseDate", message: "Release date of START is required" }],
       }),
     );
     await ready();
     fillEverything();
     fireEvent.click(generateButton());
-    expect(await screen.findByText("Escolha uma data de liberação antes do fim da vigência.")).toBeInTheDocument();
+    expect(await screen.findByText("Escolha a data de liberação.")).toBeInTheDocument();
     expect(byId("contract-product-START-release").value).toBe("15/10/2026");
     expect(byId("contract-product-START-release")).toHaveAttribute("aria-invalid", "true");
     expect(toast.error).not.toHaveBeenCalled();
     // editing clears the server message
     type("contract-product-START-release", "16/10/2026");
-    expect(screen.queryByText("Escolha uma data de liberação antes do fim da vigência.")).toBeNull();
+    expect(screen.queryByText("Escolha a data de liberação.")).toBeNull();
   });
 
   it("never shows raw English when the server fails in an unknown way", async () => {
@@ -391,16 +439,15 @@ describe("Gerar contrato page", () => {
     await screen.findByTestId("sale-page");
   });
 
-  it("shows the second contractor with Remover and the responsibility choice", async () => {
+  it("adds a second contractor with its own profession and Remover, and no responsibility choice", async () => {
     await ready();
-    expect(screen.queryByRole("radiogroup", { name: "Quem responde pelo pagamento" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Adicionar contratante" }));
-    expect(screen.getByRole("radiogroup", { name: "Quem responde pelo pagamento" })).toBeInTheDocument();
-    expect(screen.getByRole("radio", { name: "Cada um responde pela sua parte" })).toBeChecked();
-    expect(screen.getByRole("radio", { name: "Todos respondem pelo total" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Contratante 2" })).toBeInTheDocument();
+    expect(screen.getAllByRole("radiogroup", { name: "Profissão" })).toHaveLength(2);
+    expect(screen.queryByText(/responde pelo pagamento/i)).toBeNull();
     expect(screen.getAllByRole("button", { name: /Remover/ })).toHaveLength(1);
     fireEvent.click(screen.getByRole("button", { name: /Remover/ }));
-    expect(screen.queryByRole("radiogroup", { name: "Quem responde pelo pagamento" })).toBeNull();
+    expect(screen.getAllByRole("radiogroup", { name: "Profissão" })).toHaveLength(1);
   });
 
   it("uses no jargon, no template id and no emoji", async () => {

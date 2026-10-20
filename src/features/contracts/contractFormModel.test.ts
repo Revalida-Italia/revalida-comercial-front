@@ -1,14 +1,18 @@
 import { describe, expect, it } from "vitest";
-import type { RevalidaContractPayload, RevalidaProduct } from "@/services/contractsApi";
+import type { RevalidaContractPayload, RevalidaProduct, SchoolContractPayload } from "@/services/contractsApi";
 import {
   buildRevalidaPayload,
   buildRevalidaSummary,
   buildSchoolPayload,
+  buildSchoolSummaryRows,
   createInitialRevalidaState,
   formatPhone,
+  newPartyState,
   paymentTotal,
+  professionChoice,
   suggestTermEnd,
   validateRevalidaForm,
+  validateSchoolForm,
   type RevalidaFormState,
 } from "./contractFormModel";
 
@@ -32,27 +36,26 @@ function prefill(overrides: Partial<RevalidaContractPayload> = {}): RevalidaCont
         id: "p1",
         fullName: "Billy Willy",
         document: "123.456.789-00",
+        profession: "Médico",
         email: "billy@example.com",
         phone: "+55 (11) 98888-0000",
         nationality: "Brasileira",
       },
     ],
-    liabilityRegime: "INDIVIDUAL",
     decreeIncluded: false,
-    decreeReleaseDate: null,
-    decreeDurationMonths: 6,
     products: [],
     expenses: { translationsIncluded: false, apostillesIncluded: false, postalExpensesIncluded: false },
+    currency: "BRL",
     totalAmount: 25000,
-    paymentDescription: "parcela 1",
     phases,
-    contractTerm: "Conforme descrito neste contrato",
     contractStartDate: "2026-10-15",
     contractEndDate: null,
     contractDurationMonths: null,
-    officialChannel: "x",
-    disputesChannel: "y",
-    signaturePlatform: "DocuSign",
+    referenceCity: "",
+    witnesses: [
+      { fullName: "", document: "" },
+      { fullName: "", document: "" },
+    ],
     contractVersion: "1.0",
     notes: null,
     ...overrides,
@@ -65,24 +68,37 @@ const pay = { phases };
 function brenoState(): RevalidaFormState {
   const s = createInitialRevalidaState(prefill());
   s.decreeOn = true;
-  s.decreeRelease = "2027-10-15";
   s.products.START = { selected: true, releaseDate: "2026-10-15", durationMonths: "12" };
   s.products.ITALIANO_QUATTROMANI = { selected: true, releaseDate: "2026-10-15", durationMonths: "24" };
   s.products.PREPARACAO_PROVAS = { selected: true, releaseDate: "2027-10-15", durationMonths: "12" };
-  s.products.ITALIANO_MEDICO = { selected: true, releaseDate: "2027-10-15", durationMonths: "" };
+  s.products.ITALIANO_MEDICO = { selected: true, releaseDate: "2027-10-15", durationMonths: "12" };
   s.termEnd = "2028-10-15";
+  s.referenceCity = "São Paulo";
+  s.witnesses = [
+    { fullName: "Ana Rocha", document: "111.222.333-96" },
+    { fullName: "Carlos Nunes", document: "444.555.666-55" },
+  ];
   return s;
 }
 
 describe("initial state", () => {
-  it("starts with nothing ticked, extras on Não, decree duration 6, the sale date as start and no end date", () => {
+  it("starts with nothing ticked, extras on Não, the sale date as start, no end date and Médico as profession", () => {
     const s = createInitialRevalidaState(prefill());
     expect(s.decreeOn).toBe(false);
-    expect(s.decreeMonths).toBe("6");
     expect(Object.values(s.products).every((p) => !p.selected)).toBe(true);
     expect(Object.values(s.extras).every((v) => v === false)).toBe(true);
     expect(s.termStart).toBe("2026-10-15");
     expect(s.termEnd).toBe("");
+    expect(s.parties[0].profession).toBe("Médico");
+    expect(s.parties[0].professionIsOther).toBe(false);
+    expect(s.witnesses).toHaveLength(2);
+  });
+
+  it("keeps a typed profession as Outra", () => {
+    const s = createInitialRevalidaState(prefill({ parties: [{ ...prefill().parties[0], profession: "Biomédico" }] }));
+    expect(s.parties[0].professionIsOther).toBe(true);
+    expect(professionChoice("Enfermeiro(a)")).toBe("nurse");
+    expect(professionChoice("Biomédico")).toBe("other");
   });
 });
 
@@ -91,33 +107,42 @@ describe("validateRevalidaForm", () => {
     expect(validateRevalidaForm(brenoState(), catalog, pay)).toEqual([]);
   });
 
-  it("asks for what is included, the end of the term and the payment", () => {
+  it("asks for what is included, the end of the term, the payment, the city and the witnesses", () => {
     const s = createInitialRevalidaState(prefill());
     const issues = validateRevalidaForm(s, catalog, { phases: [] });
-    expect(issues.map((i) => i.message)).toEqual([
-      "Escolha o que está incluso.",
-      "Escolha a data de fim da vigência.",
+    expect(issues.map((i) => i.summary)).toEqual([
+      "Escolha pelo menos um produto ou serviço.",
+      "Falta: fim da vigência",
       "Cadastre o pagamento da venda para gerar o contrato.",
+      "Falta: cidade da assinatura",
+      "Falta: nome da testemunha 1",
+      "Falta: CPF da testemunha 1",
+      "Falta: nome da testemunha 2",
+      "Falta: CPF da testemunha 2",
     ]);
   });
 
-  it("lists what is missing per contractor, in Portuguese, naming the person", () => {
-    const s = createInitialRevalidaState(prefill({ parties: [{ id: "p1", fullName: "Billy Willy", document: "1", email: "", phone: "" }] }));
-    s.decreeOn = true;
-    const summaries = validateRevalidaForm(s, catalog, pay).map((i) => i.summary);
-    expect(summaries).toContain("Falta: e-mail de Billy Willy");
-    expect(summaries).toContain("Falta: telefone de Billy Willy");
-    expect(summaries).not.toContain("Falta: liberação do decreto");
+  it("does not count the decree alone as included, but an extra is enough", () => {
+    const s = brenoState();
+    for (const code of Object.keys(s.products) as Array<keyof typeof s.products>) s.products[code].selected = false;
+    expect(validateRevalidaForm(s, catalog, pay).map((i) => i.fieldId)).toEqual(["contract-product-START-toggle"]);
+    s.extras.postalExpensesIncluded = true;
+    expect(validateRevalidaForm(s, catalog, pay)).toEqual([]);
   });
 
-  it("accepts the decree without a release date: the contract leaves the start 'a combinar'", () => {
+  it("lists what is missing per contractor, naming the person", () => {
     const s = brenoState();
-    s.decreeRelease = "";
-    expect(validateRevalidaForm(s, catalog, pay)).toEqual([]);
-    const { payload } = buildRevalidaPayload(prefill(), s);
-    expect(payload.decreeIncluded).toBe(true);
-    expect(payload.decreeReleaseDate).toBeNull();
-    expect(buildRevalidaSummary(s, catalog).included[0]).toBe("Decreto · 6 meses · início a combinar");
+    s.parties[0].email = "";
+    s.parties[0].phone = "";
+    const summaries = validateRevalidaForm(s, catalog, pay).map((i) => i.summary);
+    expect(summaries).toEqual(["Falta: e-mail de Billy Willy", "Falta: telefone de Billy Willy"]);
+  });
+
+  it("asks for the profession when Outra has no text", () => {
+    const s = brenoState();
+    s.parties[0].professionIsOther = true;
+    s.parties[0].profession = " ";
+    expect(validateRevalidaForm(s, catalog, pay).map((i) => i.fieldId)).toEqual(["contract-party-0-profession"]);
   });
 
   it("checks the start of the term against the end", () => {
@@ -126,23 +151,20 @@ describe("validateRevalidaForm", () => {
     expect(validateRevalidaForm(s, catalog, pay).map((i) => i.message)).toEqual([
       "Escolha uma data depois de 15/10/2028.",
     ]);
-    s.termStart = "";
-    expect(validateRevalidaForm(s, catalog, pay)).toEqual([]);
   });
 
-  it("requires a release date for each ticked product and accepts an empty duration", () => {
-    const s = createInitialRevalidaState(prefill());
+  it("requires a release date and a duration for each ticked product", () => {
+    const s = brenoState();
     s.products.START = { selected: true, releaseDate: "", durationMonths: "" };
-    s.termEnd = "2028-10-15";
     const issues = validateRevalidaForm(s, catalog, pay);
-    expect(issues.map((i) => i.fieldId)).toEqual(["contract-product-START-release"]);
-    expect(issues[0].message).toBe("Escolha a data de liberação.");
+    expect(issues.map((i) => i.fieldId)).toEqual(["contract-product-START-release", "contract-product-START-duration"]);
+    expect(issues.map((i) => i.summary)).toEqual(["Falta: liberação de Curso Start", "Falta: duração de Curso Start"]);
   });
 
   it("rejects an invalid duration", () => {
     const s = brenoState();
     s.products.START.durationMonths = "0";
-    s.decreeMonths = "61";
+    s.products.ITALIANO_MEDICO.durationMonths = "61";
     const messages = validateRevalidaForm(s, catalog, pay).map((i) => i.message);
     expect(messages.filter((m) => m === "Digite de 1 a 60 meses.")).toHaveLength(2);
   });
@@ -155,7 +177,6 @@ describe("validateRevalidaForm", () => {
     ]);
     s.products.ITALIANO_MEDICO.releaseDate = "2026-10-15";
     s.products.PREPARACAO_PROVAS.releaseDate = "2026-10-15";
-    s.decreeRelease = "2026-10-15";
     s.termEnd = "2027-10-15";
     const issues = validateRevalidaForm(s, catalog, pay);
     expect(issues).toHaveLength(1);
@@ -180,7 +201,7 @@ describe("validateRevalidaForm", () => {
 });
 
 describe("suggestTermEnd", () => {
-  it("is the latest end among decree and products that have a duration", () => {
+  it("is the latest end among the products", () => {
     expect(suggestTermEnd(brenoState())).toBe("2028-10-15");
   });
 
@@ -192,47 +213,43 @@ describe("suggestTermEnd", () => {
 });
 
 describe("buildRevalidaPayload", () => {
-  it("sends only ticked products, the term and no payment fields (the API takes them from the sale)", () => {
-    const { payload, sentProductCodes } = buildRevalidaPayload(prefill(), brenoState());
+  it("sends the ticked products, profession, city, witnesses and no payment fields (the API takes them from the sale)", () => {
+    const s = brenoState();
+    s.parties.push({ ...newPartyState(), id: "p2", fullName: "Ana", document: "2", email: "a@a.com", phone: "+55 (11) 91111-2222", profession: "Fisioterapeuta" });
+    const { payload, sentProductCodes } = buildRevalidaPayload(prefill(), s);
     expect(sentProductCodes).toEqual(["START", "PREPARACAO_PROVAS", "ITALIANO_MEDICO", "ITALIANO_QUATTROMANI"]);
     expect(payload.products?.[2]).toEqual({
       code: "ITALIANO_MEDICO",
       included: true,
       releaseDate: "2027-10-15",
-      durationMonths: null,
+      durationMonths: 12,
       endDate: null,
     });
+    expect(payload.parties.map((p) => p.profession)).toEqual(["Médico", "Fisioterapeuta"]);
     expect(payload.decreeIncluded).toBe(true);
-    expect(payload.decreeReleaseDate).toBe("2027-10-15");
-    expect(payload.decreeDurationMonths).toBe(6);
     expect(payload.contractEndDate).toBe("2028-10-15");
     expect(payload.contractStartDate).toBe("2026-10-15");
-    expect(payload).not.toHaveProperty("totalAmount");
-    expect(payload).not.toHaveProperty("paymentDescription");
-    expect(payload).not.toHaveProperty("phases");
-    expect(JSON.stringify(payload)).not.toMatch(/HOTMART/i);
-    expect(payload.liabilityRegime).toBe("INDIVIDUAL");
+    expect(payload.referenceCity).toBe("São Paulo");
+    expect(payload.witnesses).toEqual([
+      { fullName: "Ana Rocha", document: "111.222.333-96" },
+      { fullName: "Carlos Nunes", document: "444.555.666-55" },
+    ]);
+    for (const key of ["currency", "totalAmount", "phases", "liabilityRegime", "decreeReleaseDate", "decreeDurationMonths"]) {
+      expect(payload).not.toHaveProperty(key);
+    }
   });
 
   it("leaves unticked items out and keeps the decree off", () => {
-    const s = createInitialRevalidaState(prefill());
-    s.products.START = { selected: true, releaseDate: "2026-10-15", durationMonths: "" };
+    const s = brenoState();
+    s.decreeOn = false;
+    s.products.PREPARACAO_PROVAS.selected = false;
     s.extras.translationsIncluded = true;
     s.notes = "  ";
     const { payload } = buildRevalidaPayload(prefill(), s);
-    expect(payload.products).toHaveLength(1);
+    expect(payload.products).toHaveLength(3);
     expect(payload.decreeIncluded).toBe(false);
-    expect(payload.decreeReleaseDate).toBeNull();
     expect(payload.expenses).toEqual({ translationsIncluded: true, apostillesIncluded: false, postalExpensesIncluded: false });
     expect(payload.notes).toBeNull();
-  });
-
-  it("forces individual liability with a single contractor and keeps the choice with two", () => {
-    const s = brenoState();
-    s.liabilityRegime = "JOINT";
-    expect(buildRevalidaPayload(prefill(), s).payload.liabilityRegime).toBe("INDIVIDUAL");
-    s.parties.push({ key: "x", id: "p2", fullName: "Ana", document: "2", nationality: "", email: "a@a.com", phone: "+55 (11) 91111-2222" });
-    expect(buildRevalidaPayload(prefill(), s).payload.liabilityRegime).toBe("JOINT");
   });
 });
 
@@ -243,37 +260,76 @@ describe("buildRevalidaSummary", () => {
     const summary = buildRevalidaSummary(s, catalog);
     expect(summary.contractors).toBe("1 contratante");
     expect(summary.included).toEqual([
-      "Decreto · 6 meses",
+      "Decreto",
       "Curso Start · 15/10/2026",
       "Preparação para as provas de revalidação · 15/10/2027",
       "Italiano Médico · 15/10/2027",
       "Italiano Quattromani · 15/10/2026",
-      "Apostilamento de Haia",
+      "Apostila de Haia",
     ]);
-    expect(summary.notIncluded).toEqual(["Tradução juramentada", "Envio postal"]);
+    expect(summary.notIncluded).toEqual(["Tradução juramentada", "Despesas postais"]);
     expect(summary.term).toBe("15/10/2028");
     expect(summary.termStart).toBe("15/10/2026");
   });
 });
 
-describe("buildSchoolPayload", () => {
-  it("leaves the payment fields out", () => {
-    const payload = buildSchoolPayload({
-      productType: "ESCOLA_DE_ITALIANO",
-      student: { fullName: "G", birthDate: "", birthPlace: "", nationality: "", fullAddress: "", email: "", phone: "" },
-      course: { purpose: "LANGUAGE", durationMonths: 4, startDate: "", endDate: "", weeklyHours: 20, initialLevel: "A1", targetLevel: "A2" },
-      distanceContract: true,
-      totalAmount: 5,
-      paymentDescription: "via HOTMART",
-      phases,
-      officialChannel: "x",
-      cancellationChannel: "y",
-      signaturePlatform: "z",
-      contractVersion: "1.0",
-    });
-    expect(Object.keys(payload)).not.toEqual(expect.arrayContaining(["totalAmount"]));
-    expect(payload).not.toHaveProperty("paymentDescription");
-    expect(payload).not.toHaveProperty("phases");
+describe("Escola", () => {
+  const student = {
+    id: "s1",
+    fullName: "Giulia Rossi",
+    birthDate: "1994-03-12",
+    birthPlace: "São Paulo",
+    nationality: "brasiliana",
+    passport: "",
+    fullAddress: "Rua das Flores 100",
+    email: "giulia@example.com",
+    phone: "+55 (11) 98888-0000",
+  };
+  const school = (overrides: Partial<SchoolContractPayload> = {}): SchoolContractPayload => ({
+    productType: "ESCOLA_DE_ITALIANO",
+    students: [student],
+    course: { durationMonths: 4, startDate: "2027-01-11" },
+    referenceCity: "Pordenone",
+    currency: "EUR",
+    totalAmount: 2400,
+    phases,
+    contractVersion: "1.0",
+    notes: null,
+    ...overrides,
+  });
+
+  it("accepts a complete form and asks for each student, the course and the city", () => {
+    expect(validateSchoolForm(school(), pay)).toEqual([]);
+    const issues = validateSchoolForm(
+      school({
+        students: [student, { ...student, id: "s2", fullName: "", email: "x" }],
+        course: { durationMonths: 0, startDate: "" },
+        referenceCity: "",
+      }),
+      pay,
+    );
+    expect(issues.map((i) => i.summary)).toEqual([
+      "Falta: nome do estudante 2",
+      "Falta: e-mail válido de estudante 2",
+      "Confira: duração do curso",
+      "Falta: início do curso",
+      "Falta: cidade da assinatura",
+    ]);
+  });
+
+  it("leaves the payment fields out and sends every student", () => {
+    const payload = buildSchoolPayload(school({ students: [student, { ...student, id: "s2", fullName: " Lucas " }] }));
+    for (const key of ["currency", "totalAmount", "phases"]) expect(payload).not.toHaveProperty(key);
+    expect(payload.students.map((s) => s.fullName)).toEqual(["Giulia Rossi", "Lucas"]);
+    expect(payload.students[0].passport).toBeNull();
+    expect(payload.course).toEqual({ durationMonths: 4, startDate: "2027-01-11" });
+  });
+
+  it("summarizes students and course", () => {
+    expect(buildSchoolSummaryRows(school({ students: [student, { ...student, fullName: "Lucas" }] }))).toEqual([
+      { label: "Estudante", value: "Giulia Rossi e mais 1" },
+      { label: "Curso", value: "4 meses a partir de 11/01/2027" },
+    ]);
   });
 });
 
