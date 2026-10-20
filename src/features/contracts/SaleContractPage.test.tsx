@@ -335,6 +335,40 @@ describe("Gerar contrato page", () => {
     for (const key of ["currency", "totalAmount", "phases"]) expect(payload).not.toHaveProperty(key);
   });
 
+  it("shows a EUR sale in € with the amounts entered on the sale, with no conversion", async () => {
+    vi.mocked(prefillContract).mockResolvedValue(
+      makePrefill({
+        currency: "EUR",
+        totalAmount: 2400,
+        phases: [
+          { number: 1, name: "Entrada", amount: 600, dueDateOrTrigger: "2026-11-10", linkedModuleCodes: [] },
+          ...[1, 2, 3].map((i) => ({
+            number: i + 1,
+            name: `Parcela ${i}`,
+            amount: 600,
+            dueDateOrTrigger: `2027-0${i}-10`,
+            linkedModuleCodes: [],
+          })),
+        ],
+      }) as never,
+    );
+    await ready();
+    const section = document.getElementById("contract-section-payment") as HTMLElement;
+    expect(within(section).getAllByText(/^€\s*600,00$/)).toHaveLength(4);
+    expect(section.textContent).toMatch(/Total\s*€\s*2\.400,00/);
+    const resumo = screen.getByRole("complementary", { name: "Resumo" });
+    expect(resumo.textContent).toMatch(/€\s*2\.400,00/);
+    expect(document.body.textContent).not.toMatch(/R\$/);
+  });
+
+  it("shows a BRL sale in R$", async () => {
+    await ready();
+    const section = document.getElementById("contract-section-payment") as HTMLElement;
+    expect(within(section).getAllByText(/^R\$\s*5\.000,00$/)).toHaveLength(2);
+    expect(section.textContent).toMatch(/Total\s*R\$\s*10\.000,00/);
+    expect(document.body.textContent).not.toMatch(/€/);
+  });
+
   it("suggests the end of the term, applies it on request and never overwrites what was typed", async () => {
     await ready();
     fireEvent.click(screen.getByRole("checkbox", { name: "Italiano Médico" }));
