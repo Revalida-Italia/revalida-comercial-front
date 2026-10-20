@@ -390,7 +390,54 @@ describe("formatPhone", () => {
     expect(formatPhone("393331234567")).toBe("393331234567");
     expect(formatPhone("0039 333 123 4567")).toBe("00393331234567");
     expect(formatPhone("+55 119111122223")).toBe("55119111122223");
-    expect(formatPhone("+55 (11) 91111-22223", "+55 (11) 91111-2222")).toBe("55119111122223");
+    // A 12th digit typed over the mask: the mask's 55 is not a typed digit.
+    expect(formatPhone("+55 (11) 91111-22223", "+55 (11) 91111-2222")).toBe("119111122223");
+  });
+
+  describe("typed key by key", () => {
+    /** Types `keys` one at a time into the field, as the input does: each key goes after the shown value. */
+    const typeKeys = (keys: string, start = "") => {
+      let value = start;
+      const shown: string[] = [];
+      for (const key of keys) {
+        value = formatPhone(value + key, value);
+        shown.push(value);
+      }
+      return { value, shown };
+    };
+
+    it("keeps the spacing of +39 333 123 4567 as typed", () => {
+      const { value, shown } = typeKeys("+39 333 123 4567");
+      expect(value).toBe("+39 333 123 4567");
+      expect(shown.slice(0, 5)).toEqual(["+", "+3", "+39", "+39 ", "+39 3"]);
+    });
+
+    it("keeps other country codes and their spacing as typed", () => {
+      expect(typeKeys("+39 0434 123456").value).toBe("+39 0434 123456");
+      expect(typeKeys("+1 (415) 555-0100").value).toBe("+1 (415) 555-0100");
+      expect(typeKeys("+393331234567").value).toBe("+393331234567");
+    });
+
+    it("never counts the mask's 55 when the number goes past 11 digits", () => {
+      const { value, shown } = typeKeys("123456789012345");
+      expect(value).toBe("123456789012345");
+      expect(shown[10]).toBe("+55 (12) 34567-8901");
+      expect(shown[11]).toBe("123456789012");
+      // Past 11 digits each step is exactly the digits typed so far.
+      shown.slice(11).forEach((step, i) => expect(step).toBe("123456789012345".slice(0, 12 + i)));
+    });
+
+    it("goes back to the mask when digits are deleted down to 11", () => {
+      expect(formatPhone("12345678901", "123456789012")).toBe("+55 (12) 34567-8901");
+    });
+
+    it("still reads a typed 55 or +55 as the country code", () => {
+      expect(typeKeys("5511911112222").value).toBe("+55 (11) 91111-2222");
+      expect(typeKeys("+5511911112222").value).toBe("+55 (11) 91111-2222");
+      expect(typeKeys("+55 11 91111-2222").value).toBe("+55 (11) 91111-2222");
+      expect(typeKeys("1133334444").value).toBe("+55 (11) 3333-4444");
+      expect(typeKeys("55912345678").value).toBe("+55 (55) 91234-5678");
+    });
   });
 
   it("formats the phone of a contracting party that comes from the sale", () => {

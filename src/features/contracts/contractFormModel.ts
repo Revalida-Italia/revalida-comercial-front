@@ -212,19 +212,23 @@ export function formatPhone(raw: string, previous = ""): string {
   const trimmed = raw.trim();
   if (!trimmed) return "";
   const international = trimmed.startsWith("+");
-  if (international && !/^\+5(5|$)/.test(trimmed)) return trimmed.replace(/[^\d+\s()-]/g, "");
+  // Another country code: keep the user's own spacing, also the space just typed at the end.
+  if (international && !/^\+5(5|$)/.test(trimmed)) return raw.replace(/^\s+/, "").replace(/[^\d+\s()-]/g, "");
 
   let digits = trimmed.replace(/\D/g, "");
   // Deleting a punctuation mark leaves the digits unchanged: drop the last digit instead.
   const previousDigits = previous.replace(/\D/g, "");
   if (raw.length < previous.length && digits === previousDigits) digits = digits.slice(0, -1);
-  const allDigits = digits;
+  // The "+55 (" of a value this function masked is not typed: its 55 is never counted as digits.
+  const maskedBefore = previous.trim().startsWith(`+${BRAZIL_CODE} (`) && trimmed.startsWith(`+${BRAZIL_CODE} (`);
 
   if (international) {
     if (digits === "5") return "+5";
     digits = digits.slice(BRAZIL_CODE.length);
     if (!digits) return previous.length > raw.length ? "" : "+55";
   }
+  // Digits the user typed, for the fallback: without the mask's country code.
+  const allDigits = international && !maskedBefore ? `${BRAZIL_CODE}${digits}` : digits;
   // A leading 55 is the country code when the rest is a whole national number (10 or 11 digits).
   // This also fixes a value that was masked with 55 as the area code before the last digits came.
   if (digits.length > MAX_NATIONAL_DIGITS && digits.startsWith(BRAZIL_CODE)) {
