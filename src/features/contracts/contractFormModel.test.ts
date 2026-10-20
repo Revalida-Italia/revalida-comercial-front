@@ -7,6 +7,7 @@ import {
   buildSchoolSummaryRows,
   createInitialRevalidaState,
   formatPhone,
+  schoolFormFromPrefill,
   newPartyState,
   paymentTotal,
   professionChoice,
@@ -347,5 +348,58 @@ describe("formatPhone", () => {
 
   it("lets the user delete a punctuation mark", () => {
     expect(formatPhone("+55 (11) 988880000", "+55 (11) 98888-0000")).toBe("+55 (11) 9888-8000");
+  });
+
+  it("reads a leading 55 or +55 as the country code, never twice", () => {
+    expect(formatPhone("5511911112222")).toBe("+55 (11) 91111-2222");
+    expect(formatPhone("+5511911112222")).toBe("+55 (11) 91111-2222");
+    expect(formatPhone("+55 11 91111-2222")).toBe("+55 (11) 91111-2222");
+    expect(formatPhone("551133334444")).toBe("+55 (11) 3333-4444");
+    expect(formatPhone("+551133334444")).toBe("+55 (11) 3333-4444");
+  });
+
+  it("formats 10 and 11 digit national numbers, including area code 55", () => {
+    expect(formatPhone("1133334444")).toBe("+55 (11) 3333-4444");
+    expect(formatPhone("11911112222")).toBe("+55 (11) 91111-2222");
+    expect(formatPhone("55991112222")).toBe("+55 (55) 99111-2222");
+    expect(formatPhone("+55 55 99111-2222")).toBe("+55 (55) 99111-2222");
+  });
+
+  it("is stable on its own output", () => {
+    for (const value of ["+55 (11) 91111-2222", "+55 (11) 3333-4444", "+55 (55) 99111-2222"]) {
+      expect(formatPhone(value)).toBe(value);
+    }
+  });
+
+  it("types 5511911112222 digit by digit without duplicating the country code or cutting digits", () => {
+    let value = "";
+    for (const digit of "5511911112222") value = formatPhone(value + digit, value);
+    expect(value).toBe("+55 (11) 91111-2222");
+    value = "";
+    for (const digit of "551133334444") value = formatPhone(value + digit, value);
+    expect(value).toBe("+55 (11) 3333-4444");
+  });
+
+  it("keeps Italian numbers with +39 as typed", () => {
+    expect(formatPhone("+39 333 123 4567")).toBe("+39 333 123 4567");
+    expect(formatPhone("+393331234567")).toBe("+393331234567");
+    expect(formatPhone("+39 0434 123456")).toBe("+39 0434 123456");
+  });
+
+  it("falls back to all the digits when the format is unknown, never truncating", () => {
+    expect(formatPhone("393331234567")).toBe("393331234567");
+    expect(formatPhone("0039 333 123 4567")).toBe("00393331234567");
+    expect(formatPhone("+55 119111122223")).toBe("55119111122223");
+    expect(formatPhone("+55 (11) 91111-22223", "+55 (11) 91111-2222")).toBe("55119111122223");
+  });
+
+  it("formats the phone of a contracting party that comes from the sale", () => {
+    const s = createInitialRevalidaState(prefill({ parties: [{ ...prefill().parties[0], phone: "5511911112222" }] }));
+    expect(s.parties[0].phone).toBe("+55 (11) 91111-2222");
+  });
+
+  it("formats the phones that come from the sale", () => {
+    expect(schoolFormFromPrefill({ students: [{ phone: "5511911112222" }, { phone: "+39 333 123 4567" }] }).students.map((s) => s.phone))
+      .toEqual(["+55 (11) 91111-2222", "+39 333 123 4567"]);
   });
 });

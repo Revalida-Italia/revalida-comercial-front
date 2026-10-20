@@ -42,6 +42,7 @@ import {
   modelName,
   partyLabel,
   paymentTotal,
+  schoolFormFromPrefill,
   studentLabel,
   validateRevalidaForm,
   validateSchoolForm,
@@ -260,7 +261,7 @@ function SchoolBody({
   onDirty: () => void;
 }) {
   const isDesktop = useIsDesktop();
-  const [payload, setPayload] = useState<SchoolContractPayload>(prefill);
+  const [payload, setPayload] = useState<SchoolContractPayload>(() => schoolFormFromPrefill(prefill));
   const issues = useMemo(
     () => validateSchoolForm(payload, { phases: payload.phases }),
     [payload],

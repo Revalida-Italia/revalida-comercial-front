@@ -158,7 +158,7 @@ export function createInitialRevalidaState(prefill: RevalidaContractPayload): Re
         document: party.document ?? "",
         nationality: party.nationality ?? "",
         email: party.email ?? "",
-        phone: party.phone ?? "",
+        phone: formatPhone(party.phone ?? ""),
         profession,
         professionIsOther: professionChoice(profession) === "other",
       };
@@ -196,20 +196,42 @@ export function isValidEmail(value: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(value.trim());
 }
 
-/** Brazilian numbers are shown as +55 (11) 99999-9999; anything starting with another country code is kept. */
+const BRAZIL_CODE = "55";
+const MAX_NATIONAL_DIGITS = 11;
+
+/**
+ * Phone shown in the form and printed in both contracts.
+ * - Brazilian numbers, with or without a leading 55 / +55, with 10 or 11 digits after it:
+ *   +55 (11) 9999-9999 or +55 (11) 99999-9999 (formatted as the digits are typed).
+ * - A number typed with another country code ("+39 333 123 4567") is kept as typed.
+ * - Anything else that does not fit (too many digits) falls back to all of its digits; a digit is
+ *   never dropped.
+ * `previous` is the value before the edit, so deleting a punctuation mark removes a digit instead.
+ */
 export function formatPhone(raw: string, previous = ""): string {
   const trimmed = raw.trim();
-  if (trimmed.startsWith("+") && !trimmed.startsWith("+55") && !/^\+5?$/.test(trimmed)) {
-    return trimmed.replace(/[^\d+\s()-]/g, "");
-  }
-  let digits = raw.replace(/\D/g, "");
+  if (!trimmed) return "";
+  const international = trimmed.startsWith("+");
+  if (international && !/^\+5(5|$)/.test(trimmed)) return trimmed.replace(/[^\d+\s()-]/g, "");
+
+  let digits = trimmed.replace(/\D/g, "");
   // Deleting a punctuation mark leaves the digits unchanged: drop the last digit instead.
   const previousDigits = previous.replace(/\D/g, "");
   if (raw.length < previous.length && digits === previousDigits) digits = digits.slice(0, -1);
-  if (digits.startsWith("55") && digits.length > 11) digits = digits.slice(2);
-  else if (digits.startsWith("55") && trimmed.startsWith("+")) digits = digits.slice(2);
-  digits = digits.slice(0, 11);
-  if (digits.length === 0) return "";
+  const allDigits = digits;
+
+  if (international) {
+    if (digits === "5") return "+5";
+    digits = digits.slice(BRAZIL_CODE.length);
+    if (!digits) return previous.length > raw.length ? "" : "+55";
+  }
+  // A leading 55 is the country code when the rest is a whole national number (10 or 11 digits).
+  // This also fixes a value that was masked with 55 as the area code before the last digits came.
+  if (digits.length > MAX_NATIONAL_DIGITS && digits.startsWith(BRAZIL_CODE)) {
+    digits = digits.slice(BRAZIL_CODE.length);
+  }
+  if (digits.length > MAX_NATIONAL_DIGITS) return allDigits;
+
   const ddd = digits.slice(0, 2);
   const rest = digits.slice(2);
   let out = `+55 (${ddd}`;
@@ -220,6 +242,14 @@ export function formatPhone(raw: string, previous = ""): string {
     if (rest.length > split) out += `-${rest.slice(split)}`;
   }
   return out;
+}
+
+/** School prefill with the students' phones in the same format as typed ones. */
+export function schoolFormFromPrefill<T extends { students: Array<{ phone?: string | null }> }>(prefill: T): T {
+  return {
+    ...prefill,
+    students: prefill.students.map((student) => ({ ...student, phone: formatPhone(student.phone ?? "") })),
+  };
 }
 
 function phoneDigits(value: string): number {
