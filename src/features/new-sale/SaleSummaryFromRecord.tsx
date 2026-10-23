@@ -2,16 +2,12 @@ import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { t } from "@/i18n";
-import { getSaleById } from "@/services/commercialApi";
 import SaleSummary from "@/features/new-sale/organisms/SaleSummary";
+import { saleQueryOptions } from "./saleQuery";
 import { saleSummaryPropsFromRecord } from "./saleSummaryFromRecord";
 
 export default function SaleSummaryFromRecord({ saleId }: { saleId: string }) {
-  const saleQuery = useQuery({
-    queryKey: ["sale", saleId],
-    queryFn: () => getSaleById(saleId),
-    enabled: Boolean(saleId),
-  });
+  const saleQuery = useQuery(saleQueryOptions(saleId));
 
   if (!saleId) return null;
 

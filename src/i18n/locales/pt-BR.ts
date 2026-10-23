@@ -19,6 +19,7 @@ export const ptBR = {
       switchConfirm: "Trocar",
       loadError: "Não foi possível carregar os dados do contrato.",
       productsError: "Não foi possível carregar os produtos.",
+      salePreview: "Dados da venda",
       saleLoadError: "Não foi possível carregar a venda.",
       unknownProduct: "Produto não identificado",
       generated: "Contrato gerado.",

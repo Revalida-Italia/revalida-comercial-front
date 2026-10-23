@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
-import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import SaleContractPage from "./SaleContractPage";
 
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
@@ -103,6 +103,32 @@ function fillEverything() {
   type("contract-witness-1-document", "444.555.666-55");
 }
 
+const originalMatchMedia = window.matchMedia;
+
+function setViewport(width: number) {
+  Object.defineProperty(window, "matchMedia", {
+    writable: true,
+    configurable: true,
+    value: (query: string) => {
+      const min = /min-width:\s*(\d+)px/.exec(query);
+      const max = /max-width:\s*(\d+)px/.exec(query);
+      let matches = false;
+      if (min) matches = width >= Number(min[1]);
+      if (max) matches = width <= Number(max[1]);
+      return {
+        matches,
+        media: query,
+        onchange: null,
+        addListener: () => {},
+        removeListener: () => {},
+        addEventListener: () => {},
+        removeEventListener: () => {},
+        dispatchEvent: () => false,
+      };
+    },
+  });
+}
+
 beforeAll(() => {
   (globalThis as { ResizeObserver?: unknown }).ResizeObserver ??= class {
     observe() {}
@@ -110,6 +136,10 @@ beforeAll(() => {
     disconnect() {}
   };
   Element.prototype.scrollIntoView = vi.fn();
+});
+
+afterEach(() => {
+  window.matchMedia = originalMatchMedia;
 });
 
 beforeEach(() => {
@@ -482,6 +512,30 @@ describe("Gerar contrato page", () => {
     expect(screen.getAllByRole("button", { name: /Remover/ })).toHaveLength(1);
     fireEvent.click(screen.getByRole("button", { name: /Remover/ }));
     expect(screen.getAllByRole("radiogroup", { name: "Profissão" })).toHaveLength(1);
+  });
+
+  it("shows the saved sale above the form when the window is narrow", async () => {
+    await ready();
+    const sale = screen.getByRole("region", { name: "Dados da venda" });
+    const form = screen.getByRole("heading", { name: /Contratantes/ });
+    expect(sale.closest("[data-layout]")).toHaveAttribute("data-layout", "stack");
+    expect(screen.getByRole("button", { name: "Dados da venda" }).compareDocumentPosition(form) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(within(sale).getByText("Billy Willy")).toBeInTheDocument();
+    expect(screen.getByRole("complementary", { name: "Resumo" }).closest("[data-layout='rail']")).toBeNull();
+    await waitFor(() => expect(getSaleById).toHaveBeenCalledTimes(1));
+  });
+
+  it("keeps the saved sale and the summary in one sticky column on a wide window", async () => {
+    setViewport(1440);
+    await ready();
+    expect(screen.queryByRole("button", { name: "Dados da venda" })).toBeNull();
+    const sale = screen.getByRole("region", { name: "Dados da venda" });
+    const summary = screen.getByRole("complementary", { name: "Resumo" });
+    expect(sale.closest("[data-layout]")).toHaveAttribute("data-layout", "rail");
+    expect(sale.parentElement).toBe(summary.parentElement);
+    expect(sale.parentElement).toHaveClass("sticky");
+    expect(within(sale).getByText("Billy Willy")).toBeInTheDocument();
+    expect(within(summary).getByRole("button", { name: "Gerar contrato" })).toBeInTheDocument();
   });
 
   it("uses no jargon, no template id and no emoji", async () => {

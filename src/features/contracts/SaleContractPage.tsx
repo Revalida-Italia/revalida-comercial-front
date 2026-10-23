@@ -2,7 +2,7 @@ import { useCallback, useMemo, useState, type ReactNode } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { ChevronDown, ChevronLeft, Loader2 } from "lucide-react";
+import { ChevronDown, ChevronLeft, Loader2, Receipt } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -20,8 +20,9 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Skeleton } from "@/components/ui/skeleton";
-import { getSaleById, type SaleRecord } from "@/services/commercialApi";
+import { type SaleRecord } from "@/services/commercialApi";
 import {
   generateContract,
   listRevalidaProducts,
@@ -55,7 +56,10 @@ import ContractPaymentSection from "@/features/contracts/ContractPaymentSection"
 import ContractSummary, { GenerateBar } from "@/features/contracts/ContractSummary";
 import RevalidaFormFields, { ObservationsSection, RevalidaSignaturesSection } from "@/features/contracts/RevalidaFormFields";
 import SchoolFormFields, { SchoolSignaturesSection } from "@/features/contracts/SchoolFormFields";
-import { useIsDesktop } from "@/features/contracts/useIsDesktop";
+import { useContractRail, useIsDesktop } from "@/features/contracts/useIsDesktop";
+import SaleSummaryFromRecord from "@/features/new-sale/SaleSummaryFromRecord";
+import { saleQueryOptions } from "@/features/new-sale/saleQuery";
+import { cn } from "@/lib/utils";
 
 export function saleClientsLabel(sale: SaleRecord | undefined): string {
   const names = (sale?.clients ?? []).map((c) => c.nameCiphertext?.trim()).filter(Boolean);
@@ -119,31 +123,87 @@ function useGenerate(saleId: string, productType: ContractProductType) {
   return { run, generating: mutation.isPending };
 }
 
+const FORM_CARD = "m-0 min-w-0 space-y-10 rounded-lg border-0 bg-card p-6 shadow-[0_4px_24px_rgba(15,40,60,0.07)] sm:p-8";
+
+function SalePreviewDisclosure({ children }: { children: ReactNode }) {
+  const [open, setOpen] = useState(true);
+  return (
+    <Collapsible
+      open={open}
+      onOpenChange={setOpen}
+      className="mb-8 rounded-lg bg-card shadow-[0_4px_24px_rgba(15,40,60,0.07)]"
+    >
+      <CollapsibleTrigger className="flex w-full items-center justify-between gap-3 px-6 py-4 text-left text-sm font-medium text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+        <span className="inline-flex items-center gap-2">
+          <Receipt className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+          {t("contract.page.salePreview")}
+        </span>
+        <ChevronDown
+          aria-hidden="true"
+          className={cn("h-4 w-4 shrink-0 text-muted-foreground transition-transform", open && "rotate-180")}
+        />
+      </CollapsibleTrigger>
+      <CollapsibleContent>
+        <section aria-label={t("contract.page.salePreview")} className="border-t border-border px-6 py-4">
+          {children}
+        </section>
+      </CollapsibleContent>
+    </Collapsible>
+  );
+}
+
 function ContractLayout({
+  saleId,
   form,
   summary,
   bar,
   disabled,
 }: {
+  saleId: string;
   form: ReactNode;
   summary: ReactNode;
   /** Small screens only: the button fixed to the bottom of the screen. */
   bar: ReactNode;
   disabled: boolean;
 }) {
+  const rail = useContractRail();
+  const preview = <SaleSummaryFromRecord saleId={saleId} />;
+  const formCard = (
+    <fieldset disabled={disabled} className={FORM_CARD}>
+      {form}
+    </fieldset>
+  );
+
+  if (rail) {
+    return (
+      <div data-layout="rail" className="grid w-full grid-cols-[minmax(0,720px)_minmax(280px,360px)] items-start gap-10">
+        {formCard}
+        <div className="sticky top-6 flex max-h-[calc(100dvh-10rem)] flex-col gap-4 overflow-y-auto">
+          <section
+            aria-label={t("contract.page.salePreview")}
+            className="rounded-lg bg-card p-6 shadow-[0_4px_24px_rgba(15,40,60,0.07)]"
+          >
+            <h2 className="mb-4 flex items-center gap-2 text-[13px] font-medium text-muted-foreground">
+              <Receipt className="h-4 w-4" aria-hidden="true" />
+              {t("contract.page.salePreview")}
+            </h2>
+            {preview}
+          </section>
+          {summary}
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <>
-      <div className="grid gap-8 lg:grid-cols-[minmax(0,720px)_320px] lg:items-start lg:gap-10">
-        <fieldset
-          disabled={disabled}
-          className="m-0 min-w-0 space-y-10 rounded-lg border-0 bg-card p-6 shadow-[0_4px_24px_rgba(15,40,60,0.07)] sm:p-8"
-        >
-          {form}
-        </fieldset>
-        <div className="lg:sticky lg:top-6">{summary}</div>
+    <div data-layout="stack">
+      <SalePreviewDisclosure>{preview}</SalePreviewDisclosure>
+      <div className={cn("grid gap-8", summary && "lg:grid-cols-[minmax(0,720px)_320px] lg:items-start lg:gap-10")}>
+        {formCard}
+        {summary ? <div className="lg:sticky lg:top-6">{summary}</div> : null}
       </div>
       {bar}
-    </>
+    </div>
   );
 }
 
@@ -159,6 +219,7 @@ function RevalidaBody({
   onDirty: () => void;
 }) {
   const isDesktop = useIsDesktop();
+  const rail = useContractRail();
   const [state, setState] = useState<RevalidaFormState>(() => createInitialRevalidaState(prefill));
   const total = paymentTotal(prefill.phases, prefill.totalAmount ?? 0);
   const currency = prefill.currency ?? "BRL";
@@ -210,6 +271,7 @@ function RevalidaBody({
 
   return (
     <ContractLayout
+      saleId={saleId}
       disabled={generating}
       bar={isDesktop ? null : <GenerateBar issues={feedback.allIssues} generating={generating} onGenerate={onGenerate} />}
       form={
@@ -244,6 +306,7 @@ function RevalidaBody({
           banner={feedback.banner}
           generating={generating}
           stickyBar={!isDesktop}
+          contained={rail}
           onGenerate={onGenerate}
         />
       }
@@ -261,6 +324,7 @@ function SchoolBody({
   onDirty: () => void;
 }) {
   const isDesktop = useIsDesktop();
+  const rail = useContractRail();
   const [payload, setPayload] = useState<SchoolContractPayload>(() => schoolFormFromPrefill(prefill));
   const issues = useMemo(
     () => validateSchoolForm(payload, { phases: payload.phases }),
@@ -306,6 +370,7 @@ function SchoolBody({
 
   return (
     <ContractLayout
+      saleId={saleId}
       disabled={generating}
       bar={isDesktop ? null : <GenerateBar issues={feedback.allIssues} generating={generating} onGenerate={onGenerate} />}
       form={
@@ -337,6 +402,7 @@ function SchoolBody({
           banner={feedback.banner}
           generating={generating}
           stickyBar={!isDesktop}
+          contained={rail}
           onGenerate={onGenerate}
         />
       }
@@ -344,29 +410,42 @@ function SchoolBody({
   );
 }
 
-function LoadingState() {
+function LoadingState({ saleId }: { saleId: string }) {
   return (
-    <div className="grid gap-8 lg:grid-cols-[minmax(0,720px)_320px]" aria-busy="true" aria-label={t("common.loading")}>
-      <div className="space-y-6 rounded-lg bg-card p-8">
-        <Skeleton className="h-6 w-40" />
-        <Skeleton className="h-10 w-full" />
-        <Skeleton className="h-10 w-full" />
-        <Skeleton className="h-6 w-56" />
-        <Skeleton className="h-24 w-full" />
-      </div>
-      <Skeleton className="h-72 w-full rounded-lg" />
-    </div>
+    <ContractLayout
+      saleId={saleId}
+      disabled
+      bar={null}
+      summary={<Skeleton className="h-72 w-full rounded-lg" />}
+      form={
+        <div className="space-y-6" aria-busy="true" aria-label={t("common.loading")}>
+          <Skeleton className="h-6 w-40" />
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-6 w-56" />
+          <Skeleton className="h-24 w-full" />
+        </div>
+      }
+    />
   );
 }
 
-function ErrorState({ message, onRetry }: { message: string; onRetry: () => void }) {
+function ErrorState({ saleId, message, onRetry }: { saleId: string; message: string; onRetry: () => void }) {
   return (
-    <div className="rounded-lg bg-card p-8 shadow-[0_4px_24px_rgba(15,40,60,0.07)]">
-      <p className="mb-4 text-sm">{message}</p>
-      <Button variant="outline" size="sm" onClick={onRetry}>
-        {t("common.retry")}
-      </Button>
-    </div>
+    <ContractLayout
+      saleId={saleId}
+      disabled={false}
+      bar={null}
+      summary={null}
+      form={
+        <>
+          <p className="mb-4 text-sm">{message}</p>
+          <Button variant="outline" size="sm" onClick={onRetry}>
+            {t("common.retry")}
+          </Button>
+        </>
+      }
+    />
   );
 }
 
@@ -378,11 +457,7 @@ export default function SaleContractPage() {
   const [pendingModel, setPendingModel] = useState<ContractProductType | null>(null);
   const markDirty = useCallback(() => setDirty(true), []);
 
-  const saleQuery = useQuery({
-    queryKey: ["sale", saleId],
-    queryFn: () => getSaleById(saleId),
-    enabled: Boolean(saleId),
-  });
+  const saleQuery = useQuery(saleQueryOptions(saleId));
 
   const prefillQuery = useQuery({
     queryKey: ["contract-prefill", saleId, productType],
@@ -415,14 +490,14 @@ export default function SaleContractPage() {
   let body: ReactNode;
   if (prefillQuery.isError) {
     body = (
-      <ErrorState message={t("contract.page.loadError")} onRetry={() => void prefillQuery.refetch()} />
+      <ErrorState saleId={saleId} message={t("contract.page.loadError")} onRetry={() => void prefillQuery.refetch()} />
     );
   } else if (productType === "PROGRAMA_REVALIDA_ITALIA" && catalogQuery.isError) {
     body = (
-      <ErrorState message={t("contract.page.productsError")} onRetry={() => void catalogQuery.refetch()} />
+      <ErrorState saleId={saleId} message={t("contract.page.productsError")} onRetry={() => void catalogQuery.refetch()} />
     );
   } else if (!prefill || prefillQuery.isFetching || (productType === "PROGRAMA_REVALIDA_ITALIA" && !catalog)) {
-    body = <LoadingState />;
+    body = <LoadingState saleId={saleId} />;
   } else if (prefill.productType === "PROGRAMA_REVALIDA_ITALIA" && catalog) {
     body = (
       <RevalidaBody
@@ -436,14 +511,16 @@ export default function SaleContractPage() {
   } else if (prefill.productType === "ESCOLA_DE_ITALIANO") {
     body = <SchoolBody key={`esc-${prefillQuery.dataUpdatedAt}`} saleId={saleId} prefill={prefill} onDirty={markDirty} />;
   } else {
-    body = <LoadingState />;
+    body = <LoadingState saleId={saleId} />;
   }
 
   const otherModel: ContractProductType =
     productType === "PROGRAMA_REVALIDA_ITALIA" ? "ESCOLA_DE_ITALIANO" : "PROGRAMA_REVALIDA_ITALIA";
 
+  const rail = useContractRail();
+
   return (
-    <div className="mx-auto max-w-[1120px] pb-6">
+    <div className={cn("pb-6", rail ? "w-full" : "mx-auto max-w-[1120px]")}>
       <Link
         to={`/vendas/${saleId}`}
         className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
