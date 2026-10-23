@@ -4,7 +4,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { t } from "@/i18n";
 import SaleSummary from "@/features/new-sale/organisms/SaleSummary";
 import { saleQueryOptions } from "./saleQuery";
-import { saleSummaryPropsFromRecord } from "./saleSummaryFromRecord";
+import { saleSummaryPropsFromRecord } from "./mapSaleRecordToSummary";
 
 export default function SaleSummaryFromRecord({ saleId }: { saleId: string }) {
   const saleQuery = useQuery(saleQueryOptions(saleId));

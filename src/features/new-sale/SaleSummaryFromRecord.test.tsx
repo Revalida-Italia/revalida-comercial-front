@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { SaleRecord } from "@/services/commercialApi";
 import * as mapSaleToFormModule from "./mapSaleToForm";
 import SaleSummaryFromRecord from "./SaleSummaryFromRecord";
-import { saleSummaryPropsFromRecord } from "./saleSummaryFromRecord";
+import { saleSummaryPropsFromRecord } from "./mapSaleRecordToSummary";
 
 vi.mock("@/services/commercialApi", async () => {
   const actual = await vi.importActual<typeof import("@/services/commercialApi")>("@/services/commercialApi");
