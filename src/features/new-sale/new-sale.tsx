@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,6 +10,7 @@ import { buildCommissionBreakdown, normalizeCommissionRate } from "@/services/co
 import { fetchExchangeRates } from "@/services/exchangeRatesApi";
 import { convertToBrl, isDisplayCurrency } from "@/shared/utils/exchange";
 import { getProfile } from "@/lib/session";
+import { canGenerateContracts } from "@/features/contracts/access";
 import {
   DEFAULT_SUBSCRIPTION_CYCLE,
   EMPTY_CUSTOMER,
@@ -31,6 +33,7 @@ type PaymentValueLike = {
 };
 
 const NewSaleFeature = () => {
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const profile = getProfile();
 
@@ -394,13 +397,19 @@ const NewSaleFeature = () => {
             : {}),
         });
       }
+
+      return createdSale;
     },
-    onSuccess: async () => {
+    onSuccess: async (createdSale) => {
       await queryClient.invalidateQueries({ queryKey: ["sales"] });
       const message = wantsPaymentLink
         ? "Venda criada e link de pagamento gerado com sucesso."
         : "Venda criada com sucesso.";
       toast.success(message);
+      if (createdSale?.id && canGenerateContracts()) {
+        navigate(`/vendas/${createdSale.id}/contrato`);
+        return;
+      }
       setStep(1);
       setCustomers([{ ...EMPTY_CUSTOMER }]);
       setSaleItemsDraft([{ productId: "", releaseDate: "", notes: "" }]);
