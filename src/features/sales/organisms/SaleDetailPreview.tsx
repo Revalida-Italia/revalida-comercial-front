@@ -6,7 +6,7 @@ import { getPaymentGrossValue, isMonthlySubscriptionPayment } from "@/shared/uti
 import type { ConfiguredSalePayment, FilledSaleCustomer } from "@/features/new-sale/types";
 import { readStripePaymentMethod } from "@/features/sales/utils/stripePaymentMethod";
 import { isCancelledStatus, type CommissionPayView } from "@/features/sales/utils/commissionStatus";
-import { getSaleCommissionValue } from "../utils";
+import { getSaleCommissionValue, saleAllowsStripeCheckoutLink } from "../utils";
 import SaleSummary from "@/features/new-sale/organisms/SaleSummary";
 import { useMemo } from "react";
 
@@ -143,7 +143,7 @@ const SaleDetailPreview = ({
       updatingPaymentId={updatingPaymentId}
       onMarkPaymentPaid={onMarkPaymentPaid}
       onMarkPaymentPending={onMarkPaymentPending}
-      onOpenStripeCheckout={onOpenStripeCheckout}
+      onOpenStripeCheckout={saleAllowsStripeCheckoutLink(sale) ? onOpenStripeCheckout : undefined}
       canPayCommission={canPayCommission}
       payingCommissionPaymentId={payingCommissionPaymentId}
       onPayCommission={onPayCommission}

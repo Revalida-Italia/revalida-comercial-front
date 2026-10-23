@@ -130,9 +130,18 @@ export interface SaleFinancialSummary {
   };
 }
 
+export type SaleChannel = "SELLER" | "SELF_SERVICE";
+
 export interface SaleRecord {
   id: string;
-  sellerId: string;
+  sellerId: string | null;
+  /**
+   * Origem da venda. O comercial-back envia `origin` (`SELLER` | `SELF_SERVICE`)
+   * na listagem e no detalhe. `channel` cobre respostas antigas.
+   */
+  origin?: SaleChannel | string | null;
+  /** SELLER (padrão) ou SELF_SERVICE quando a venda não tem vendedor. */
+  channel?: SaleChannel | string | null;
   currency: string;
   /** Moeda digitada na venda quando houve FX (null = histórico sem classificação). */
   originalCurrency?: DisplayCurrency | string | null;
@@ -160,7 +169,7 @@ export interface SaleRecord {
       name?: string;
       individualCommissionRate?: string | number;
     };
-  };
+  } | null;
   clients: SaleClient[];
   items: SaleItem[];
   payments: SalePayment[];

@@ -19,6 +19,7 @@ import {
   getSaleProductName,
   getSaleSellerInfo,
   getSubscriptionPaymentsProgress,
+  saleAllowsStripeCheckoutLink,
   saleHasCancelledPayments,
   saleStatusLabel,
 } from "../utils";
@@ -157,7 +158,7 @@ const SaleListCard = ({ sale }: SaleListCardProps) => {
                 </Badge>
               )}
               <div className="flex flex-wrap items-center justify-end gap-1.5">
-                {canMutate && !isArchived && hasStripePayment && !subscriptionCancelled && (
+                {canMutate && !isArchived && hasStripePayment && !subscriptionCancelled && saleAllowsStripeCheckoutLink(sale) && (
                   <Button
                     type="button"
                     variant="success"

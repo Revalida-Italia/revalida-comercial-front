@@ -52,6 +52,6 @@ export function mapSaleToForm(sale: SaleRecord): SaleFormState {
     currency: sale.currency || "BRL",
     status: (sale.status as SaleStatus) || "PENDING",
     soldAt: toDateInput(sale.soldAt),
-    sellerId: sale.sellerId,
+    sellerId: sale.sellerId?.trim() || "",
   };
 }

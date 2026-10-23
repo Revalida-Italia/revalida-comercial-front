@@ -29,7 +29,7 @@ function payment(overrides: Partial<SalePayment> = {}): SalePayment {
   };
 }
 
-function sale(payments: SalePayment[]): SaleRecord {
+function sale(payments: SalePayment[], overrides: Partial<SaleRecord> = {}): SaleRecord {
   return {
     id: "sale_1",
     sellerId: "seller_1",
@@ -41,6 +41,7 @@ function sale(payments: SalePayment[]): SaleRecord {
     items: [],
     payments,
     commissions: [],
+    ...overrides,
   };
 }
 
@@ -105,5 +106,28 @@ describe("dashboard Link Stripe button", () => {
     expect(asaas).toHaveClass("border");
     expect(asaas.className).not.toContain("--success");
     expect(asaas.querySelector("svg path")?.getAttribute("d") ?? "").not.toMatch(/^M13\.976/);
+  });
+
+  it("esconde Link Stripe quando origin ou channel é SELF_SERVICE e mantém para SELLER", () => {
+    const { rerender } = renderCard(sale([payment()], { origin: "SELF_SERVICE" }));
+    expect(screen.queryByRole("button", { name: "Link de pagamento Stripe" })).not.toBeInTheDocument();
+
+    rerender(
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <MemoryRouter>
+          <SaleListCard sale={sale([payment()], { origin: undefined, channel: "SELF_SERVICE" })} />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+    expect(screen.queryByRole("button", { name: "Link de pagamento Stripe" })).not.toBeInTheDocument();
+
+    rerender(
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <MemoryRouter>
+          <SaleListCard sale={sale([payment()], { origin: "SELLER", channel: "SELF_SERVICE" })} />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+    expect(screen.getByRole("button", { name: "Link de pagamento Stripe" })).toHaveTextContent("Link Stripe");
   });
 });
