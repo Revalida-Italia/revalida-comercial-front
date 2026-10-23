@@ -43,7 +43,7 @@ function renderWizard() {
   );
 }
 
-async function pick(triggerIndex: number, optionName: string) {
+async function pick(triggerIndex: number, optionName: string | RegExp) {
   const trigger = screen.getAllByRole("combobox")[triggerIndex];
   fireEvent.pointerDown(trigger, { pointerId: 1, button: 0, pointerType: "mouse" });
   fireEvent.click(trigger);
