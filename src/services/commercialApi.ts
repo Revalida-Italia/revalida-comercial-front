@@ -22,6 +22,8 @@ export interface SaleClient {
   nameCiphertext: string;
   documentCiphertext?: string | null;
   telefone?: string | null;
+  /** Present on some sale responses instead of `telefone`. */
+  phone?: string | null;
   email?: string | null;
   createdAt: string;
   updatedAt: string;
@@ -68,6 +70,8 @@ export interface SalePayment {
   type: string;
   gateway: string;
   amount: string | number;
+  /** Amount as entered, in the sale's originalCurrency. `amount` stays in reais. */
+  originalAmount?: string | number | null;
   dueDate?: string | null;
   paymentDate?: string | null;
   status: string;
