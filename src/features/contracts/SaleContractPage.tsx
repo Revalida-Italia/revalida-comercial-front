@@ -125,13 +125,13 @@ function useGenerate(saleId: string, productType: ContractProductType) {
 
 const FORM_CARD = "m-0 min-w-0 space-y-10 rounded-lg border-0 bg-card p-6 shadow-[0_4px_24px_rgba(15,40,60,0.07)] sm:p-8";
 
-function SalePreviewDisclosure({ children }: { children: ReactNode }) {
+function SalePreviewDisclosure({ children, className }: { children: ReactNode; className?: string }) {
   const [open, setOpen] = useState(true);
   return (
     <Collapsible
       open={open}
       onOpenChange={setOpen}
-      className="mb-8 rounded-lg bg-card shadow-[0_4px_24px_rgba(15,40,60,0.07)]"
+      className={cn("rounded-lg bg-card shadow-[0_4px_24px_rgba(15,40,60,0.07)]", className)}
     >
       <CollapsibleTrigger className="flex w-full items-center justify-between gap-3 px-6 py-4 text-left text-sm font-medium text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
         <span className="inline-flex items-center gap-2">
@@ -178,18 +178,11 @@ function ContractLayout({
     return (
       <div data-layout="rail" className="grid w-full grid-cols-[minmax(0,720px)_minmax(280px,360px)] items-start gap-10">
         {formCard}
-        <div className="sticky top-6 flex max-h-[calc(100dvh-10rem)] flex-col gap-4 overflow-y-auto">
-          <section
-            aria-label={t("contract.page.salePreview")}
-            className="rounded-lg bg-card p-6 shadow-[0_4px_24px_rgba(15,40,60,0.07)]"
-          >
-            <h2 className="mb-4 flex items-center gap-2 text-[13px] font-medium text-muted-foreground">
-              <Receipt className="h-4 w-4" aria-hidden="true" />
-              {t("contract.page.salePreview")}
-            </h2>
-            {preview}
-          </section>
-          {summary}
+        <div className="sticky top-6 flex max-h-[calc(100dvh-6.5rem)] min-h-0 flex-col gap-4 overflow-hidden">
+          <div className="shrink-0">{summary}</div>
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            <SalePreviewDisclosure>{preview}</SalePreviewDisclosure>
+          </div>
         </div>
       </div>
     );
@@ -197,10 +190,10 @@ function ContractLayout({
 
   return (
     <div data-layout="stack">
-      <SalePreviewDisclosure>{preview}</SalePreviewDisclosure>
-      <div className={cn("grid gap-8", summary && "lg:grid-cols-[minmax(0,720px)_320px] lg:items-start lg:gap-10")}>
+      <SalePreviewDisclosure className="mb-8">{preview}</SalePreviewDisclosure>
+      <div className={cn("grid gap-8", summary && "xl:grid-cols-[minmax(0,720px)_320px] xl:items-start xl:gap-10")}>
         {formCard}
-        {summary ? <div className="lg:sticky lg:top-6">{summary}</div> : null}
+        {summary ? <div className="xl:sticky xl:top-6">{summary}</div> : null}
       </div>
       {bar}
     </div>

@@ -525,17 +525,28 @@ describe("Gerar contrato page", () => {
     await waitFor(() => expect(getSaleById).toHaveBeenCalledTimes(1));
   });
 
-  it("keeps the saved sale and the summary in one sticky column on a wide window", async () => {
+  it("keeps the summary and the generate action above the sale preview on a wide window", async () => {
     setViewport(1440);
     await ready();
-    expect(screen.queryByRole("button", { name: "Dados da venda" })).toBeNull();
     const sale = screen.getByRole("region", { name: "Dados da venda" });
     const summary = screen.getByRole("complementary", { name: "Resumo" });
     expect(sale.closest("[data-layout]")).toHaveAttribute("data-layout", "rail");
-    expect(sale.parentElement).toBe(summary.parentElement);
-    expect(sale.parentElement).toHaveClass("sticky");
-    expect(within(sale).getByText("Billy Willy")).toBeInTheDocument();
+    const column = summary.closest(".sticky");
+    expect(column).toHaveClass("sticky");
+    expect(column?.className).not.toMatch(/overflow-y-auto/);
+    expect(column?.contains(sale)).toBe(true);
+    expect(summary.compareDocumentPosition(sale) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(within(summary).getByRole("button", { name: "Gerar contrato" })).toBeInTheDocument();
+    expect(within(sale).getByText("Billy Willy")).toBeInTheDocument();
+  });
+
+  it("does not squeeze the document field into the summary column at a laptop width", async () => {
+    await ready();
+    const layout = screen.getByRole("heading", { name: /Contratantes/ }).closest("[data-layout='stack']");
+    const columns = layout?.querySelector(":scope > .grid");
+    expect(columns?.className).toContain("xl:grid-cols-[minmax(0,720px)_320px]");
+    expect(columns?.className).not.toMatch(/lg:grid-cols/);
+    expect(byId("contract-party-0-document").closest(".grid")?.className).toContain("min-w-0");
   });
 
   it("uses no jargon, no template id and no emoji", async () => {

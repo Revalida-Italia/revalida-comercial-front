@@ -55,8 +55,12 @@ export function saleSummaryPropsFromRecord(sale: SaleRecord): SaleSummaryFromRec
   const commissionSources: Array<SalePayment | undefined> = [];
 
   form.payments.forEach((payment, index) => {
-    if (!(Number(payment.amount) > 0) || !payment.billingType) return;
+    if (!(Number(payment.amount) > 0) || !payment.gateway || !payment.paymentType) return;
     const source = payments[index];
+    const installments = ["INSTALLMENT", "SUBSCRIPTION"].includes(payment.paymentType)
+      ? Number(payment.totalInstallments || "1")
+      : undefined;
+    const feeRate = toNumberOrZero(source?.gatewayFeeRateSnapshot ?? source?.gatewayFee?.feeRate);
     configuredPayments.push({
       id: source?.id,
       status: payment.status || source?.status,
@@ -64,35 +68,48 @@ export function saleSummaryPropsFromRecord(sale: SaleRecord): SaleSummaryFromRec
       gateway: payment.gateway,
       paymentType: payment.paymentType,
       amount: Number(payment.amount),
-      totalInstallments: ["INSTALLMENT", "SUBSCRIPTION"].includes(payment.paymentType)
-        ? Number(payment.totalInstallments || "1")
-        : undefined,
+      currency: payment.inputCurrency || form.currency,
+      totalInstallments: installments,
       installmentNumber: source?.installmentNumber ?? undefined,
       dueDate: payment.dueDate || undefined,
-      feeRate: toNumberOrZero(source?.gatewayFeeRateSnapshot ?? source?.gatewayFee?.feeRate),
-      billingType: payment.billingType,
+      feeRate,
+      ...(payment.billingType ? { billingType: payment.billingType } : {}),
       ciclo: payment.paymentType === "SUBSCRIPTION" ? payment.ciclo : undefined,
       linkPagamento: source?.linkPagamento ?? undefined,
     });
-    commissionSources.push(source);
+    commissionSources.push({
+      ...source,
+      id: source?.id ?? "",
+      saleId: source?.saleId ?? sale.id,
+      type: payment.paymentType,
+      gateway: payment.gateway,
+      amount: payment.storedAmountBrl ?? toNumberOrZero(source?.amount),
+      status: source?.status ?? payment.status,
+      totalInstallments: installments,
+      gatewayFeeRateSnapshot: feeRate,
+      createdAt: source?.createdAt ?? "",
+      updatedAt: source?.updatedAt ?? "",
+    });
   });
 
-  const commissionInputs: CommissionPaymentInput[] = configuredPayments.map((configured) =>
-    isMonthlySubscriptionPayment(configured, configuredPayments)
+  const commissionInputs: CommissionPaymentInput[] = configuredPayments.map((configured, index) => {
+    const stored = toNumberOrZero(commissionSources[index]?.amount);
+    const amount = stored > 0 ? stored : configured.amount;
+    return isMonthlySubscriptionPayment(configured, configuredPayments)
       ? {
         gateway: configured.gateway,
         paymentType: "ONE_TIME",
-        amount: configured.amount,
+        amount,
         feeRate: configured.feeRate,
       }
       : {
         gateway: configured.gateway,
         paymentType: configured.paymentType,
-        amount: configured.amount,
+        amount,
         feeRate: configured.feeRate,
         totalInstallments: configured.totalInstallments,
-      },
-  );
+      };
+  });
 
   const commissionRate = normalizeCommissionRate(sale.seller?.careerPlan?.individualCommissionRate);
   const breakdown = buildCommissionBreakdown(commissionInputs, commissionRate);

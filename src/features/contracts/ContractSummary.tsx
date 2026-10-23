@@ -78,15 +78,8 @@ export function GenerateButton({
 export default function ContractSummary(props: ContractSummaryProps) {
   const { issues, banner, generating, stickyBar, contained = false, onGenerate } = props;
 
-  return (
+  const body = (
     <>
-      <aside
-        aria-label={t("contract.summary.title")}
-        className={cn(
-          "rounded-lg bg-card p-6 shadow-[0_4px_24px_rgba(15,40,60,0.07)]",
-          !contained && "lg:max-h-[calc(100dvh-3rem)] lg:overflow-y-auto",
-        )}
-      >
         <h2 className="text-[13px] font-medium text-muted-foreground">{t("contract.summary.title")}</h2>
         <p className="mt-1 text-[28px] font-bold leading-tight tabular-nums">{props.totalLabel}</p>
         <p className="mt-1 text-sm text-muted-foreground">{props.contractors}</p>
@@ -137,11 +130,25 @@ export default function ContractSummary(props: ContractSummaryProps) {
             </ul>
           )}
         </div>
-
-        {!stickyBar && <GenerateButton issues={issues} generating={generating} onGenerate={onGenerate} />}
-      </aside>
-
     </>
+  );
+
+  return (
+    <aside
+      aria-label={t("contract.summary.title")}
+      className={cn(
+        "rounded-lg bg-card p-6 shadow-[0_4px_24px_rgba(15,40,60,0.07)]",
+        contained && "flex max-h-[min(32rem,calc(100dvh-18rem))] flex-col",
+        !contained && "lg:max-h-[calc(100dvh-3rem)] lg:overflow-y-auto",
+      )}
+    >
+      {contained ? <div className="min-h-0 overflow-y-auto">{body}</div> : body}
+      {!stickyBar && (
+        <div className={cn(contained && "shrink-0 bg-card pt-4")}>
+          <GenerateButton issues={issues} generating={generating} onGenerate={onGenerate} />
+        </div>
+      )}
+    </aside>
   );
 }
 

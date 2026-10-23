@@ -32,5 +32,5 @@ export default function SaleSummaryFromRecord({ saleId }: { saleId: string }) {
     );
   }
 
-  return <SaleSummary {...saleSummaryPropsFromRecord(saleQuery.data)} />;
+  return <SaleSummary {...saleSummaryPropsFromRecord(saleQuery.data)} variant="record" />;
 }
