@@ -43,7 +43,6 @@ export interface SaleItem {
     id: string;
     name: string;
     description?: string | null;
-    hotmartCheckoutUrl?: string | null;
     isActive?: boolean;
     createdAt?: string;
     updatedAt?: string;

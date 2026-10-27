@@ -12,9 +12,13 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import SendPaymentLinkDialog from "@/features/sales/organisms/SendPaymentLinkDialog";
-import { saleOffersHotmartCheckout } from "@/features/sales/utils/hotmartCheckout";
+import { HOTMART_FIXED_LIST_WARNING, saleOffersHotmartCheckout } from "@/features/sales/utils/hotmartCheckout";
 import type { SaleRecord } from "@/services/commercialApi";
-import { getHotmartCheckoutLink } from "@/services/paymentLinksApi";
+import {
+  getHotmartCheckoutLink,
+  isHotmartCheckoutUnavailable,
+  isHotmartProductNotInFixedList,
+} from "@/services/paymentLinksApi";
 
 type HotmartCheckoutLinkContentProps = {
   sale: SaleRecord;
@@ -32,8 +36,11 @@ export function HotmartCheckoutLinkContent({ sale, enabled = true }: HotmartChec
     enabled: enabled && Boolean(sale.id),
   });
 
-  const url = linkQuery.data?.url ?? sale.hotmartCheckoutLink ?? null;
-  const errorMessage = linkQuery.isError
+  const unavailable = isHotmartCheckoutUnavailable(linkQuery.data) || isHotmartProductNotInFixedList(linkQuery.error);
+  const fetchedUrl = linkQuery.data && "url" in linkQuery.data ? linkQuery.data.url.trim() : "";
+  const fallbackUrl = sale.hotmartCheckoutLink?.trim() ?? "";
+  const url = unavailable ? null : (fetchedUrl || fallbackUrl || null);
+  const errorMessage = !unavailable && linkQuery.isError
     ? (linkQuery.error instanceof Error ? linkQuery.error.message : "Erro ao carregar link Hotmart.")
     : null;
 
@@ -50,6 +57,15 @@ export function HotmartCheckoutLinkContent({ sale, enabled = true }: HotmartChec
     <div className="space-y-3">
       {linkQuery.isLoading && !url && (
         <p className="text-sm text-muted-foreground">Carregando link Hotmart...</p>
+      )}
+
+      {unavailable && (
+        <p
+          role="status"
+          className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900"
+        >
+          {HOTMART_FIXED_LIST_WARNING}
+        </p>
       )}
 
       {errorMessage && !url && (
@@ -100,7 +116,7 @@ export function HotmartCheckoutLinkContent({ sale, enabled = true }: HotmartChec
         </div>
       )}
 
-      {!linkQuery.isLoading && !url && !errorMessage && (
+      {!linkQuery.isLoading && !url && !errorMessage && !unavailable && (
         <p className="text-sm text-muted-foreground">Link Hotmart indisponível.</p>
       )}
 

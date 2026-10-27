@@ -2,9 +2,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { apiRequest } from "@/lib/http";
 import { PAYMENT_GATEWAYS } from "@/features/sales-dashboard/types";
 import {
+  HOTMART_CHECKOUT_URL_NOT_CONFIGURED,
+  HOTMART_PRODUCT_NOT_IN_FIXED_LIST,
   createStripeCheckoutLink,
   getHotmartCheckoutLink,
   listPaymentWebhookEvents,
+  normalizeHotmartCheckoutLink,
   normalizePaymentWebhookEvent,
   resolvePaymentWebhookEvent,
 } from "@/services/paymentLinksApi";
@@ -90,6 +93,67 @@ describe("payment link API", () => {
       url: "https://pay.hotmart.com/X?xcod=sale_1&sck=abc",
     });
     expect(vi.mocked(apiRequest).mock.calls[0]?.[1]).toBe("/sales/sale_1/hotmart-checkout-link");
+  });
+
+  it("reads a 200 that says the product is outside the fixed list", async () => {
+    vi.mocked(apiRequest).mockResolvedValue({
+      available: false,
+      reason: HOTMART_PRODUCT_NOT_IN_FIXED_LIST,
+    });
+
+    await expect(getHotmartCheckoutLink("sale_1")).resolves.toEqual({
+      available: false,
+      reason: HOTMART_PRODUCT_NOT_IN_FIXED_LIST,
+    });
+  });
+
+  it("reads the fixed-list response from the data envelope", () => {
+    expect(normalizeHotmartCheckoutLink({
+      success: true,
+      data: {
+        available: false,
+        reason: HOTMART_CHECKOUT_URL_NOT_CONFIGURED,
+      },
+    })).toEqual({
+      available: false,
+      reason: HOTMART_PRODUCT_NOT_IN_FIXED_LIST,
+    });
+  });
+
+  it("turns a fixed-list 4xx into the unavailable result", async () => {
+    const notInList = new Error("Produto sem checkout.") as Error & {
+      code?: string;
+      status?: number;
+    };
+    notInList.code = HOTMART_PRODUCT_NOT_IN_FIXED_LIST;
+    notInList.status = 404;
+    vi.mocked(apiRequest).mockRejectedValueOnce(notInList);
+
+    await expect(getHotmartCheckoutLink("sale_1")).resolves.toEqual({
+      available: false,
+      reason: HOTMART_PRODUCT_NOT_IN_FIXED_LIST,
+    });
+
+    const legacy = new Error("falhou") as Error & { errors?: Array<{ code: string }> };
+    legacy.errors = [{ code: HOTMART_CHECKOUT_URL_NOT_CONFIGURED }];
+    vi.mocked(apiRequest).mockRejectedValueOnce(legacy);
+
+    await expect(getHotmartCheckoutLink("sale_1")).resolves.toEqual({
+      available: false,
+      reason: HOTMART_PRODUCT_NOT_IN_FIXED_LIST,
+    });
+  });
+
+  it("still rejects an unexpected Hotmart checkout response", async () => {
+    vi.mocked(apiRequest).mockResolvedValueOnce({ available: false, reason: "OTHER" });
+    await expect(getHotmartCheckoutLink("sale_1")).rejects.toThrow(
+      "Resposta de link Hotmart fora do contrato esperado.",
+    );
+
+    const failure = new Error("Erro HTTP 500") as Error & { status?: number };
+    failure.status = 500;
+    vi.mocked(apiRequest).mockRejectedValueOnce(failure);
+    await expect(getHotmartCheckoutLink("sale_1")).rejects.toThrow("Erro HTTP 500");
   });
 
   it("lists webhook events with the admin contract", async () => {
