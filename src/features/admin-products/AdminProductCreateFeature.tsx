@@ -7,11 +7,19 @@ import { useMutation } from "@tanstack/react-query";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import ProductAutonomyFields from "./ProductAutonomyFields";
+import { buildCreateProductInput, hotmartCheckoutUrlError } from "./productPayload";
 
 const AdminProductCreateFeature = () => {
   const navigate = useNavigate();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [hotmartProductId, setHotmartProductId] = useState("");
+  const [hotmartCheckoutUrl, setHotmartCheckoutUrl] = useState("");
+  const [hotmartOfferCode, setHotmartOfferCode] = useState("");
+  const [isAutonomy, setIsAutonomy] = useState(false);
+  const [checkoutUrlSubmitted, setCheckoutUrlSubmitted] = useState(false);
+  const checkoutUrlError = checkoutUrlSubmitted ? hotmartCheckoutUrlError(hotmartCheckoutUrl) : null;
 
   const createProductMutation = useMutation({
     mutationFn: async () => {
@@ -22,10 +30,14 @@ const AdminProductCreateFeature = () => {
         throw new Error("Informe o nome do produto.");
       }
 
-      await createProduct({
+      await createProduct(buildCreateProductInput({
         name: normalizedName,
-        ...(normalizedDescription ? { description: normalizedDescription } : {}),
-      });
+        description: normalizedDescription,
+        hotmartProductId,
+        hotmartCheckoutUrl,
+        hotmartOfferCode,
+        isAutonomy,
+      }));
     },
     onSuccess: () => {
       toast.success("Produto criado com sucesso.");
@@ -39,6 +51,13 @@ const AdminProductCreateFeature = () => {
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    setCheckoutUrlSubmitted(true);
+    const urlError = hotmartCheckoutUrlError(hotmartCheckoutUrl);
+    if (urlError) {
+      toast.error(urlError);
+      return;
+    }
+
     createProductMutation.mutate();
   };
 
@@ -72,6 +91,20 @@ const AdminProductCreateFeature = () => {
               disabled={createProductMutation.isPending}
             />
           </div>
+
+          <ProductAutonomyFields
+            idPrefix="product"
+            hotmartProductId={hotmartProductId}
+            hotmartCheckoutUrl={hotmartCheckoutUrl}
+            hotmartCheckoutUrlError={checkoutUrlError}
+            hotmartOfferCode={hotmartOfferCode}
+            isAutonomy={isAutonomy}
+            disabled={createProductMutation.isPending}
+            onHotmartProductIdChange={setHotmartProductId}
+            onHotmartCheckoutUrlChange={setHotmartCheckoutUrl}
+            onHotmartOfferCodeChange={setHotmartOfferCode}
+            onIsAutonomyChange={setIsAutonomy}
+          />
 
           <div className="flex items-center gap-2 pt-2">
             <Button type="submit" disabled={createProductMutation.isPending}>

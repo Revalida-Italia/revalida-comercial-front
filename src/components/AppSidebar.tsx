@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { formatCareerPlanStartDateLabel } from "@/features/admin-career-plan/careerPlanStartDate";
 import { clearSession, getProfile, hasRole, setProfile } from "@/lib/session";
 import { resolveProfile, updateProfileName } from "@/services/authApi";
+import { PAYMENT_WEBHOOK_EVENTS_PATH } from "@/features/admin-payment-webhooks/constants";
 import { roleDisplayLabel } from "@/services/usersApi";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -68,6 +69,7 @@ function buildNavItems(input: {
         { label: "Dashboard", path: "/admin" },
         { label: "Usuarios", path: "/admin/users" },
         { label: "Editar Taxas", path: "/admin/payment-gateways" },
+        { label: "Eventos de pagamento não conciliados", path: PAYMENT_WEBHOOK_EVENTS_PATH },
         { label: "Produtos", path: "/admin/products" },
         { label: "Finanças", path: "/admin/financas" },
         { label: "Calendário de Movimentações", path: "/admin/costs-calendar" },

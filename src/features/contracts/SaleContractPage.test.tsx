@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
-import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import SaleContractPage from "./SaleContractPage";
 
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
@@ -11,11 +11,17 @@ vi.mock("@/services/commercialApi", async () => {
 });
 vi.mock("@/services/contractsApi", async () => {
   const actual = await vi.importActual<typeof import("@/services/contractsApi")>("@/services/contractsApi");
-  return { ...actual, prefillContract: vi.fn(), listRevalidaProducts: vi.fn(), generateContract: vi.fn() };
+  return {
+    ...actual,
+    prefillContract: vi.fn(),
+    listRevalidaProducts: vi.fn(),
+    generateContract: vi.fn(),
+    sendContractForSignature: vi.fn(),
+  };
 });
 
 const { getSaleById } = await import("@/services/commercialApi");
-const { prefillContract, listRevalidaProducts, generateContract } = await import("@/services/contractsApi");
+const { prefillContract, listRevalidaProducts, generateContract, sendContractForSignature } = await import("@/services/contractsApi");
 const { toast } = await import("sonner");
 
 const catalog = [
@@ -87,6 +93,16 @@ function generateButton() {
   return screen.getByRole("button", { name: "Gerar contrato" });
 }
 
+/** Gerar contrato opens the dialog. The choice is what actually registers. */
+async function confirmRegister(choice: "Sim" | "Não" = "Não") {
+  fireEvent.click(generateButton());
+  const dialog = await screen.findByRole("alertdialog");
+  expect(generateContract).not.toHaveBeenCalled();
+  await act(async () => {
+    fireEvent.click(within(dialog).getByRole("button", { name: choice }));
+  });
+}
+
 /** Everything the form asks for, in the order a seller would do it. */
 function fillEverything() {
   type("contract-party-0-email", "billy@example.com");
@@ -97,10 +113,32 @@ function fillEverything() {
   type("contract-product-START-duration", "12");
   type("contract-term-end", "15/04/2028");
   type("contract-reference-city", "São Paulo");
-  type("contract-witness-0-fullName", "Ana Rocha");
-  type("contract-witness-0-document", "111.222.333-96");
-  type("contract-witness-1-fullName", "Carlos Nunes");
-  type("contract-witness-1-document", "444.555.666-55");
+}
+
+const originalMatchMedia = window.matchMedia;
+
+function setViewport(width: number) {
+  Object.defineProperty(window, "matchMedia", {
+    writable: true,
+    configurable: true,
+    value: (query: string) => {
+      const min = /min-width:\s*(\d+)px/.exec(query);
+      const max = /max-width:\s*(\d+)px/.exec(query);
+      let matches = false;
+      if (min) matches = width >= Number(min[1]);
+      if (max) matches = width <= Number(max[1]);
+      return {
+        matches,
+        media: query,
+        onchange: null,
+        addListener: () => {},
+        removeListener: () => {},
+        addEventListener: () => {},
+        removeEventListener: () => {},
+        dispatchEvent: () => false,
+      };
+    },
+  });
 }
 
 beforeAll(() => {
@@ -110,6 +148,10 @@ beforeAll(() => {
     disconnect() {}
   };
   Element.prototype.scrollIntoView = vi.fn();
+});
+
+afterEach(() => {
+  window.matchMedia = originalMatchMedia;
 });
 
 beforeEach(() => {
@@ -134,6 +176,8 @@ describe("Gerar contrato page", () => {
       expect(screen.getByRole("heading", { name: new RegExp(title) })).toBeInTheDocument();
     }
     expect(screen.getByRole("link", { name: /Venda/ })).toHaveAttribute("href", "/vendas/s1");
+    expect(screen.queryByText(/Testemunha/)).toBeNull();
+    expect(document.getElementById("contract-witness-0-fullName")).toBeNull();
   });
 
   it("shows each product with the description from the catalog, read only, and Não as the default for extras", async () => {
@@ -164,6 +208,7 @@ describe("Gerar contrato page", () => {
     await ready();
     fireEvent.click(generateButton());
     expect(generateContract).not.toHaveBeenCalled();
+    expect(screen.queryByRole("alertdialog")).toBeNull();
     expect(toast.error).not.toHaveBeenCalled();
     expect(byId("contract-party-0-email")).toHaveAttribute("aria-invalid", "true");
     expect(document.activeElement).toBe(byId("contract-party-0-email"));
@@ -218,7 +263,7 @@ describe("Gerar contrato page", () => {
     fireEvent.click(within(group).getByRole("radio", { name: "Outra" }));
     type("contract-party-0-profession", "Biomédico");
     fillEverything();
-    fireEvent.click(generateButton());
+    await confirmRegister();
     await waitFor(() => expect(generateContract).toHaveBeenCalledTimes(1));
     const payload = vi.mocked(generateContract).mock.calls[0][1] as { parties: Array<{ profession: string }> };
     expect(payload.parties[0].profession).toBe("Biomédico");
@@ -231,7 +276,7 @@ describe("Gerar contrato page", () => {
     expect(byId("contract-term-end").value).toBe("");
     fillEverything();
     type("contract-term-start", "01/11/2026");
-    fireEvent.click(generateButton());
+    await confirmRegister();
     await waitFor(() => expect(generateContract).toHaveBeenCalledTimes(1));
     const payload = vi.mocked(generateContract).mock.calls[0][1] as Record<string, unknown>;
     expect(payload).toMatchObject({ contractStartDate: "2026-11-01", contractEndDate: "2028-04-15" });
@@ -323,7 +368,7 @@ describe("Gerar contrato page", () => {
     const resumo = screen.getByRole("complementary", { name: "Resumo" });
     expect(within(resumo).getByText("2 estudantes")).toBeInTheDocument();
     expect(within(resumo).getByText("4 meses a partir de 11/01/2027")).toBeInTheDocument();
-    fireEvent.click(generateButton());
+    await confirmRegister();
     await waitFor(() => expect(generateContract).toHaveBeenCalledTimes(1));
     const [, payload, productType] = vi.mocked(generateContract).mock.calls[0] as [string, Record<string, unknown>, string];
     expect(productType).toBe("ESCOLA_DE_ITALIANO");
@@ -400,25 +445,22 @@ describe("Gerar contrato page", () => {
     await ready();
     fillEverything();
     expect(generateButton()).toHaveAttribute("aria-disabled", "false");
-    fireEvent.click(generateButton());
+    await confirmRegister();
     await waitFor(() => expect(generateContract).toHaveBeenCalledTimes(1));
+    expect(sendContractForSignature).not.toHaveBeenCalled();
     const [saleId, payload, productType] = vi.mocked(generateContract).mock.calls[0] as [string, Record<string, unknown>, string];
     expect(saleId).toBe("s1");
     expect(productType).toBe("PROGRAMA_REVALIDA_ITALIA");
     expect(payload).toMatchObject({
       decreeIncluded: true,
       referenceCity: "São Paulo",
-      witnesses: [
-        { fullName: "Ana Rocha", document: "111.222.333-96" },
-        { fullName: "Carlos Nunes", document: "444.555.666-55" },
-      ],
       products: [{ code: "START", included: true, releaseDate: "2026-10-15", durationMonths: 12, endDate: null }],
       contractStartDate: "2026-10-15",
       contractEndDate: "2028-04-15",
       expenses: { translationsIncluded: false, apostillesIncluded: false, postalExpensesIncluded: false },
     });
     // The payment is read only: the API takes it from the sale.
-    for (const key of ["currency", "totalAmount", "phases", "liabilityRegime", "decreeReleaseDate", "decreeDurationMonths"]) {
+    for (const key of ["currency", "totalAmount", "phases", "witnesses", "liabilityRegime", "decreeReleaseDate", "decreeDurationMonths"]) {
       expect(payload).not.toHaveProperty(key);
     }
     expect(JSON.stringify(payload)).not.toMatch(/HOTMART/i);
@@ -441,7 +483,7 @@ describe("Gerar contrato page", () => {
     );
     await ready();
     fillEverything();
-    fireEvent.click(generateButton());
+    await confirmRegister();
     expect(await screen.findByText("Escolha a data de liberação.")).toBeInTheDocument();
     expect(byId("contract-product-START-release").value).toBe("15/10/2026");
     expect(byId("contract-product-START-release")).toHaveAttribute("aria-invalid", "true");
@@ -455,7 +497,7 @@ describe("Gerar contrato page", () => {
     vi.mocked(generateContract).mockRejectedValue(new Error("Sum of phases (1) differs from totalAmount (2)"));
     await ready();
     fillEverything();
-    fireEvent.click(generateButton());
+    await confirmRegister();
     expect(await screen.findByText("Não foi possível gerar o contrato. Tente novamente.")).toBeInTheDocument();
     expect(document.body.textContent).not.toMatch(/Sum of phases|totalAmount/);
     expect(generateButton()).toHaveAttribute("aria-disabled", "false");
@@ -466,11 +508,105 @@ describe("Gerar contrato page", () => {
     vi.mocked(generateContract).mockReturnValue(new Promise((resolve) => { finish = resolve; }) as never);
     await ready();
     fillEverything();
-    fireEvent.click(generateButton());
-    expect(await screen.findByRole("button", { name: "Gerando…" })).toBeInTheDocument();
+    await confirmRegister();
+    expect(await screen.findByRole("button", { name: "Gerando…", hidden: true })).toBeInTheDocument();
     expect(byId("contract-party-0-email")).toBeDisabled();
+    const dialog = screen.getByRole("alertdialog");
+    expect(within(dialog).getByRole("button", { name: "Sim" })).toBeDisabled();
+    expect(within(dialog).getByRole("button", { name: "Não" })).toBeDisabled();
     finish({ id: "ct_new" });
     await screen.findByTestId("sale-page");
+  });
+
+  it("asks before registering, and Escape does not register", async () => {
+    await ready();
+    fillEverything();
+    fireEvent.click(generateButton());
+    const dialog = await screen.findByRole("alertdialog");
+    expect(within(dialog).getByRole("heading", { name: "Enviar para assinatura?" })).toBeInTheDocument();
+    expect(dialog).toHaveTextContent(
+      "Gerar contrato com Sim envia para assinatura; com Não, o contrato só é gerado.",
+    );
+    expect(within(dialog).getByRole("button", { name: "Sim" })).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "Não" })).toBeInTheDocument();
+    expect(dialog.textContent).not.toMatch(/Registrar|DocuSign|envelope|payload|\bAPI\b/i);
+    expect(dialog.textContent).not.toMatch(/\p{Extended_Pictographic}/u);
+    fireEvent.keyDown(document.body, { key: "Escape", code: "Escape" });
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
+    expect(generateContract).not.toHaveBeenCalled();
+    expect(sendContractForSignature).not.toHaveBeenCalled();
+  });
+
+  it("Sim registers and then sends for signature", async () => {
+    vi.mocked(generateContract).mockResolvedValue({ id: "ct_new" } as never);
+    vi.mocked(sendContractForSignature).mockResolvedValue({ id: "ct_new" } as never);
+    await ready();
+    fillEverything();
+    await confirmRegister("Sim");
+    await waitFor(() => expect(sendContractForSignature).toHaveBeenCalledWith("ct_new"));
+    expect(generateContract).toHaveBeenCalledTimes(1);
+    const order = vi.mocked(generateContract).mock.invocationCallOrder[0];
+    expect(vi.mocked(sendContractForSignature).mock.invocationCallOrder[0]).toBeGreaterThan(order);
+    expect(toast.success).toHaveBeenCalledWith("Contrato enviado para assinatura.");
+    expect(toast.error).not.toHaveBeenCalled();
+    await screen.findByTestId("sale-page");
+  });
+
+  it("says the contract was registered when the signature is not configured", async () => {
+    vi.mocked(generateContract).mockResolvedValue({ id: "ct_new" } as never);
+    vi.mocked(sendContractForSignature).mockRejectedValue(
+      Object.assign(new Error("missing"), { code: "DIGITAL_SIGNATURE_NOT_CONFIGURED", status: 503 }),
+    );
+    await ready();
+    fillEverything();
+    await confirmRegister("Sim");
+    const probe = await screen.findByTestId("sale-page");
+    expect(probe).toHaveTextContent("ct_new");
+    expect(toast.error).toHaveBeenCalledWith(
+      "Contrato registrado. A assinatura digital não está configurada, então o envio não foi feito.",
+    );
+    expect(toast.success).not.toHaveBeenCalled();
+    expect(generateContract).toHaveBeenCalledTimes(1);
+    expect(sendContractForSignature).toHaveBeenCalledTimes(1);
+    expect(document.body.textContent).not.toMatch(/DIGITAL_SIGNATURE|DocuSign|envelope|payload/i);
+  });
+
+  it("keeps the registered contract when the signature send fails", async () => {
+    vi.mocked(generateContract).mockResolvedValue({ id: "ct_new" } as never);
+    vi.mocked(sendContractForSignature).mockRejectedValue(new Error("offline"));
+    await ready();
+    fillEverything();
+    await confirmRegister("Sim");
+    const probe = await screen.findByTestId("sale-page");
+    expect(probe).toHaveTextContent("ct_new");
+    expect(toast.error).toHaveBeenCalledWith(
+      "Contrato registrado, mas não foi possível enviar para assinatura. Tente novamente pelo botão Enviar para assinatura.",
+    );
+    expect(toast.success).not.toHaveBeenCalled();
+    expect(generateContract).toHaveBeenCalledTimes(1);
+    expect(sendContractForSignature).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not register twice if Sim is clicked again", async () => {
+    let finish: (value: unknown) => void = () => {};
+    vi.mocked(generateContract).mockReturnValue(new Promise((resolve) => { finish = resolve; }) as never);
+    vi.mocked(sendContractForSignature).mockResolvedValue({ id: "ct_new" } as never);
+    await ready();
+    fillEverything();
+    fireEvent.click(generateButton());
+    const dialog = await screen.findByRole("alertdialog");
+    const yes = within(dialog).getByRole("button", { name: "Sim" });
+    await act(async () => {
+      fireEvent.click(yes);
+      fireEvent.click(yes);
+    });
+    expect(generateContract).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      finish({ id: "ct_new" });
+    });
+    await screen.findByTestId("sale-page");
+    expect(generateContract).toHaveBeenCalledTimes(1);
+    expect(sendContractForSignature).toHaveBeenCalledTimes(1);
   });
 
   it("adds a second contractor with its own profession and Remover, and no responsibility choice", async () => {
@@ -482,6 +618,41 @@ describe("Gerar contrato page", () => {
     expect(screen.getAllByRole("button", { name: /Remover/ })).toHaveLength(1);
     fireEvent.click(screen.getByRole("button", { name: /Remover/ }));
     expect(screen.getAllByRole("radiogroup", { name: "Profissão" })).toHaveLength(1);
+  });
+
+  it("shows the saved sale above the form when the window is narrow", async () => {
+    await ready();
+    const sale = screen.getByRole("region", { name: "Dados da venda" });
+    const form = screen.getByRole("heading", { name: /Contratantes/ });
+    expect(sale.closest("[data-layout]")).toHaveAttribute("data-layout", "stack");
+    expect(screen.getByRole("button", { name: "Dados da venda" }).compareDocumentPosition(form) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(within(sale).getByText("Billy Willy")).toBeInTheDocument();
+    expect(screen.getByRole("complementary", { name: "Resumo" }).closest("[data-layout='rail']")).toBeNull();
+    await waitFor(() => expect(getSaleById).toHaveBeenCalledTimes(1));
+  });
+
+  it("keeps the summary and the generate action above the sale preview on a wide window", async () => {
+    setViewport(1440);
+    await ready();
+    const sale = screen.getByRole("region", { name: "Dados da venda" });
+    const summary = screen.getByRole("complementary", { name: "Resumo" });
+    expect(sale.closest("[data-layout]")).toHaveAttribute("data-layout", "rail");
+    const column = summary.closest(".sticky");
+    expect(column).toHaveClass("sticky");
+    expect(column?.className).not.toMatch(/overflow-y-auto/);
+    expect(column?.contains(sale)).toBe(true);
+    expect(summary.compareDocumentPosition(sale) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(within(summary).getByRole("button", { name: "Gerar contrato" })).toBeInTheDocument();
+    expect(within(sale).getByText("Billy Willy")).toBeInTheDocument();
+  });
+
+  it("does not squeeze the document field into the summary column at a laptop width", async () => {
+    await ready();
+    const layout = screen.getByRole("heading", { name: /Contratantes/ }).closest("[data-layout='stack']");
+    const columns = layout?.querySelector(":scope > .grid");
+    expect(columns?.className).toContain("xl:grid-cols-[minmax(0,720px)_320px]");
+    expect(columns?.className).not.toMatch(/lg:grid-cols/);
+    expect(byId("contract-party-0-document").closest(".grid")?.className).toContain("min-w-0");
   });
 
   it("uses no jargon, no template id and no emoji", async () => {

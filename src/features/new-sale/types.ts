@@ -1,3 +1,5 @@
+import type { CommissionPayView } from "@/features/sales/utils/commissionStatus";
+import type { StripePaymentMethod } from "@/features/sales/utils/stripePaymentMethod";
 import type { BillingType, CreateSaleCustomer, SubscriptionCycle } from "@/services/commercialApi";
 import type { DisplayCurrency } from "@/services/exchangeRatesApi";
 
@@ -15,6 +17,11 @@ export type SalePaymentDraft = {
   status: string;
   notes: string;
   generatePaymentLink: boolean;
+  /** Reais amount stored on the sale when this draft was loaded from it. */
+  storedAmountBrl?: number;
+  /** Amount and currency as loaded, so an unchanged edit keeps the stored reais. */
+  loadedAmount?: string;
+  loadedCurrency?: DisplayCurrency;
 };
 
 export type SaleItemDraft = {
@@ -39,9 +46,14 @@ export type ConfiguredSalePayment = {
   installmentNumber?: number;
   dueDate?: string;
   feeRate: number;
-  billingType: BillingType;
+  /** Absent on a saved sale: the sale response does not include it. */
+  billingType?: BillingType | null;
+  stripePaymentMethod?: StripePaymentMethod | null;
+  /** Currency of `amount` when a line was entered in a currency other than the sale's. */
+  currency?: string;
   ciclo?: SubscriptionCycle;
   linkPagamento?: string;
+  commission?: CommissionPayView | null;
 };
 
 export type FilledSaleCustomer = Required<Pick<CreateSaleCustomer, "name" | "telefone">> &

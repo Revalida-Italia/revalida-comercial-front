@@ -8,6 +8,8 @@ import Dashboard from "./pages/Dashboard";
 import AdminDashboard from "./pages/AdminDashboard";
 import AdminCareerPlan from "./pages/AdminCareerPlan";
 import AdminPaymentGateways from "./pages/AdminPaymentGateways";
+import AdminPaymentWebhookEvents from "./pages/AdminPaymentWebhookEvents";
+import { PAYMENT_WEBHOOK_EVENTS_PATH } from "@/features/admin-payment-webhooks/constants";
 import AdminProducts from "@/pages/AdminProducts";
 import AdminProductsCreate from "@/pages/AdminProductsCreate";
 import AdminCreateUser from "@/pages/AdminCreateUser";
@@ -17,6 +19,8 @@ import AdminCostsCalendar from "@/pages/AdminCostsCalendar";
 import AdminTreasury from "@/pages/AdminTreasury";
 import BillingCalendar from "@/pages/BillingCalendar";
 import FirstAccess from "@/pages/FirstAccess";
+import PaymentCancel from "./pages/payment-return/PaymentCancel";
+import PaymentSuccess from "./pages/payment-return/PaymentSuccess";
 import SaleDetails from "./pages/SaleDetails";
 import EditSale from "./pages/EditSale";
 import AppLayout from "./components/AppLayout";
@@ -45,6 +49,9 @@ const App = () => (
         <Routes>
           <Route path="/" element={<Login />} />
           <Route path="/primeiro-acesso" element={<FirstAccess />} />
+          {/* Stripe return URLs. Public: the buyer has no comercial session. */}
+          <Route path="/sales/payment/success" element={<PaymentSuccess />} />
+          <Route path="/sales/payment/cancel" element={<PaymentCancel />} />
           <Route element={<RequireAuth />}>
             <Route element={<AppLayout />}>
               <Route element={<RequireSalesViewAccess />}>
@@ -67,6 +74,7 @@ const App = () => (
                 <Route path="/admin" element={<AdminDashboard />} />
                 <Route path="/admin/carreira" element={<AdminCareerPlan />} />
                 <Route path="/admin/payment-gateways" element={<AdminPaymentGateways />} />
+                <Route path={PAYMENT_WEBHOOK_EVENTS_PATH} element={<AdminPaymentWebhookEvents />} />
                 <Route path="/admin/products" element={<AdminProducts />} />
                 <Route path="/admin/products/new" element={<AdminProductsCreate />} />
                 <Route path="/admin/users" element={<AdminUsers />} />
