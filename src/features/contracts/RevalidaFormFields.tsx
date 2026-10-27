@@ -199,7 +199,7 @@ function PartyFields({
           )}
         </div>
       )}
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid min-w-0 gap-4 sm:grid-cols-2 [&>*]:min-w-0">
         {text("fullName", t("contract.party.fullName"), { className: "sm:col-span-2", autoComplete: "name" })}
         {text("document", t("contract.party.document"))}
         {text("nationality", t("contract.party.nationality"))}
@@ -237,7 +237,7 @@ function PeriodFields({
   const releaseError = form.error(releaseId);
   const durationError = form.error(durationId);
   return (
-    <Expand className="mt-3 grid gap-4 sm:grid-cols-2">
+    <Expand className="mt-3 grid min-w-0 gap-4 sm:grid-cols-2 [&>*]:min-w-0">
       <Field id={releaseId} label={t("contract.included.release")} error={releaseError}>
         <DateField
           id={releaseId}
@@ -393,7 +393,7 @@ export default function RevalidaFormFields({ state, update, catalog, form }: Pro
 
       <section aria-labelledby="contract-term-title">
         <SectionHeading number={3} title={t("contract.sections.term")} id="contract-term-title" />
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid min-w-0 gap-4 sm:grid-cols-2 [&>*]:min-w-0">
           <Field id="contract-term-start" label={t("contract.term.start")} error={termStartError}>
             <DateField
               id="contract-term-start"
@@ -456,7 +456,7 @@ export function RevalidaSignaturesSection({
   return (
     <section aria-labelledby="contract-signatures-title">
       <SectionHeading number={number} title={t("contract.sections.signatures")} id="contract-signatures-title" />
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid min-w-0 gap-4 sm:grid-cols-2 [&>*]:min-w-0">
         <TextField
           id="contract-reference-city"
           label={t("contract.signatures.city")}
@@ -469,7 +469,7 @@ export function RevalidaSignaturesSection({
       {state.witnesses.map((witness, index) => (
         <fieldset key={index} className="mt-5">
           <legend className="mb-3 text-[15px] font-semibold">{t("contract.signatures.witness", { n: index + 1 })}</legend>
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid min-w-0 gap-4 sm:grid-cols-2 [&>*]:min-w-0">
             <TextField
               id={`contract-witness-${index}-fullName`}
               label={t("contract.signatures.witnessName")}
