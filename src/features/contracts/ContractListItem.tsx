@@ -23,7 +23,8 @@ import {
   type SaleContract,
 } from "@/services/contractsApi";
 import { cn } from "@/lib/utils";
-import { canCreateStudentAccess, canManageSignature } from "@/features/contracts/access";
+import { canCreateStudentAccess, canManageSignature, canSendForSignature, type SaleOwnerRef } from "@/features/contracts/access";
+import { sendForSignatureErrorMessage } from "@/features/contracts/contractErrors";
 import { modelName } from "@/features/contracts/contractFormModel";
 import {
   CONTRACT_STATUS,
@@ -39,6 +40,7 @@ const SEND_ENABLED = import.meta.env.VITE_DOCUSIGN_BUTTON_FLAG === "true";
 type Props = {
   contract: SaleContract;
   saleId: string;
+  sale?: SaleOwnerRef | null;
   highlight?: boolean;
   onChanged: () => void;
 };
@@ -74,7 +76,7 @@ function IconAction({
   );
 }
 
-export default function ContractListItem({ contract, saleId, highlight, onChanged }: Props) {
+export default function ContractListItem({ contract, saleId, sale, highlight, onChanged }: Props) {
   const [sendOpen, setSendOpen] = useState(false);
   const signed = isSignedContract(contract);
   const statusKey = signed ? "SIGNED" : contract.status;
@@ -92,7 +94,8 @@ export default function ContractListItem({ contract, saleId, highlight, onChange
       toast.success("Contrato enviado para assinatura.");
       onChanged();
     },
-    onError: () => toast.error("Não foi possível enviar para assinatura. Tente novamente."),
+    onError: (error: unknown) =>
+      toast.error(sendForSignatureErrorMessage(error, "Não foi possível enviar para assinatura. Tente novamente.")),
   });
 
   const refreshMutation = useMutation({
@@ -130,7 +133,7 @@ export default function ContractListItem({ contract, saleId, highlight, onChange
       </>
     );
   } else if (contract.status === "GENERATED") {
-    actions = SEND_ENABLED && canManageSignature() ? (
+    actions = SEND_ENABLED && canSendForSignature(sale) ? (
       <>
         {download}
         <Button

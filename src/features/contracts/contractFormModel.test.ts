@@ -75,10 +75,6 @@ function brenoState(): RevalidaFormState {
   s.products.ITALIANO_MEDICO = { selected: true, releaseDate: "2027-10-15", durationMonths: "12" };
   s.termEnd = "2028-10-15";
   s.referenceCity = "São Paulo";
-  s.witnesses = [
-    { fullName: "Ana Rocha", document: "111.222.333-96" },
-    { fullName: "Carlos Nunes", document: "444.555.666-55" },
-  ];
   return s;
 }
 
@@ -92,7 +88,7 @@ describe("initial state", () => {
     expect(s.termEnd).toBe("");
     expect(s.parties[0].profession).toBe("Médico");
     expect(s.parties[0].professionIsOther).toBe(false);
-    expect(s.witnesses).toHaveLength(2);
+    expect(s).not.toHaveProperty("witnesses");
   });
 
   it("keeps a typed profession as Outra", () => {
@@ -108,7 +104,7 @@ describe("validateRevalidaForm", () => {
     expect(validateRevalidaForm(brenoState(), catalog, pay)).toEqual([]);
   });
 
-  it("asks for what is included, the end of the term, the payment, the city and the witnesses", () => {
+  it("asks for what is included, the end of the term, the payment and the city", () => {
     const s = createInitialRevalidaState(prefill());
     const issues = validateRevalidaForm(s, catalog, { phases: [] });
     expect(issues.map((i) => i.summary)).toEqual([
@@ -116,10 +112,6 @@ describe("validateRevalidaForm", () => {
       "Falta: fim da vigência",
       "Cadastre o pagamento da venda para gerar o contrato.",
       "Falta: cidade da assinatura",
-      "Falta: nome da testemunha 1",
-      "Falta: CPF da testemunha 1",
-      "Falta: nome da testemunha 2",
-      "Falta: CPF da testemunha 2",
     ]);
   });
 
@@ -214,7 +206,7 @@ describe("suggestTermEnd", () => {
 });
 
 describe("buildRevalidaPayload", () => {
-  it("sends the ticked products, profession, city, witnesses and no payment fields (the API takes them from the sale)", () => {
+  it("sends the ticked products, profession and city, and no payment or witness fields", () => {
     const s = brenoState();
     s.parties.push({ ...newPartyState(), id: "p2", fullName: "Ana", document: "2", email: "a@a.com", phone: "+55 (11) 91111-2222", profession: "Fisioterapeuta" });
     const { payload, sentProductCodes } = buildRevalidaPayload(prefill(), s);
@@ -231,11 +223,7 @@ describe("buildRevalidaPayload", () => {
     expect(payload.contractEndDate).toBe("2028-10-15");
     expect(payload.contractStartDate).toBe("2026-10-15");
     expect(payload.referenceCity).toBe("São Paulo");
-    expect(payload.witnesses).toEqual([
-      { fullName: "Ana Rocha", document: "111.222.333-96" },
-      { fullName: "Carlos Nunes", document: "444.555.666-55" },
-    ]);
-    for (const key of ["currency", "totalAmount", "phases", "liabilityRegime", "decreeReleaseDate", "decreeDurationMonths"]) {
+    for (const key of ["currency", "totalAmount", "phases", "witnesses", "liabilityRegime", "decreeReleaseDate", "decreeDurationMonths"]) {
       expect(payload).not.toHaveProperty(key);
     }
   });

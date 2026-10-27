@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { mapGenerateError } from "./contractErrors";
+import { mapGenerateError, sendForSignatureErrorMessage } from "./contractErrors";
 
 const ctx = {
   productCodes: ["START", "ITALIANO_MEDICO"] as ("START" | "ITALIANO_MEDICO")[],
@@ -30,13 +30,12 @@ describe("mapGenerateError", () => {
     ]);
   });
 
-  it("maps the 3.2 list, the term, the city, the witnesses and the sum of installments", () => {
+  it("maps the 3.2 list, the term, the city and the sum of installments", () => {
     const result = mapGenerateError(
       apiError([
         { code: "V_SERVICES", field: "products", message: "Clause 3.2 needs at least one product or extra" },
         { code: "V_PERIOD", field: "contractEndDate", message: "Contract end date is required" },
         { code: "V_SCHEMA", field: "referenceCity", message: "Too small" },
-        { code: "V_SCHEMA", field: "witnesses.1.document", message: "Too small" },
         { code: "V-M8", field: "phases", message: "Sum of phases (25000.00) differs from totalAmount (25002.00)" },
       ]),
       ctx,
@@ -46,7 +45,6 @@ describe("mapGenerateError", () => {
       "contract-product-START-toggle",
       "contract-term-end",
       "contract-reference-city",
-      "contract-witness-1-document",
       "contract-section-payment",
     ]);
     const text = result.issues.map((i) => `${i.message} ${i.summary}`).join(" ");
@@ -81,5 +79,16 @@ describe("mapGenerateError", () => {
       expect(result.banner).toBe("Não foi possível gerar o contrato. Tente novamente.");
       expect(result.issues.map((i) => i.message).join(" ")).not.toMatch(/Too small|Internal/);
     }
+  });
+});
+
+describe("sendForSignatureErrorMessage", () => {
+  const fallback = "Contrato registrado, mas não foi possível enviar para assinatura. Tente novamente pelo botão Enviar para assinatura.";
+
+  it("uses the not-configured sentence only for that code", () => {
+    const configured = Object.assign(new Error("missing"), { code: "DIGITAL_SIGNATURE_NOT_CONFIGURED" });
+    expect(sendForSignatureErrorMessage(configured, fallback)).toBe("Assinatura digital não está configurada");
+    expect(sendForSignatureErrorMessage(new Error("offline"), fallback)).toBe(fallback);
+    expect(sendForSignatureErrorMessage(Object.assign(new Error("other"), { code: "OTHER" }), fallback)).toBe(fallback);
   });
 });
