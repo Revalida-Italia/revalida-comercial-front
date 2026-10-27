@@ -23,6 +23,12 @@ export const ptBR = {
       saleLoadError: "Não foi possível carregar a venda.",
       unknownProduct: "Produto não identificado",
       generated: "Contrato gerado.",
+      sent: "Contrato enviado para assinatura.",
+      sendTitle: "Enviar para assinatura?",
+      sendBody: "Ao confirmar, registrar já envia o contrato para assinatura digital, sem precisar clicar em Enviar para assinatura.",
+      sendYes: "Sim",
+      sendNo: "Não",
+      registeredSendFailed: "Contrato registrado, mas não foi possível enviar para assinatura. Tente novamente pelo botão Enviar para assinatura.",
     },
     models: {
       revalida: "Programa Revalida Itália",

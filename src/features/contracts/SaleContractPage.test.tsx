@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import SaleContractPage from "./SaleContractPage";
@@ -11,11 +11,17 @@ vi.mock("@/services/commercialApi", async () => {
 });
 vi.mock("@/services/contractsApi", async () => {
   const actual = await vi.importActual<typeof import("@/services/contractsApi")>("@/services/contractsApi");
-  return { ...actual, prefillContract: vi.fn(), listRevalidaProducts: vi.fn(), generateContract: vi.fn() };
+  return {
+    ...actual,
+    prefillContract: vi.fn(),
+    listRevalidaProducts: vi.fn(),
+    generateContract: vi.fn(),
+    sendContractForSignature: vi.fn(),
+  };
 });
 
 const { getSaleById } = await import("@/services/commercialApi");
-const { prefillContract, listRevalidaProducts, generateContract } = await import("@/services/contractsApi");
+const { prefillContract, listRevalidaProducts, generateContract, sendContractForSignature } = await import("@/services/contractsApi");
 const { toast } = await import("sonner");
 
 const catalog = [
@@ -85,6 +91,16 @@ async function ready() {
 
 function generateButton() {
   return screen.getByRole("button", { name: "Gerar contrato" });
+}
+
+/** Gerar contrato opens the dialog. The choice is what actually registers. */
+async function confirmRegister(choice: "Sim" | "Não" = "Não") {
+  fireEvent.click(generateButton());
+  const dialog = await screen.findByRole("alertdialog");
+  expect(generateContract).not.toHaveBeenCalled();
+  await act(async () => {
+    fireEvent.click(within(dialog).getByRole("button", { name: choice }));
+  });
 }
 
 /** Everything the form asks for, in the order a seller would do it. */
@@ -192,6 +208,7 @@ describe("Gerar contrato page", () => {
     await ready();
     fireEvent.click(generateButton());
     expect(generateContract).not.toHaveBeenCalled();
+    expect(screen.queryByRole("alertdialog")).toBeNull();
     expect(toast.error).not.toHaveBeenCalled();
     expect(byId("contract-party-0-email")).toHaveAttribute("aria-invalid", "true");
     expect(document.activeElement).toBe(byId("contract-party-0-email"));
@@ -246,7 +263,7 @@ describe("Gerar contrato page", () => {
     fireEvent.click(within(group).getByRole("radio", { name: "Outra" }));
     type("contract-party-0-profession", "Biomédico");
     fillEverything();
-    fireEvent.click(generateButton());
+    await confirmRegister();
     await waitFor(() => expect(generateContract).toHaveBeenCalledTimes(1));
     const payload = vi.mocked(generateContract).mock.calls[0][1] as { parties: Array<{ profession: string }> };
     expect(payload.parties[0].profession).toBe("Biomédico");
@@ -259,7 +276,7 @@ describe("Gerar contrato page", () => {
     expect(byId("contract-term-end").value).toBe("");
     fillEverything();
     type("contract-term-start", "01/11/2026");
-    fireEvent.click(generateButton());
+    await confirmRegister();
     await waitFor(() => expect(generateContract).toHaveBeenCalledTimes(1));
     const payload = vi.mocked(generateContract).mock.calls[0][1] as Record<string, unknown>;
     expect(payload).toMatchObject({ contractStartDate: "2026-11-01", contractEndDate: "2028-04-15" });
@@ -351,7 +368,7 @@ describe("Gerar contrato page", () => {
     const resumo = screen.getByRole("complementary", { name: "Resumo" });
     expect(within(resumo).getByText("2 estudantes")).toBeInTheDocument();
     expect(within(resumo).getByText("4 meses a partir de 11/01/2027")).toBeInTheDocument();
-    fireEvent.click(generateButton());
+    await confirmRegister();
     await waitFor(() => expect(generateContract).toHaveBeenCalledTimes(1));
     const [, payload, productType] = vi.mocked(generateContract).mock.calls[0] as [string, Record<string, unknown>, string];
     expect(productType).toBe("ESCOLA_DE_ITALIANO");
@@ -428,8 +445,9 @@ describe("Gerar contrato page", () => {
     await ready();
     fillEverything();
     expect(generateButton()).toHaveAttribute("aria-disabled", "false");
-    fireEvent.click(generateButton());
+    await confirmRegister();
     await waitFor(() => expect(generateContract).toHaveBeenCalledTimes(1));
+    expect(sendContractForSignature).not.toHaveBeenCalled();
     const [saleId, payload, productType] = vi.mocked(generateContract).mock.calls[0] as [string, Record<string, unknown>, string];
     expect(saleId).toBe("s1");
     expect(productType).toBe("PROGRAMA_REVALIDA_ITALIA");
@@ -465,7 +483,7 @@ describe("Gerar contrato page", () => {
     );
     await ready();
     fillEverything();
-    fireEvent.click(generateButton());
+    await confirmRegister();
     expect(await screen.findByText("Escolha a data de liberação.")).toBeInTheDocument();
     expect(byId("contract-product-START-release").value).toBe("15/10/2026");
     expect(byId("contract-product-START-release")).toHaveAttribute("aria-invalid", "true");
@@ -479,7 +497,7 @@ describe("Gerar contrato page", () => {
     vi.mocked(generateContract).mockRejectedValue(new Error("Sum of phases (1) differs from totalAmount (2)"));
     await ready();
     fillEverything();
-    fireEvent.click(generateButton());
+    await confirmRegister();
     expect(await screen.findByText("Não foi possível gerar o contrato. Tente novamente.")).toBeInTheDocument();
     expect(document.body.textContent).not.toMatch(/Sum of phases|totalAmount/);
     expect(generateButton()).toHaveAttribute("aria-disabled", "false");
@@ -490,11 +508,84 @@ describe("Gerar contrato page", () => {
     vi.mocked(generateContract).mockReturnValue(new Promise((resolve) => { finish = resolve; }) as never);
     await ready();
     fillEverything();
-    fireEvent.click(generateButton());
-    expect(await screen.findByRole("button", { name: "Gerando…" })).toBeInTheDocument();
+    await confirmRegister();
+    expect(await screen.findByRole("button", { name: "Gerando…", hidden: true })).toBeInTheDocument();
     expect(byId("contract-party-0-email")).toBeDisabled();
+    const dialog = screen.getByRole("alertdialog");
+    expect(within(dialog).getByRole("button", { name: "Sim" })).toBeDisabled();
+    expect(within(dialog).getByRole("button", { name: "Não" })).toBeDisabled();
     finish({ id: "ct_new" });
     await screen.findByTestId("sale-page");
+  });
+
+  it("asks before registering, and Escape does not register", async () => {
+    await ready();
+    fillEverything();
+    fireEvent.click(generateButton());
+    const dialog = await screen.findByRole("alertdialog");
+    expect(within(dialog).getByRole("heading", { name: "Enviar para assinatura?" })).toBeInTheDocument();
+    expect(dialog).toHaveTextContent(
+      "Ao confirmar, registrar já envia o contrato para assinatura digital, sem precisar clicar em Enviar para assinatura.",
+    );
+    expect(dialog.textContent).not.toMatch(/DocuSign|envelope|payload|\bAPI\b/i);
+    expect(dialog.textContent).not.toMatch(/\p{Extended_Pictographic}/u);
+    fireEvent.keyDown(document.body, { key: "Escape", code: "Escape" });
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
+    expect(generateContract).not.toHaveBeenCalled();
+    expect(sendContractForSignature).not.toHaveBeenCalled();
+  });
+
+  it("Sim registers and then sends for signature", async () => {
+    vi.mocked(generateContract).mockResolvedValue({ id: "ct_new" } as never);
+    vi.mocked(sendContractForSignature).mockResolvedValue({ id: "ct_new" } as never);
+    await ready();
+    fillEverything();
+    await confirmRegister("Sim");
+    await waitFor(() => expect(sendContractForSignature).toHaveBeenCalledWith("ct_new"));
+    expect(generateContract).toHaveBeenCalledTimes(1);
+    const order = vi.mocked(generateContract).mock.invocationCallOrder[0];
+    expect(vi.mocked(sendContractForSignature).mock.invocationCallOrder[0]).toBeGreaterThan(order);
+    expect(toast.success).toHaveBeenCalledWith("Contrato enviado para assinatura.");
+    expect(toast.error).not.toHaveBeenCalled();
+    await screen.findByTestId("sale-page");
+  });
+
+  it("keeps the registered contract when the signature send fails", async () => {
+    vi.mocked(generateContract).mockResolvedValue({ id: "ct_new" } as never);
+    vi.mocked(sendContractForSignature).mockRejectedValue(new Error("offline"));
+    await ready();
+    fillEverything();
+    await confirmRegister("Sim");
+    const probe = await screen.findByTestId("sale-page");
+    expect(probe).toHaveTextContent("ct_new");
+    expect(toast.error).toHaveBeenCalledWith(
+      "Contrato registrado, mas não foi possível enviar para assinatura. Tente novamente pelo botão Enviar para assinatura.",
+    );
+    expect(toast.success).not.toHaveBeenCalled();
+    expect(generateContract).toHaveBeenCalledTimes(1);
+    expect(sendContractForSignature).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not register twice if Sim is clicked again", async () => {
+    let finish: (value: unknown) => void = () => {};
+    vi.mocked(generateContract).mockReturnValue(new Promise((resolve) => { finish = resolve; }) as never);
+    vi.mocked(sendContractForSignature).mockResolvedValue({ id: "ct_new" } as never);
+    await ready();
+    fillEverything();
+    fireEvent.click(generateButton());
+    const dialog = await screen.findByRole("alertdialog");
+    const yes = within(dialog).getByRole("button", { name: "Sim" });
+    await act(async () => {
+      fireEvent.click(yes);
+      fireEvent.click(yes);
+    });
+    expect(generateContract).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      finish({ id: "ct_new" });
+    });
+    await screen.findByTestId("sale-page");
+    expect(generateContract).toHaveBeenCalledTimes(1);
+    expect(sendContractForSignature).toHaveBeenCalledTimes(1);
   });
 
   it("adds a second contractor with its own profession and Remover, and no responsibility choice", async () => {
