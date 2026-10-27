@@ -94,14 +94,6 @@ export function mapGenerateError(error: unknown, ctx: GenerateErrorContext): Map
       continue;
     }
 
-    match = /^witnesses\.(\d+)\.(fullName|document)$/.exec(field);
-    if (match) {
-      const n = Number(match[1]) + 1;
-      const id = `contract-witness-${match[1]}-${match[2]}`;
-      push(id, required, t(match[2] === "fullName" ? "contract.missing.witnessName" : "contract.missing.witnessDocument", { n }));
-      continue;
-    }
-
     if (field === "products" && code === "V_SERVICES") {
       push(INCLUDED_FIELD_ID, t("contract.errors.inclusion"), t("contract.errors.inclusion"));
       continue;

@@ -97,10 +97,6 @@ function fillEverything() {
   type("contract-product-START-duration", "12");
   type("contract-term-end", "15/04/2028");
   type("contract-reference-city", "São Paulo");
-  type("contract-witness-0-fullName", "Ana Rocha");
-  type("contract-witness-0-document", "111.222.333-96");
-  type("contract-witness-1-fullName", "Carlos Nunes");
-  type("contract-witness-1-document", "444.555.666-55");
 }
 
 const originalMatchMedia = window.matchMedia;
@@ -164,6 +160,8 @@ describe("Gerar contrato page", () => {
       expect(screen.getByRole("heading", { name: new RegExp(title) })).toBeInTheDocument();
     }
     expect(screen.getByRole("link", { name: /Venda/ })).toHaveAttribute("href", "/vendas/s1");
+    expect(screen.queryByText(/Testemunha/)).toBeNull();
+    expect(document.getElementById("contract-witness-0-fullName")).toBeNull();
   });
 
   it("shows each product with the description from the catalog, read only, and Não as the default for extras", async () => {
@@ -438,17 +436,13 @@ describe("Gerar contrato page", () => {
     expect(payload).toMatchObject({
       decreeIncluded: true,
       referenceCity: "São Paulo",
-      witnesses: [
-        { fullName: "Ana Rocha", document: "111.222.333-96" },
-        { fullName: "Carlos Nunes", document: "444.555.666-55" },
-      ],
       products: [{ code: "START", included: true, releaseDate: "2026-10-15", durationMonths: 12, endDate: null }],
       contractStartDate: "2026-10-15",
       contractEndDate: "2028-04-15",
       expenses: { translationsIncluded: false, apostillesIncluded: false, postalExpensesIncluded: false },
     });
     // The payment is read only: the API takes it from the sale.
-    for (const key of ["currency", "totalAmount", "phases", "liabilityRegime", "decreeReleaseDate", "decreeDurationMonths"]) {
+    for (const key of ["currency", "totalAmount", "phases", "witnesses", "liabilityRegime", "decreeReleaseDate", "decreeDurationMonths"]) {
       expect(payload).not.toHaveProperty(key);
     }
     expect(JSON.stringify(payload)).not.toMatch(/HOTMART/i);
