@@ -3,7 +3,9 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import { MemoryRouter } from "react-router-dom";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { setProfile } from "@/lib/session";
 import type { SaleContract } from "@/services/contractsApi";
+import type { SaleOwnerRef } from "@/features/contracts/access";
 
 const who = vi.hoisted(() => {
   vi.stubEnv("VITE_DOCUSIGN_BUTTON_FLAG", "true");
@@ -11,11 +13,14 @@ const who = vi.hoisted(() => {
 });
 
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
-vi.mock("@/features/contracts/access", () => ({
-  canGenerateContracts: () => true,
-  canCreateStudentAccess: () => who.admin,
-  canManageSignature: () => who.admin,
-}));
+vi.mock("@/features/contracts/access", async () => {
+  const actual = await vi.importActual<typeof import("@/features/contracts/access")>("@/features/contracts/access");
+  return {
+    ...actual,
+    canCreateStudentAccess: () => who.admin,
+    canManageSignature: () => who.admin,
+  };
+});
 vi.mock("@/services/contractsApi", async () => {
   const actual = await vi.importActual<typeof import("@/services/contractsApi")>("@/services/contractsApi");
   return {
@@ -51,17 +56,21 @@ function contract(id: string, overrides: Partial<SaleContract> = {}): SaleContra
   };
 }
 
-function renderPanel() {
+function renderPanel(sale: SaleOwnerRef = {}) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
   return render(
     <QueryClientProvider client={client}>
       <TooltipProvider>
         <MemoryRouter>
-          <SaleContractsPanel saleId="s1" />
+          <SaleContractsPanel saleId="s1" sellerId={sale.sellerId} seller={sale.seller} />
         </MemoryRouter>
       </TooltipProvider>
     </QueryClientProvider>,
   );
+}
+
+function signIn(role: "ADMIN" | "SELLER", sub: string) {
+  setProfile({ sub, id: sub, externalId: sub, email: `${sub}@example.com`, name: sub, role, roles: [role] } as never);
 }
 
 beforeAll(() => {
@@ -75,6 +84,8 @@ beforeAll(() => {
 beforeEach(() => {
   vi.clearAllMocks();
   who.admin = true;
+  window.localStorage.clear();
+  signIn("ADMIN", "admin-1");
 });
 
 describe("Contratos list", () => {
@@ -193,17 +204,37 @@ describe("Contratos list", () => {
 });
 
 describe("Contratos list for a seller", () => {
-  it("offers only the download: no send for signature, no status refresh, no student access", async () => {
+  it("owner sees Enviar para assinatura and can send; no status refresh and no student access", async () => {
     who.admin = false;
+    signIn("SELLER", "seller-1");
     vi.mocked(listSaleContracts).mockResolvedValue([
       contract("c1", { status: "GENERATED" }),
       contract("c2", { status: "SENT", docusignEnvelopeId: "env-1" }),
     ]);
-    renderPanel();
+    vi.mocked(sendContractForSignature).mockResolvedValue(contract("c1", { status: "SENT" }));
+    renderPanel({ sellerId: "internal-1", seller: { id: "internal-1", externalId: "seller-1" } });
+    const items = await screen.findAllByRole("listitem");
+    fireEvent.click(within(items[0]).getByRole("button", { name: "Enviar para assinatura" }));
+    const dialog = await screen.findByRole("alertdialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Enviar" }));
+    await waitFor(() => expect(sendContractForSignature).toHaveBeenCalledWith("c1"));
+    expect(screen.queryByRole("button", { name: "Atualizar status" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Criar acesso dos alunos" })).toBeNull();
+    expect(screen.getAllByRole("button", { name: "Baixar PDF" })).toHaveLength(2);
+    expect(screen.getByRole("link", { name: "Gerar contrato" })).toBeInTheDocument();
+  });
+
+  it("a seller who does not own the sale does not see Enviar para assinatura", async () => {
+    who.admin = false;
+    signIn("SELLER", "seller-2");
+    vi.mocked(listSaleContracts).mockResolvedValue([
+      contract("c1", { status: "GENERATED" }),
+      contract("c2", { status: "SENT", docusignEnvelopeId: "env-1" }),
+    ]);
+    renderPanel({ sellerId: "seller-1" });
     await screen.findAllByText("Programa Revalida Itália");
     expect(screen.queryByRole("button", { name: "Enviar para assinatura" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Atualizar status" })).toBeNull();
     expect(screen.getAllByRole("button", { name: "Baixar PDF" })).toHaveLength(2);
-    expect(screen.getByRole("link", { name: "Gerar contrato" })).toBeInTheDocument();
   });
 });
