@@ -26,7 +26,6 @@ import {
   type ProductState,
   type ProfessionChoice,
   type RevalidaFormState,
-  type WitnessState,
 } from "@/features/contracts/contractFormModel";
 import {
   Expand,
@@ -436,7 +435,7 @@ export default function RevalidaFormFields({ state, update, catalog, form }: Pro
   );
 }
 
-/** City of the signatures and the two witnesses. */
+/** City printed next to the signature date. Witnesses are fixed in the PDF. */
 export function RevalidaSignaturesSection({
   number,
   state,
@@ -448,11 +447,6 @@ export function RevalidaSignaturesSection({
   update: Props["update"];
   form: FormControl;
 }) {
-  const patchWitness = (index: number, change: Partial<WitnessState>) =>
-    update((s) => ({
-      ...s,
-      witnesses: s.witnesses.map((w, i) => (i === index ? { ...w, ...change } : w)) as RevalidaFormState["witnesses"],
-    }));
   return (
     <section aria-labelledby="contract-signatures-title">
       <SectionHeading number={number} title={t("contract.sections.signatures")} id="contract-signatures-title" />
@@ -466,27 +460,6 @@ export function RevalidaSignaturesSection({
           options={{ autoComplete: "address-level2" }}
         />
       </div>
-      {state.witnesses.map((witness, index) => (
-        <fieldset key={index} className="mt-5">
-          <legend className="mb-3 text-[15px] font-semibold">{t("contract.signatures.witness", { n: index + 1 })}</legend>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <TextField
-              id={`contract-witness-${index}-fullName`}
-              label={t("contract.signatures.witnessName")}
-              value={witness.fullName}
-              onChange={(fullName) => patchWitness(index, { fullName })}
-              form={form}
-            />
-            <TextField
-              id={`contract-witness-${index}-document`}
-              label={t("contract.signatures.witnessDocument")}
-              value={witness.document}
-              onChange={(document) => patchWitness(index, { document })}
-              form={form}
-            />
-          </div>
-        </fieldset>
-      ))}
     </section>
   );
 }
