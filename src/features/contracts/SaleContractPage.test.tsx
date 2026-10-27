@@ -525,9 +525,11 @@ describe("Gerar contrato page", () => {
     const dialog = await screen.findByRole("alertdialog");
     expect(within(dialog).getByRole("heading", { name: "Enviar para assinatura?" })).toBeInTheDocument();
     expect(dialog).toHaveTextContent(
-      "Ao confirmar, registrar já envia o contrato para assinatura digital, sem precisar clicar em Enviar para assinatura.",
+      "Gerar contrato com Sim envia para assinatura; com Não, o contrato só é gerado.",
     );
-    expect(dialog.textContent).not.toMatch(/DocuSign|envelope|payload|\bAPI\b/i);
+    expect(within(dialog).getByRole("button", { name: "Sim" })).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "Não" })).toBeInTheDocument();
+    expect(dialog.textContent).not.toMatch(/Registrar|DocuSign|envelope|payload|\bAPI\b/i);
     expect(dialog.textContent).not.toMatch(/\p{Extended_Pictographic}/u);
     fireEvent.keyDown(document.body, { key: "Escape", code: "Escape" });
     await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
@@ -548,6 +550,25 @@ describe("Gerar contrato page", () => {
     expect(toast.success).toHaveBeenCalledWith("Contrato enviado para assinatura.");
     expect(toast.error).not.toHaveBeenCalled();
     await screen.findByTestId("sale-page");
+  });
+
+  it("says the contract was registered when the signature is not configured", async () => {
+    vi.mocked(generateContract).mockResolvedValue({ id: "ct_new" } as never);
+    vi.mocked(sendContractForSignature).mockRejectedValue(
+      Object.assign(new Error("missing"), { code: "DIGITAL_SIGNATURE_NOT_CONFIGURED", status: 503 }),
+    );
+    await ready();
+    fillEverything();
+    await confirmRegister("Sim");
+    const probe = await screen.findByTestId("sale-page");
+    expect(probe).toHaveTextContent("ct_new");
+    expect(toast.error).toHaveBeenCalledWith(
+      "Contrato registrado. A assinatura digital não está configurada, então o envio não foi feito.",
+    );
+    expect(toast.success).not.toHaveBeenCalled();
+    expect(generateContract).toHaveBeenCalledTimes(1);
+    expect(sendContractForSignature).toHaveBeenCalledTimes(1);
+    expect(document.body.textContent).not.toMatch(/DIGITAL_SIGNATURE|DocuSign|envelope|payload/i);
   });
 
   it("keeps the registered contract when the signature send fails", async () => {

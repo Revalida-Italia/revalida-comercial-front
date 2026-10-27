@@ -36,6 +36,7 @@ vi.mock("@/services/contractsApi", async () => {
 const { listSaleContracts, sendContractForSignature, downloadContractPdf, downloadSignedContractPdf } = await import(
   "@/services/contractsApi"
 );
+const { toast } = await import("sonner");
 const { default: SaleContractsPanel } = await import("./SaleContractsPanel");
 
 function contract(id: string, overrides: Partial<SaleContract> = {}): SaleContract {
@@ -153,6 +154,35 @@ describe("Contratos list", () => {
     expect(sendContractForSignature).not.toHaveBeenCalled();
     fireEvent.click(within(dialog).getByRole("button", { name: "Enviar" }));
     await waitFor(() => expect(sendContractForSignature).toHaveBeenCalledWith("c1"));
+  });
+
+  it("tells the seller the signature is not configured, and that the contract stays registered, without the error code", async () => {
+    vi.mocked(listSaleContracts).mockResolvedValue([contract("c1")]);
+    vi.mocked(sendContractForSignature).mockRejectedValue(
+      Object.assign(new Error("not configured"), { code: "DIGITAL_SIGNATURE_NOT_CONFIGURED", status: 503 }),
+    );
+    renderPanel();
+    const item = (await screen.findAllByRole("listitem"))[0];
+    fireEvent.click(within(item).getByRole("button", { name: "Enviar para assinatura" }));
+    fireEvent.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Enviar" }));
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith(
+        "Contrato registrado. A assinatura digital não está configurada, então o envio não foi feito.",
+      ),
+    );
+    expect(document.body.textContent).not.toMatch(/DIGITAL_SIGNATURE|DocuSign|envelope|payload/i);
+  });
+
+  it("uses the translated sentence when sending fails for another reason", async () => {
+    vi.mocked(listSaleContracts).mockResolvedValue([contract("c1")]);
+    vi.mocked(sendContractForSignature).mockRejectedValue(new Error("offline"));
+    renderPanel();
+    const item = (await screen.findAllByRole("listitem"))[0];
+    fireEvent.click(within(item).getByRole("button", { name: "Enviar para assinatura" }));
+    fireEvent.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Enviar" }));
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith("Não foi possível enviar para assinatura. Tente novamente."),
+    );
   });
 
   it("Enviado with envelope: Atualizar status plus download", async () => {

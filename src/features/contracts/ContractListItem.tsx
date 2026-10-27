@@ -23,7 +23,9 @@ import {
   type SaleContract,
 } from "@/services/contractsApi";
 import { cn } from "@/lib/utils";
+import { t } from "@/i18n";
 import { canCreateStudentAccess, canManageSignature, canSendForSignature, type SaleOwnerRef } from "@/features/contracts/access";
+import { sendForSignatureErrorMessage } from "@/features/contracts/contractErrors";
 import { modelName } from "@/features/contracts/contractFormModel";
 import {
   CONTRACT_STATUS,
@@ -93,7 +95,8 @@ export default function ContractListItem({ contract, saleId, sale, highlight, on
       toast.success("Contrato enviado para assinatura.");
       onChanged();
     },
-    onError: () => toast.error("Não foi possível enviar para assinatura. Tente novamente."),
+    onError: (error: unknown) =>
+      toast.error(sendForSignatureErrorMessage(error, t("contract.list.sendFailed"))),
   });
 
   const refreshMutation = useMutation({

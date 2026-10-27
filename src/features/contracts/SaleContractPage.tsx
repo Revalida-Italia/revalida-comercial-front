@@ -51,7 +51,7 @@ import {
   type FormIssue,
   type RevalidaFormState,
 } from "@/features/contracts/contractFormModel";
-import { mapGenerateError } from "@/features/contracts/contractErrors";
+import { mapGenerateError, sendForSignatureErrorMessage } from "@/features/contracts/contractErrors";
 import { focusField, type FormControl } from "@/features/contracts/contractFormParts";
 import ContractPaymentSection from "@/features/contracts/ContractPaymentSection";
 import ContractSummary, { GenerateBar } from "@/features/contracts/ContractSummary";
@@ -140,8 +140,8 @@ function useRegisterFlow(saleId: string, productType: ContractProductType) {
             if (!created?.id) throw new Error("missing-contract-id");
             await sendContractForSignature(created.id);
             toast.success(t("contract.page.sent"));
-          } catch {
-            toast.error(t("contract.page.registeredSendFailed"));
+          } catch (error) {
+            toast.error(sendForSignatureErrorMessage(error, t("contract.page.registeredSendFailed")));
           }
         } else {
           toast.success(t("contract.page.generated"));

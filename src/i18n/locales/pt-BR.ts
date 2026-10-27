@@ -25,10 +25,14 @@ export const ptBR = {
       generated: "Contrato gerado.",
       sent: "Contrato enviado para assinatura.",
       sendTitle: "Enviar para assinatura?",
-      sendBody: "Ao confirmar, registrar já envia o contrato para assinatura digital, sem precisar clicar em Enviar para assinatura.",
+      sendBody: "Gerar contrato com Sim envia para assinatura; com Não, o contrato só é gerado.",
       sendYes: "Sim",
       sendNo: "Não",
       registeredSendFailed: "Contrato registrado, mas não foi possível enviar para assinatura. Tente novamente pelo botão Enviar para assinatura.",
+      signatureNotConfigured: "Contrato registrado. A assinatura digital não está configurada, então o envio não foi feito.",
+    },
+    list: {
+      sendFailed: "Não foi possível enviar para assinatura. Tente novamente.",
     },
     models: {
       revalida: "Programa Revalida Itália",
