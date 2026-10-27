@@ -1,6 +1,6 @@
-import { useCallback, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { ChevronDown, ChevronLeft, Loader2, Receipt } from "lucide-react";
 import {
@@ -27,6 +27,7 @@ import {
   generateContract,
   listRevalidaProducts,
   prefillContract,
+  sendContractForSignature,
   type ContractProductType,
   type RevalidaContractPayload,
   type RevalidaProduct,
@@ -102,25 +103,114 @@ function useFormFeedback(issues: FormIssue[]) {
   return { allIssues, errorFor, touch, attempted, setAttempted, serverIssues, setServerIssues, banner, setBanner, clearServer };
 }
 
-function useGenerate(saleId: string, productType: ContractProductType) {
+type RegisterChoice = "only" | "and-send";
+
+function useRegisterFlow(saleId: string, productType: ContractProductType) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const mutation = useMutation({
-    mutationFn: (payload: unknown) => generateContract(saleId, payload, productType),
-  });
-  const run = (
-    payload: unknown,
-    onError: (error: unknown) => void,
-  ) =>
-    mutation.mutate(payload, {
-      onSuccess: (created) => {
+  const [open, setOpen] = useState(false);
+  const [generating, setGenerating] = useState(false);
+  const lock = useRef(false);
+  const payloadRef = useRef<unknown>(null);
+  const onErrorRef = useRef<(error: unknown) => void>(() => {});
+
+  const requestRegister = useCallback((payload: unknown, onError: (error: unknown) => void) => {
+    if (lock.current) return;
+    payloadRef.current = payload;
+    onErrorRef.current = onError;
+    setOpen(true);
+  }, []);
+
+  const dismiss = useCallback(() => {
+    if (lock.current) return;
+    setOpen(false);
+  }, []);
+
+  const choose = useCallback((choice: RegisterChoice) => {
+    if (lock.current) return;
+    lock.current = true;
+    setGenerating(true);
+    void (async () => {
+      let registered = false;
+      try {
+        const created = await generateContract(saleId, payloadRef.current, productType);
+        registered = true;
+        if (choice === "and-send") {
+          try {
+            if (!created?.id) throw new Error("missing-contract-id");
+            await sendContractForSignature(created.id);
+            toast.success(t("contract.page.sent"));
+          } catch {
+            toast.error(t("contract.page.registeredSendFailed"));
+          }
+        } else {
+          toast.success(t("contract.page.generated"));
+        }
         void queryClient.invalidateQueries({ queryKey: ["sale-contracts", saleId] });
-        toast.success(t("contract.page.generated"));
         navigate(`/vendas/${saleId}`, { state: { newContractId: created?.id } });
-      },
-      onError,
-    });
-  return { run, generating: mutation.isPending };
+      } catch (error) {
+        onErrorRef.current(error);
+      } finally {
+        if (!registered) {
+          lock.current = false;
+          setGenerating(false);
+          setOpen(false);
+        }
+      }
+    })();
+  }, [navigate, productType, queryClient, saleId]);
+
+  return { open, generating, requestRegister, dismiss, choose };
+}
+
+function RegisterSignatureDialog({
+  open,
+  pending,
+  onDismiss,
+  onYes,
+  onNo,
+}: {
+  open: boolean;
+  pending: boolean;
+  onDismiss: () => void;
+  onYes: () => void;
+  onNo: () => void;
+}) {
+  return (
+    <AlertDialog open={open} onOpenChange={(next) => { if (!next) onDismiss(); }}>
+      <AlertDialogContent
+        onEscapeKeyDown={(event) => {
+          if (pending) event.preventDefault();
+        }}
+      >
+        <AlertDialogHeader>
+          <AlertDialogTitle>{t("contract.page.sendTitle")}</AlertDialogTitle>
+          <AlertDialogDescription>{t("contract.page.sendBody")}</AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel
+            disabled={pending}
+            onClick={(event) => {
+              event.preventDefault();
+              onNo();
+            }}
+          >
+            {t("contract.page.sendNo")}
+          </AlertDialogCancel>
+          <AlertDialogAction
+            disabled={pending}
+            onClick={(event) => {
+              event.preventDefault();
+              onYes();
+            }}
+          >
+            {pending ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : null}
+            {t("contract.page.sendYes")}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
 }
 
 const FORM_CARD = "m-0 min-w-0 space-y-10 rounded-lg border-0 bg-card p-6 shadow-[0_4px_24px_rgba(15,40,60,0.07)] sm:p-8";
@@ -222,7 +312,8 @@ function RevalidaBody({
     [state, catalog, prefill.phases],
   );
   const feedback = useFormFeedback(issues);
-  const { run, generating } = useGenerate(saleId, "PROGRAMA_REVALIDA_ITALIA");
+  const registration = useRegisterFlow(saleId, "PROGRAMA_REVALIDA_ITALIA");
+  const generating = registration.generating;
 
   const update = useCallback(
     (change: (draft: RevalidaFormState) => RevalidaFormState) => {
@@ -247,7 +338,7 @@ function RevalidaBody({
       return;
     }
     const built = buildRevalidaPayload(prefill, state);
-    run(built.payload, (error) => {
+    registration.requestRegister(built.payload, (error) => {
       const mapped = mapGenerateError(error, {
         productCodes: built.sentProductCodes,
         catalog,
@@ -263,47 +354,56 @@ function RevalidaBody({
   const paymentError = feedback.errorFor("contract-section-payment");
 
   return (
-    <ContractLayout
-      saleId={saleId}
-      disabled={generating}
-      bar={isDesktop ? null : <GenerateBar issues={feedback.allIssues} generating={generating} onGenerate={onGenerate} />}
-      form={
-        <>
-          <RevalidaFormFields state={state} update={update} catalog={catalog} form={form} />
-          <ContractPaymentSection
-            number={4}
-            saleId={saleId}
-            phases={prefill.phases}
-            total={total}
-            currency={currency}
-            error={paymentError}
+    <>
+      <ContractLayout
+        saleId={saleId}
+        disabled={generating}
+        bar={isDesktop ? null : <GenerateBar issues={feedback.allIssues} generating={generating} onGenerate={onGenerate} />}
+        form={
+          <>
+            <RevalidaFormFields state={state} update={update} catalog={catalog} form={form} />
+            <ContractPaymentSection
+              number={4}
+              saleId={saleId}
+              phases={prefill.phases}
+              total={total}
+              currency={currency}
+              error={paymentError}
+            />
+            <RevalidaSignaturesSection number={5} state={state} update={update} form={form} />
+            <ObservationsSection
+              number={6}
+              value={state.notes}
+              disabled={generating}
+              onChange={(notes) => update((s) => ({ ...s, notes }))}
+            />
+          </>
+        }
+        summary={
+          <ContractSummary
+            totalLabel={formatCurrency(total, currency)}
+            contractors={summary.contractors}
+            included={summary.included}
+            notIncluded={summary.notIncluded}
+            termLabel={summary.term}
+            termStartLabel={summary.termStart}
+            issues={feedback.allIssues}
+            banner={feedback.banner}
+            generating={generating}
+            stickyBar={!isDesktop}
+            contained={rail}
+            onGenerate={onGenerate}
           />
-          <RevalidaSignaturesSection number={5} state={state} update={update} form={form} />
-          <ObservationsSection
-            number={6}
-            value={state.notes}
-            disabled={generating}
-            onChange={(notes) => update((s) => ({ ...s, notes }))}
-          />
-        </>
-      }
-      summary={
-        <ContractSummary
-          totalLabel={formatCurrency(total, currency)}
-          contractors={summary.contractors}
-          included={summary.included}
-          notIncluded={summary.notIncluded}
-          termLabel={summary.term}
-          termStartLabel={summary.termStart}
-          issues={feedback.allIssues}
-          banner={feedback.banner}
-          generating={generating}
-          stickyBar={!isDesktop}
-          contained={rail}
-          onGenerate={onGenerate}
-        />
-      }
-    />
+        }
+      />
+      <RegisterSignatureDialog
+        open={registration.open}
+        pending={generating}
+        onDismiss={registration.dismiss}
+        onYes={() => registration.choose("and-send")}
+        onNo={() => registration.choose("only")}
+      />
+    </>
   );
 }
 
@@ -326,7 +426,8 @@ function SchoolBody({
   const total = paymentTotal(payload.phases, payload.totalAmount ?? 0);
   const currency = payload.currency ?? "BRL";
   const feedback = useFormFeedback(issues);
-  const { run, generating } = useGenerate(saleId, "ESCOLA_DE_ITALIANO");
+  const registration = useRegisterFlow(saleId, "ESCOLA_DE_ITALIANO");
+  const generating = registration.generating;
 
   const update = useCallback(
     (change: (draft: SchoolContractPayload) => SchoolContractPayload) => {
@@ -346,7 +447,7 @@ function SchoolBody({
       focusField(feedback.allIssues[0].fieldId);
       return;
     }
-    run(buildSchoolPayload(payload), (error) => {
+    registration.requestRegister(buildSchoolPayload(payload), (error) => {
       const mapped = mapGenerateError(error, {
         productCodes: [],
         catalog: [],
@@ -362,44 +463,53 @@ function SchoolBody({
   const rows = buildSchoolSummaryRows(payload);
 
   return (
-    <ContractLayout
-      saleId={saleId}
-      disabled={generating}
-      bar={isDesktop ? null : <GenerateBar issues={feedback.allIssues} generating={generating} onGenerate={onGenerate} />}
-      form={
-        <>
-          <SchoolFormFields payload={payload} update={update} form={form} />
-          <ContractPaymentSection
-            number={3}
-            saleId={saleId}
-            phases={payload.phases}
-            total={total}
-            currency={currency}
-            error={feedback.errorFor("contract-section-payment")}
+    <>
+      <ContractLayout
+        saleId={saleId}
+        disabled={generating}
+        bar={isDesktop ? null : <GenerateBar issues={feedback.allIssues} generating={generating} onGenerate={onGenerate} />}
+        form={
+          <>
+            <SchoolFormFields payload={payload} update={update} form={form} />
+            <ContractPaymentSection
+              number={3}
+              saleId={saleId}
+              phases={payload.phases}
+              total={total}
+              currency={currency}
+              error={feedback.errorFor("contract-section-payment")}
+            />
+            <SchoolSignaturesSection number={4} payload={payload} update={update} form={form} />
+            <ObservationsSection
+              number={5}
+              value={payload.notes ?? ""}
+              disabled={generating}
+              onChange={(notes) => update((p) => ({ ...p, notes }))}
+            />
+          </>
+        }
+        summary={
+          <ContractSummary
+            totalLabel={formatCurrency(total, currency)}
+            contractors={tCount("contract.summary.students", payload.students.length)}
+            rows={rows}
+            issues={feedback.allIssues}
+            banner={feedback.banner}
+            generating={generating}
+            stickyBar={!isDesktop}
+            contained={rail}
+            onGenerate={onGenerate}
           />
-          <SchoolSignaturesSection number={4} payload={payload} update={update} form={form} />
-          <ObservationsSection
-            number={5}
-            value={payload.notes ?? ""}
-            disabled={generating}
-            onChange={(notes) => update((p) => ({ ...p, notes }))}
-          />
-        </>
-      }
-      summary={
-        <ContractSummary
-          totalLabel={formatCurrency(total, currency)}
-          contractors={tCount("contract.summary.students", payload.students.length)}
-          rows={rows}
-          issues={feedback.allIssues}
-          banner={feedback.banner}
-          generating={generating}
-          stickyBar={!isDesktop}
-          contained={rail}
-          onGenerate={onGenerate}
-        />
-      }
-    />
+        }
+      />
+      <RegisterSignatureDialog
+        open={registration.open}
+        pending={generating}
+        onDismiss={registration.dismiss}
+        onYes={() => registration.choose("and-send")}
+        onNo={() => registration.choose("only")}
+      />
+    </>
   );
 }
 

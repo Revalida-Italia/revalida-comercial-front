@@ -167,9 +167,9 @@ export interface SchoolContractPayload {
 
 export type ContractFormPayload = RevalidaContractPayload | SchoolContractPayload;
 
-/** What the form sends: payment is left out because the API takes it from the sale. */
+/** What the form sends: payment is left out because the API takes it from the sale. Witnesses are fixed in the PDF and are not sent. */
 export type PaymentFields = "currency" | "totalAmount" | "phases";
-export type RevalidaGeneratePayload = Omit<RevalidaContractPayload, PaymentFields>;
+export type RevalidaGeneratePayload = Omit<RevalidaContractPayload, PaymentFields | "witnesses">;
 export type SchoolGeneratePayload = Omit<SchoolContractPayload, PaymentFields>;
 
 export async function listContractModules(): Promise<ContractModule[]> {

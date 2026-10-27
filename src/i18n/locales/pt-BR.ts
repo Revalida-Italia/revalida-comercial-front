@@ -23,6 +23,12 @@ export const ptBR = {
       saleLoadError: "Não foi possível carregar a venda.",
       unknownProduct: "Produto não identificado",
       generated: "Contrato gerado.",
+      sent: "Contrato enviado para assinatura.",
+      sendTitle: "Enviar para assinatura?",
+      sendBody: "Ao confirmar, registrar já envia o contrato para assinatura digital, sem precisar clicar em Enviar para assinatura.",
+      sendYes: "Sim",
+      sendNo: "Não",
+      registeredSendFailed: "Contrato registrado, mas não foi possível enviar para assinatura. Tente novamente pelo botão Enviar para assinatura.",
     },
     models: {
       revalida: "Programa Revalida Itália",
@@ -79,9 +85,6 @@ export const ptBR = {
     },
     signatures: {
       city: "Cidade da assinatura",
-      witness: "Testemunha {n}",
-      witnessName: "Nome completo",
-      witnessDocument: "CPF",
     },
     notes: {
       add: "Adicionar observação interna",
@@ -176,8 +179,6 @@ export const ptBR = {
       checkTermEnd: "Confira: fim da vigência",
       checkTermStart: "Confira: início da vigência",
       city: "Falta: cidade da assinatura",
-      witnessName: "Falta: nome da testemunha {n}",
-      witnessDocument: "Falta: CPF da testemunha {n}",
       studentName: "Falta: nome do estudante {n}",
       studentBirthDate: "Falta: data de nascimento de {who}",
       studentBirthPlace: "Falta: local de nascimento de {who}",
