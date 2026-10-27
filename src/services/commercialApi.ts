@@ -236,6 +236,8 @@ export type SubscriptionCycle =
   | "YEARLY";
 
 export interface CreateSalePayment {
+  /** Amount as entered, in the sale's originalCurrency (EUR/USD); `amount` is in reais. */
+  originalAmount?: number;
   gateway: string;
   type: string;
   amount: number;
@@ -280,6 +282,8 @@ export interface UpdateSaleItem {
 }
 
 export interface UpdateSalePayment {
+  /** Amount as entered, in the sale's originalCurrency (EUR/USD); `amount` is in reais. */
+  originalAmount?: number;
   id?: string;
   type: string;
   gateway: string;

@@ -362,15 +362,12 @@ const EditSaleFeature = () => {
         throw new Error("Cotação indisponível para converter o pagamento para BRL.");
       }
 
+      const originalCurrency = (payments.find((p) => p.inputCurrency && p.inputCurrency !== "BRL")
+        ?.inputCurrency ?? "USD") as "USD" | "EUR";
       await updateSale(id, {
         status,
         saveExchange: needsExchangeRates,
-        ...(needsExchangeRates
-          ? {
-              originalCurrency: (payments.find((p) => p.inputCurrency && p.inputCurrency !== "BRL")
-                ?.inputCurrency ?? "USD") as "USD" | "EUR",
-            }
-          : {}),
+        ...(needsExchangeRates ? { originalCurrency } : {}),
         ...(soldAt ? { soldAt } : {}),
         ...(isAdmin && sellerId && sellerId !== originalSellerId ? { sellerId } : {}),
         clients: filledCustomers.map((c) => ({
@@ -393,6 +390,7 @@ const EditSaleFeature = () => {
               type: payment.paymentType,
               gateway: payment.gateway,
               amount: amountInBrl,
+              ...(needsExchangeRates && inputCurrency === originalCurrency ? { originalAmount: rawAmount } : {}),
               dueDate: payment.dueDate || undefined,
               paymentDate: payment.paymentDate || undefined,
               status: payment.status || undefined,

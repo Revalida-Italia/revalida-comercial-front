@@ -162,6 +162,8 @@ const NewSaleFeature = () => {
           gateway: payment.gateway,
           paymentType: payment.paymentType,
           amount: amountInBrl,
+          inputCurrency,
+          enteredAmount: rawAmount,
           totalInstallments: ["INSTALLMENT", "SUBSCRIPTION"].includes(payment.paymentType)
             ? Number(payment.totalInstallments || "1")
             : undefined,
@@ -334,16 +336,13 @@ const NewSaleFeature = () => {
         throw new Error("Informe o CPF do cliente para gerar o link de pagamento.");
       }
 
+      const originalCurrency = (payments.find((p) => p.inputCurrency && p.inputCurrency !== "BRL")
+        ?.inputCurrency ?? "USD") as "USD" | "EUR";
       const createdSale = await createSale({
         sellerId: profile.sub,
         currency: "BRL",
         saveExchange: needsExchangeRates,
-        ...(needsExchangeRates
-          ? {
-              originalCurrency: (payments.find((p) => p.inputCurrency && p.inputCurrency !== "BRL")
-                ?.inputCurrency ?? "USD") as "USD" | "EUR",
-            }
-          : {}),
+        ...(needsExchangeRates ? { originalCurrency } : {}),
         clients: filledCustomers.map((c) => ({
           nameCiphertext: c.name,
           documentCiphertext: c.document ?? "",
@@ -355,6 +354,9 @@ const NewSaleFeature = () => {
           gateway: payment.gateway,
           type: payment.paymentType,
           amount: payment.amount,
+          ...(needsExchangeRates && payment.inputCurrency === originalCurrency
+            ? { originalAmount: payment.enteredAmount }
+            : {}),
           dueDate: payment.dueDate,
           billingType: payment.billingType,
           ...(payment.ciclo ? { ciclo: payment.ciclo } : {}),
