@@ -35,10 +35,6 @@ export function isSignedContract(contract: Pick<SaleContract, "status"> & {
   return contract.status === "SIGNED" || contract.signedContract != null;
 }
 
-export function defaultPortalPasswordHint(year = new Date().getFullYear()): string {
-  return `Primeironome@${year}`;
-}
-
 export function portalStudentStatusLabel(status: PortalStudentResultStatus): string {
   const labels: Record<PortalStudentResultStatus, string> = {
     created: "Criado",
@@ -75,6 +71,12 @@ export function mapSignedContractError(error: unknown): string {
   }
 
   return "Não foi possível concluir a operação.";
+}
+
+/** The Portuguese text for an error we know how to explain, or null. Never returns raw API text. */
+export function knownSignedContractError(error: unknown): string | null {
+  const code = readErrorCode(error);
+  return code ? SIGNED_CONTRACT_ERROR_MESSAGES[code] : null;
 }
 
 function readErrorCode(error: unknown): string | null {

@@ -24,6 +24,8 @@ export interface SaleClient {
   nameCiphertext: string;
   documentCiphertext?: string | null;
   telefone?: string | null;
+  /** Present on some sale responses instead of `telefone`. */
+  phone?: string | null;
   email?: string | null;
   createdAt: string;
   updatedAt: string;
@@ -85,6 +87,7 @@ export interface SalePayment {
   notes?: string | null;
   linkPagamento?: string | null;
   currency?: CheckoutCurrency | string | null;
+  /** Amount as entered, in the sale's originalCurrency. `amount` stays in reais. */
   originalAmount?: string | number | null;
   stripeCheckoutSessionId?: string | null;
   stripePaymentMethod?: StripePaymentMethod | null;
@@ -236,6 +239,8 @@ export type SubscriptionCycle =
   | "YEARLY";
 
 export interface CreateSalePayment {
+  /** Amount as entered, in the sale's originalCurrency (EUR/USD); `amount` is in reais. */
+  originalAmount?: number;
   gateway: string;
   type: string;
   amount: number;
@@ -280,6 +285,8 @@ export interface UpdateSaleItem {
 }
 
 export interface UpdateSalePayment {
+  /** Amount as entered, in the sale's originalCurrency (EUR/USD); `amount` is in reais. */
+  originalAmount?: number;
   id?: string;
   type: string;
   gateway: string;

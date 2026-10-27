@@ -4,18 +4,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { SaleContract } from "@/services/contractsApi";
 import SignedContractActions from "./SignedContractActions";
 
+vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 vi.mock("@/services/contractsApi", async () => {
-  const actual = await vi.importActual<typeof import("@/services/contractsApi")>(
-    "@/services/contractsApi",
-  );
-  return {
-    ...actual,
-    downloadSignedContractPdf: vi.fn(),
-    createPortalStudents: vi.fn(),
-  };
+  const actual = await vi.importActual<typeof import("@/services/contractsApi")>("@/services/contractsApi");
+  return { ...actual, createPortalStudents: vi.fn() };
 });
 
-const { downloadSignedContractPdf, createPortalStudents } = await import("@/services/contractsApi");
+const { createPortalStudents } = await import("@/services/contractsApi");
+const { toast } = await import("sonner");
 
 function signedContract(overrides: Partial<SaleContract> = {}): SaleContract {
   return {
@@ -36,9 +32,7 @@ function signedContract(overrides: Partial<SaleContract> = {}): SaleContract {
 }
 
 function renderActions(contract: SaleContract) {
-  const client = new QueryClient({
-    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-  });
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
   return render(
     <QueryClientProvider client={client}>
       <SignedContractActions contract={contract} />
@@ -47,81 +41,55 @@ function renderActions(contract: SaleContract) {
 }
 
 describe("SignedContractActions", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    vi.spyOn(window, "confirm").mockReturnValue(true);
-  });
+  beforeEach(() => vi.clearAllMocks());
 
-  it("renders nothing when the contract is not signed and has no signedContract", () => {
-    const { container } = renderActions(
-      signedContract({ status: "GENERATED", signedAt: null, signedContract: null }),
-    );
+  it("renders nothing when the contract is not signed", () => {
+    const { container } = renderActions(signedContract({ status: "GENERATED", signedAt: null, signedContract: null }));
     expect(container).toBeEmptyDOMElement();
   });
 
-  it("shows actions when signedContract is present", () => {
-    renderActions(signedContract({ status: "SENT" }));
-    expect(screen.getByRole("button", { name: "Baixar contrato" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Criar alunos no portal" })).toBeInTheDocument();
+  it("shows the access button and never mentions a password or the mechanism", () => {
+    const { container } = renderActions(signedContract());
+    expect(screen.getByRole("button", { name: "Criar acesso dos alunos" })).toBeInTheDocument();
+    expect(container.textContent).not.toMatch(/senha|Primeironome|core/i);
   });
 
-  it("shows signed-only actions", () => {
+  it("asks for confirmation naming the people, without any password pattern", async () => {
     renderActions(signedContract());
-    expect(screen.getByRole("button", { name: "Baixar contrato" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Criar alunos no portal" })).toBeInTheDocument();
-    expect(screen.getByText(/Primeironome@/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Criar acesso dos alunos" }));
+    const dialog = await screen.findByRole("alertdialog");
+    expect(dialog).toHaveTextContent("Ana Souza (ana@revalida.com)");
+    expect(dialog).toHaveTextContent("João Lima (joao@revalida.com)");
+    expect(dialog.textContent).not.toMatch(/senha|Primeironome|core|@\d{4}/i);
+    expect(createPortalStudents).not.toHaveBeenCalled();
   });
 
-  it("downloads the signed PDF", async () => {
-    vi.mocked(downloadSignedContractPdf).mockResolvedValue();
-    renderActions(signedContract());
-    fireEvent.click(screen.getByRole("button", { name: "Baixar contrato" }));
-    await waitFor(() => {
-      expect(downloadSignedContractPdf).toHaveBeenCalledWith("ct_1");
-    });
-  });
-
-  it("shows partial create-student results without passwords", async () => {
+  it("creates the access and reports the count in plain Portuguese", async () => {
     vi.mocked(createPortalStudents).mockResolvedValue({
       contractId: "ct_1",
       results: [
-        {
-          signerId: "s1",
-          email: "ana@revalida.com",
-          name: "Ana Souza",
-          status: "created",
-          coreUserId: "usr_1",
-        },
-        {
-          signerId: "s2",
-          email: "joao@revalida.com",
-          name: "João Lima",
-          status: "already_exists",
-          coreUserId: "usr_2",
-        },
-        { signerId: "s3", email: "fail@revalida.com", status: "failed", error: "core timeout" },
+        { signerId: "s1", email: "ana@revalida.com", name: "Ana Souza", status: "created", coreUserId: "usr_1" },
+        { signerId: "s2", email: "joao@revalida.com", name: "João Lima", status: "already_exists", coreUserId: "usr_2" },
       ],
-      summary: { created: 1, alreadyExists: 1, failed: 1 },
+      summary: { created: 1, alreadyExists: 1, failed: 0 },
     });
-
     renderActions(signedContract());
-    fireEvent.click(screen.getByRole("button", { name: "Criar alunos no portal" }));
-
-    expect(await screen.findByText("Resultado da criação de alunos")).toBeInTheDocument();
-    expect(screen.getByText("1 criado(s) · 1 já existia(m) · 1 falha(s)")).toBeInTheDocument();
-    expect(screen.getByText("Criado")).toBeInTheDocument();
-    expect(screen.getByText("Já existia")).toBeInTheDocument();
-    expect(screen.getByText("Falhou")).toBeInTheDocument();
-    expect(screen.getByText("core usr_1")).toBeInTheDocument();
-    expect(screen.getByText("core timeout")).toBeInTheDocument();
-    expect(screen.queryByText(/senha [A-Z]+@\d{4}/)).not.toBeInTheDocument();
-    expect(createPortalStudents).toHaveBeenCalledWith("ct_1");
+    fireEvent.click(screen.getByRole("button", { name: "Criar acesso dos alunos" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Criar acesso" }));
+    await waitFor(() => expect(createPortalStudents).toHaveBeenCalledWith("ct_1"));
+    await waitFor(() => expect(toast.success).toHaveBeenCalledWith("Acesso criado para 2 aluno(s)."));
   });
 
-  it("does not create students when confirm is cancelled", () => {
-    vi.mocked(window.confirm).mockReturnValue(false);
-    renderActions(signedContract());
-    fireEvent.click(screen.getByRole("button", { name: "Criar alunos no portal" }));
-    expect(createPortalStudents).not.toHaveBeenCalled();
+  it("shows failures in Portuguese and never the raw error text", async () => {
+    vi.mocked(createPortalStudents).mockResolvedValue({
+      contractId: "ct_1",
+      results: [{ signerId: "s3", email: "fail@revalida.com", status: "failed", error: "core timeout" }],
+      summary: { created: 0, alreadyExists: 0, failed: 1 },
+    });
+    const { container } = renderActions(signedContract());
+    fireEvent.click(screen.getByRole("button", { name: "Criar acesso dos alunos" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Criar acesso" }));
+    expect(await screen.findByText("Não foi possível criar o acesso de fail@revalida.com.")).toBeInTheDocument();
+    expect(container.textContent).not.toMatch(/core timeout/);
   });
 });

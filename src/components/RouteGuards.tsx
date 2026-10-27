@@ -8,6 +8,7 @@ import {
   getProfile,
 } from "@/lib/session";
 import { homePathForRole } from "@/services/usersApi";
+import { canGenerateContracts } from "@/features/contracts/access";
 
 export const RequireAuth = () => {
   const location = useLocation();
@@ -61,6 +62,15 @@ export const RequireSalesViewAccess = () => {
 /** Criar/editar vendas e templates: admin e vendedor. */
 export const RequireSalesMutationAccess = () => {
   if (!hasAnyRole("ADMIN", "SELLER")) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  return <Outlet />;
+};
+
+/** Contract form page: whoever may generate contracts (see features/contracts/access). */
+export const RequireContractAccess = () => {
+  if (!canGenerateContracts()) {
     return <Navigate to="/dashboard" replace />;
   }
 
