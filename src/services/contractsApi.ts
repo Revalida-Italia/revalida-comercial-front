@@ -92,11 +92,6 @@ export interface ContractPaymentPhase {
 
 export type ContractCurrency = "BRL" | "EUR" | "USD";
 
-export interface ContractWitness {
-  fullName: string;
-  document: string;
-}
-
 export interface RevalidaContractParty {
   id?: string;
   clientId?: string | null;
@@ -130,7 +125,6 @@ export interface RevalidaContractPayload {
   contractDurationMonths?: number | null;
   /** City printed next to the signature date. */
   referenceCity: string;
-  witnesses: ContractWitness[];
   contractVersion: string;
   notes?: string | null;
 }

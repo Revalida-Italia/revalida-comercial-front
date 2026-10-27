@@ -115,7 +115,7 @@ function StudentFields({
           )}
         </div>
       )}
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid min-w-0 gap-4 sm:grid-cols-2 [&>*]:min-w-0">
         {field("fullName", t("contract.student.fullName"), { className: "sm:col-span-2" })}
         {date(`${base}-birthDate`, t("contract.student.birthDate"), student.birthDate, (iso) => patch({ birthDate: iso }), {
           fromYear: 1930,
@@ -174,7 +174,7 @@ export default function SchoolFormFields({ payload, update, form }: Props) {
 
       <section aria-labelledby="contract-course-title">
         <SectionHeading number={2} title={t("contract.sections.course")} id="contract-course-title" />
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid min-w-0 gap-4 sm:grid-cols-2 [&>*]:min-w-0">
           {text(
             "contract-school-durationMonths",
             t("contract.course.months"),
@@ -197,7 +197,7 @@ export function SchoolSignaturesSection({ number, payload, update, form }: Props
   return (
     <section aria-labelledby="contract-signatures-title">
       <SectionHeading number={number} title={t("contract.sections.signatures")} id="contract-signatures-title" />
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid min-w-0 gap-4 sm:grid-cols-2 [&>*]:min-w-0">
         {text("contract-reference-city", t("contract.signatures.city"), payload.referenceCity, (referenceCity) =>
           update((p) => ({ ...p, referenceCity })),
         )}

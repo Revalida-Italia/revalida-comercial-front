@@ -74,11 +74,6 @@ export interface ProductState {
   durationMonths: string;
 }
 
-export interface WitnessState {
-  fullName: string;
-  document: string;
-}
-
 export interface RevalidaFormState {
   parties: PartyState[];
   decreeOn: boolean;
@@ -88,7 +83,6 @@ export interface RevalidaFormState {
   termStart: string;
   termEnd: string;
   referenceCity: string;
-  witnesses: [WitnessState, WitnessState];
   notes: string;
 }
 
@@ -143,11 +137,6 @@ export function createInitialRevalidaState(prefill: RevalidaContractPayload): Re
       durationMonths: sel.durationMonths ? String(sel.durationMonths) : "",
     };
   }
-  const witness = (index: number): WitnessState => ({
-    fullName: prefill.witnesses?.[index]?.fullName ?? "",
-    document: prefill.witnesses?.[index]?.document ?? "",
-  });
-
   return {
     parties: prefill.parties.map((party) => {
       const profession = party.profession?.trim() || DEFAULT_PROFESSION;
@@ -173,7 +162,6 @@ export function createInitialRevalidaState(prefill: RevalidaContractPayload): Re
     termStart: prefill.contractStartDate ?? "",
     termEnd: prefill.contractEndDate ?? "",
     referenceCity: prefill.referenceCity ?? "",
-    witnesses: [witness(0), witness(1)],
     notes: prefill.notes ?? "",
   };
 }
@@ -392,21 +380,19 @@ export function validateRevalidaForm(
   }
 
   if (!state.referenceCity.trim()) add("contract-reference-city", required, t("contract.missing.city"));
-  state.witnesses.forEach((witness, i) => {
-    const n = i + 1;
-    if (!witness.fullName.trim()) add(`contract-witness-${i}-fullName`, required, t("contract.missing.witnessName", { n }));
-    if (!witness.document.trim()) add(`contract-witness-${i}-document`, required, t("contract.missing.witnessDocument", { n }));
-  });
 
   return issues;
 }
 
-/** Payment is read-only: the API takes currency, total and installments from the sale. */
-function withoutPayment<T extends { currency?: unknown; totalAmount?: number; phases?: unknown }>(
+/**
+ * Payment is read-only: the API takes currency, total and installments from the sale.
+ * Witnesses are not part of the contract, so a prefill that still carries them is not sent.
+ */
+function withoutPayment<T extends { currency?: unknown; totalAmount?: number; phases?: unknown; witnesses?: unknown }>(
   payload: T,
-): Omit<T, "currency" | "totalAmount" | "phases"> {
-  const { currency, totalAmount, phases, ...rest } = payload;
-  void [currency, totalAmount, phases];
+): Omit<T, "currency" | "totalAmount" | "phases" | "witnesses"> {
+  const { currency, totalAmount, phases, witnesses, ...rest } = payload;
+  void [currency, totalAmount, phases, witnesses];
   return rest;
 }
 
@@ -477,10 +463,6 @@ export function buildRevalidaPayload(
     contractEndDate: state.termEnd || null,
     contractDurationMonths: null,
     referenceCity: state.referenceCity.trim(),
-    witnesses: state.witnesses.map((witness) => ({
-      fullName: witness.fullName.trim(),
-      document: witness.document.trim(),
-    })),
     notes: state.notes.trim() ? state.notes.trim() : null,
   };
 

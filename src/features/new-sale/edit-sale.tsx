@@ -27,7 +27,7 @@ import {
   MAX_INSTALLMENTS,
   STEP_LABELS,
 } from "./constants";
-import { mapSaleToForm } from "./mapSaleToForm";
+import { brlAmountForSave, mapSaleToForm } from "./mapSaleToForm";
 import type { SaleItemDraft, SalePaymentDraft } from "./types";
 import ConfirmStep from "./organisms/ConfirmStep";
 import CustomersStep from "./organisms/CustomersStep";
@@ -382,9 +382,7 @@ const EditSaleFeature = () => {
           .map((payment) => {
             const rawAmount = Number(payment.amount);
             const inputCurrency = payment.inputCurrency || "BRL";
-            const amountInBrl = inputCurrency === "BRL"
-              ? convertToBrl(rawAmount, "BRL")
-              : convertToBrl(rawAmount, inputCurrency, exchangeRatesQuery.data?.rates);
+            const amountInBrl = brlAmountForSave(payment, exchangeRatesQuery.data?.rates);
 
             return {
               type: payment.paymentType,

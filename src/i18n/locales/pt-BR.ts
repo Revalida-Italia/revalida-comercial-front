@@ -19,6 +19,9 @@ export const ptBR = {
       switchConfirm: "Trocar",
       loadError: "Não foi possível carregar os dados do contrato.",
       productsError: "Não foi possível carregar os produtos.",
+      salePreview: "Dados da venda",
+      saleLoadError: "Não foi possível carregar a venda.",
+      unknownProduct: "Produto não identificado",
       generated: "Contrato gerado.",
     },
     models: {
@@ -76,9 +79,6 @@ export const ptBR = {
     },
     signatures: {
       city: "Cidade da assinatura",
-      witness: "Testemunha {n}",
-      witnessName: "Nome completo",
-      witnessDocument: "CPF",
     },
     notes: {
       add: "Adicionar observação interna",
@@ -173,8 +173,6 @@ export const ptBR = {
       checkTermEnd: "Confira: fim da vigência",
       checkTermStart: "Confira: início da vigência",
       city: "Falta: cidade da assinatura",
-      witnessName: "Falta: nome da testemunha {n}",
-      witnessDocument: "Falta: CPF da testemunha {n}",
       studentName: "Falta: nome do estudante {n}",
       studentBirthDate: "Falta: data de nascimento de {who}",
       studentBirthPlace: "Falta: local de nascimento de {who}",

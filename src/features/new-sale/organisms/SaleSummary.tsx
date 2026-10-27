@@ -29,6 +29,7 @@ import { Badge } from "@/components/ui/badge";
 import { formatInstallmentLabel, getPaymentGrossValue } from "@/shared/utils/payment";
 import { formatPaymentChargeLabel } from "@/features/sales/utils/chargeLabel";
 import { isCancelledStatus, PAYMENT_REVERT_BLOCKED_MESSAGE } from "@/features/sales/utils/commissionStatus";
+import { formatDate } from "@/shared/utils/format";
 
 type PaymentValueLike = {
   amount: string | number;
@@ -57,6 +58,8 @@ type SaleSummaryProps = {
   canPayCommission?: boolean;
   payingCommissionPaymentId?: string | null;
   onPayCommission?: (paymentId: string) => void;
+  /** Saved-sale preview: dates in the locale format, and no prompt to fill payments. */
+  variant?: "editor" | "record";
 };
 
 function getSubscriptionMonthLabel(
@@ -104,7 +107,14 @@ const SaleSummary = ({
   canPayCommission = false,
   payingCommissionPaymentId = null,
   onPayCommission,
+  variant = "editor",
 }: SaleSummaryProps) => {
+  const showDate = (value?: string) => {
+    if (!value) return "";
+    return variant === "record" ? formatDate(value) : value;
+  };
+  const money = (amount: number, paymentCurrency?: string) =>
+    amount.toLocaleString("pt-BR", { style: "currency", currency: paymentCurrency || currency });
   const editStep = (step: number) => (saleId ? `/vendas/${saleId}/editar?step=${step}` : "");
 
   const wrapSection = (step: number, label: string, content: React.ReactNode) => {
@@ -139,7 +149,7 @@ const SaleSummary = ({
                 <li key={index}>
                   <p className="font-medium leading-tight">{customer.name}</p>
                   {customer.document && <p className="text-xs text-muted-foreground">{customer.document}</p>}
-                  <p className="text-xs text-muted-foreground">{customer.telefone}</p>
+                  {customer.telefone ? <p className="text-xs text-muted-foreground">{customer.telefone}</p> : null}
                   {customer.email && <p className="text-xs text-muted-foreground">{customer.email}</p>}
                 </li>
               ))}
@@ -161,7 +171,7 @@ const SaleSummary = ({
               {saleItems.map((item, index) => (
                 <li key={`${item.productName}-${item.releaseDate}-${index}`}>
                   <p className="font-medium leading-tight">{item.productName}</p>
-                  {item.releaseDate && <p className="text-xs text-muted-foreground">Liberação: {item.releaseDate}</p>}
+                  {item.releaseDate && <p className="text-xs text-muted-foreground">Liberação: {showDate(item.releaseDate)}</p>}
                 </li>
               ))}
             </ul>
@@ -184,7 +194,8 @@ const SaleSummary = ({
           ) : (
             <ul className="space-y-2">
               {configuredPayments.map((payment, index) => {
-                const installmentLabel = formatInstallmentLabel(payment, currency, {
+                const lineCurrency = payment.currency || currency;
+                const installmentLabel = formatInstallmentLabel(payment, lineCurrency, {
                   allPayments: configuredPayments,
                   index,
                 });
@@ -244,14 +255,14 @@ const SaleSummary = ({
                     </p>
                   )}
                   <p className="font-medium">
-                    {getPaymentGrossValue(payment, configuredPayments).toLocaleString("pt-BR", { style: "currency", currency })}
+                    {money(getPaymentGrossValue(payment, configuredPayments), lineCurrency)}
                   </p>
                   {installmentLabel && (
                     <p className="text-xs text-muted-foreground">{installmentLabel}</p>
                   )}
-                  {payment.dueDate && <p className="text-xs text-muted-foreground">Vencimento: {payment.dueDate}</p>}
+                  {payment.dueDate && <p className="text-xs text-muted-foreground">Vencimento: {showDate(payment.dueDate)}</p>}
                   {isPaid && payment.paymentDate && (
-                    <p className="text-xs text-muted-foreground">Pago em: {payment.paymentDate}</p>
+                    <p className="text-xs text-muted-foreground">Pago em: {showDate(payment.paymentDate)}</p>
                   )}
                   <CommissionPayControl
                     commission={payment.commission}
@@ -352,6 +363,8 @@ const SaleSummary = ({
         </div>
       ))}
 
+      {configuredPayments.length > 0 || variant !== "record" ? (
+      <>
       <Separator />
 
       <div className="space-y-1.5">
@@ -362,7 +375,7 @@ const SaleSummary = ({
       {configuredPayments.length > 0 ? (
         <div className="space-y-2 rounded-md border border-primary/20 bg-primary/5 p-3">
           <p className="text-xl font-bold text-primary">
-            {estimatedCommission.toLocaleString("pt-BR", { style: "currency", currency })}
+            {money(estimatedCommission)}
           </p>
 
           <div className="space-y-0.5">
@@ -377,22 +390,22 @@ const SaleSummary = ({
             )}
             <p className="flex items-center gap-1 text-xs text-muted-foreground">
               <Banknote className="h-3 w-3" />
-              Bruto total: {estimateGross.toLocaleString("pt-BR", { style: "currency", currency })}
+              Bruto total: {money(estimateGross)}
             </p>
             <p className="flex items-center gap-1 text-xs text-muted-foreground">
               <Landmark className="h-3 w-3" />
-              Taxas gateway: {estimateFees.toLocaleString("pt-BR", { style: "currency", currency })}
+              Taxas gateway: {money(estimateFees)}
             </p>
             <p className="flex items-center gap-1 text-xs text-muted-foreground">
               <TrendingDown className="h-3 w-3" />
-              Líquido: {estimateNet.toLocaleString("pt-BR", { style: "currency", currency })}
+              Líquido: {money(estimateNet)}
             </p>
           </div>
 
           <div className="space-y-2 pt-1">
             {estimateEntries.map(({ row: payment, source, index: idx }) => {
               const installmentLabel = source
-                ? formatInstallmentLabel(source, currency, {
+                ? formatInstallmentLabel(source, source.currency || currency, {
                     allPayments: configuredPayments,
                     index: idx,
                   })
@@ -406,10 +419,10 @@ const SaleSummary = ({
                 {installmentLabel && (
                   <p className="text-xs text-muted-foreground">{installmentLabel}</p>
                 )}
-                <p className="flex items-center gap-1 text-xs text-muted-foreground"><Banknote className="h-3 w-3" /> Bruto: {payment.grossAmount.toLocaleString("pt-BR", { style: "currency", currency })}</p>
-                <p className="flex items-center gap-1 text-xs text-muted-foreground"><MinusCircle className="h-3 w-3" /> Taxa ({payment.feeRate}%): {payment.feeAmount.toLocaleString("pt-BR", { style: "currency", currency })}</p>
-                <p className="flex items-center gap-1 text-xs text-muted-foreground"><TrendingDown className="h-3 w-3" /> Líquido: {payment.netAmount.toLocaleString("pt-BR", { style: "currency", currency })}</p>
-                <p className="flex items-center gap-1 text-xs font-medium text-primary"><TrendingUp className="h-3 w-3" /> Comissao: {payment.commissionAmount.toLocaleString("pt-BR", { style: "currency", currency })}</p>
+                <p className="flex items-center gap-1 text-xs text-muted-foreground"><Banknote className="h-3 w-3" /> Bruto: {money(payment.grossAmount)}</p>
+                <p className="flex items-center gap-1 text-xs text-muted-foreground"><MinusCircle className="h-3 w-3" /> Taxa ({payment.feeRate}%): {money(payment.feeAmount)}</p>
+                <p className="flex items-center gap-1 text-xs text-muted-foreground"><TrendingDown className="h-3 w-3" /> Líquido: {money(payment.netAmount)}</p>
+                <p className="flex items-center gap-1 text-xs font-medium text-primary"><TrendingUp className="h-3 w-3" /> Comissao: {money(payment.commissionAmount)}</p>
                 <CommissionPayControl
                   commission={source?.commission}
                   canPayCommission={canPayCommission}
@@ -430,8 +443,8 @@ const SaleSummary = ({
                       <div key={month.month} className="grid gap-0.5 text-[11px] text-muted-foreground md:grid-cols-[1fr_auto] md:items-center md:gap-2">
                         <span>{getSubscriptionMonthLabel(configuredPayments[idx]?.dueDate, month.month, subscriptionMonthLabelMode)}</span>
                         <span className="flex flex-wrap items-center gap-x-1.5 md:justify-end">
-                          <span className="text-muted-foreground/70">bruto {month.grossAmount.toLocaleString("pt-BR", { style: "currency", currency })}</span>
-                          <span className="font-medium text-foreground">→ {month.commissionAmount.toLocaleString("pt-BR", { style: "currency", currency })}</span>
+                          <span className="text-muted-foreground/70">bruto {money(month.grossAmount)}</span>
+                          <span className="font-medium text-foreground">→ {money(month.commissionAmount)}</span>
                         </span>
                       </div>
                     ))}
@@ -449,6 +462,8 @@ const SaleSummary = ({
         <p className="italic text-muted-foreground">Preencha os pagamentos para calcular</p>
       )}
       </div>
+      </>
+      ) : null}
     </div>
   );
 };
