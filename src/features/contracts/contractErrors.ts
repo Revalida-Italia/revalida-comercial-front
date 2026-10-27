@@ -150,3 +150,10 @@ export function mapGenerateError(error: unknown, ctx: GenerateErrorContext): Map
 
   return { issues, banner: unmapped ? t("contract.errors.generic") : null };
 }
+
+/** Message for a failed send. The not-configured code is the only one with its own sentence. */
+export function sendForSignatureErrorMessage(error: unknown, fallback: string): string {
+  const code = error && typeof error === "object" && "code" in error ? (error as { code?: unknown }).code : undefined;
+  if (code === "DIGITAL_SIGNATURE_NOT_CONFIGURED") return t("contract.page.signatureNotConfigured");
+  return fallback;
+}

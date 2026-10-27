@@ -26,6 +26,7 @@ export const ptBR = {
       sendYes: "Sim",
       sendNo: "Não",
       registeredSendFailed: "Contrato registrado, mas não foi possível enviar para assinatura. Tente novamente pelo botão Enviar para assinatura.",
+      signatureNotConfigured: "Assinatura digital não está configurada",
     },
     models: {
       revalida: "Programa Revalida Itália",

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { mapGenerateError } from "./contractErrors";
+import { mapGenerateError, sendForSignatureErrorMessage } from "./contractErrors";
 
 const ctx = {
   productCodes: ["START", "ITALIANO_MEDICO"] as ("START" | "ITALIANO_MEDICO")[],
@@ -79,5 +79,16 @@ describe("mapGenerateError", () => {
       expect(result.banner).toBe("Não foi possível gerar o contrato. Tente novamente.");
       expect(result.issues.map((i) => i.message).join(" ")).not.toMatch(/Too small|Internal/);
     }
+  });
+});
+
+describe("sendForSignatureErrorMessage", () => {
+  const fallback = "Contrato registrado, mas não foi possível enviar para assinatura. Tente novamente pelo botão Enviar para assinatura.";
+
+  it("uses the not-configured sentence only for that code", () => {
+    const configured = Object.assign(new Error("missing"), { code: "DIGITAL_SIGNATURE_NOT_CONFIGURED" });
+    expect(sendForSignatureErrorMessage(configured, fallback)).toBe("Assinatura digital não está configurada");
+    expect(sendForSignatureErrorMessage(new Error("offline"), fallback)).toBe(fallback);
+    expect(sendForSignatureErrorMessage(Object.assign(new Error("other"), { code: "OTHER" }), fallback)).toBe(fallback);
   });
 });

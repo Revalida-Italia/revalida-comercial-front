@@ -536,6 +536,20 @@ describe("Gerar contrato page", () => {
     expect(sendContractForSignature).toHaveBeenCalledTimes(1);
   });
 
+  it("says the signature is not configured when the send answers with that code", async () => {
+    vi.mocked(generateContract).mockResolvedValue({ id: "ct_new" } as never);
+    vi.mocked(sendContractForSignature).mockRejectedValue(
+      Object.assign(new Error("not configured"), { code: "DIGITAL_SIGNATURE_NOT_CONFIGURED" }),
+    );
+    await ready();
+    fillEverything();
+    await confirmRegister("Sim");
+    await screen.findByTestId("sale-page");
+    expect(toast.error).toHaveBeenCalledWith("Assinatura digital não está configurada");
+    expect(toast.success).not.toHaveBeenCalled();
+    expect(document.body.textContent).not.toMatch(/DIGITAL_SIGNATURE|DocuSign|envelope|payload/i);
+  });
+
   it("does not register twice if Sim is clicked again", async () => {
     let finish: (value: unknown) => void = () => {};
     vi.mocked(generateContract).mockReturnValue(new Promise((resolve) => { finish = resolve; }) as never);
