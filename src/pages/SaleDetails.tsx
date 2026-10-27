@@ -332,7 +332,9 @@ const SaleDetails = () => {
         </CardContent>
       </Card>
 
-      {canGenerateContracts() && <SaleContractsPanel saleId={sale.id} />}
+      {canGenerateContracts() && (
+        <SaleContractsPanel saleId={sale.id} sellerId={sale.sellerId} seller={sale.seller} />
+      )}
 
       <CreatePaymentLinkDialog sale={sale} open={createLinkOpen} onOpenChange={setCreateLinkOpen} />
       <ViewPaymentLinkDialog sale={sale} open={viewLinkOpen} onOpenChange={setViewLinkOpen} />
