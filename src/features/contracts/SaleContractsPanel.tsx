@@ -6,13 +6,14 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { listSaleContracts } from "@/services/contractsApi";
 import ContractListItem from "@/features/contracts/ContractListItem";
+import type { SaleOwnerRef } from "@/features/contracts/access";
 
-type Props = { saleId: string };
+type Props = { saleId: string } & SaleOwnerRef;
 
 const VISIBLE_BY_DEFAULT = 5;
 
 /** "Contratos" on the sale page: newest first, with the button that opens the form page. */
-export default function SaleContractsPanel({ saleId }: Props) {
+export default function SaleContractsPanel({ saleId, sellerId, seller }: Props) {
   const queryClient = useQueryClient();
   const location = useLocation();
   const newContractId = (location.state as { newContractId?: string } | null)?.newContractId;
@@ -79,6 +80,7 @@ export default function SaleContractsPanel({ saleId }: Props) {
                 key={contract.id}
                 contract={contract}
                 saleId={saleId}
+                sale={{ sellerId, seller }}
                 highlight={contract.id === highlightId}
                 onChanged={() => void queryClient.invalidateQueries({ queryKey: ["sale-contracts", saleId] })}
               />
