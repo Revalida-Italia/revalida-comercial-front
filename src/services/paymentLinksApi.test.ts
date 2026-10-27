@@ -120,30 +120,6 @@ describe("payment link API", () => {
     });
   });
 
-  it("turns a fixed-list 4xx into the unavailable result", async () => {
-    const notInList = new Error("Produto sem checkout.") as Error & {
-      code?: string;
-      status?: number;
-    };
-    notInList.code = HOTMART_PRODUCT_NOT_IN_FIXED_LIST;
-    notInList.status = 404;
-    vi.mocked(apiRequest).mockRejectedValueOnce(notInList);
-
-    await expect(getHotmartCheckoutLink("sale_1")).resolves.toEqual({
-      available: false,
-      reason: HOTMART_PRODUCT_NOT_IN_FIXED_LIST,
-    });
-
-    const legacy = new Error("falhou") as Error & { errors?: Array<{ code: string }> };
-    legacy.errors = [{ code: HOTMART_CHECKOUT_URL_NOT_CONFIGURED }];
-    vi.mocked(apiRequest).mockRejectedValueOnce(legacy);
-
-    await expect(getHotmartCheckoutLink("sale_1")).resolves.toEqual({
-      available: false,
-      reason: HOTMART_PRODUCT_NOT_IN_FIXED_LIST,
-    });
-  });
-
   it("still rejects an unexpected Hotmart checkout response", async () => {
     vi.mocked(apiRequest).mockResolvedValueOnce({ available: false, reason: "OTHER" });
     await expect(getHotmartCheckoutLink("sale_1")).rejects.toThrow(

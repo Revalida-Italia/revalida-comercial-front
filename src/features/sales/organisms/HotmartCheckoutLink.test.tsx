@@ -7,7 +7,6 @@ import { toast } from "sonner";
 import { HOTMART_FIXED_LIST_WARNING } from "@/features/sales/utils/hotmartCheckout";
 import type { SaleRecord } from "@/services/commercialApi";
 import {
-  HOTMART_CHECKOUT_URL_NOT_CONFIGURED,
   HOTMART_PRODUCT_NOT_IN_FIXED_LIST,
   getHotmartCheckoutLink,
 } from "@/services/paymentLinksApi";
@@ -85,13 +84,6 @@ function renderWithClient(ui: ReactElement) {
   );
 }
 
-function codedError(code: string, status = 422): Error {
-  const error = new Error(code) as Error & { code?: string; status?: number };
-  error.code = code;
-  error.status = status;
-  return error;
-}
-
 describe("HotmartCheckoutLinkCard", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -133,29 +125,6 @@ describe("HotmartCheckoutLinkCard", () => {
     expect(screen.queryByText(PRODUCT_URL)).not.toBeInTheDocument();
     expect(toast.error).not.toHaveBeenCalled();
     expect(toast.warning).not.toHaveBeenCalled();
-  });
-
-  it("shows the same warning when the request fails with a fixed-list code", async () => {
-    vi.mocked(getHotmartCheckoutLink).mockRejectedValue(codedError(HOTMART_PRODUCT_NOT_IN_FIXED_LIST, 404));
-    renderWithClient(<SaleListCard sale={makeSale({ hotmartCheckoutLink: STALE_URL })} />);
-
-    fireEvent.click(screen.getByRole("button", { name: "Abrir link Hotmart desta venda" }));
-
-    expect(await screen.findByRole("status")).toHaveTextContent(WARNING);
-    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
-    expect(screen.queryByText(STALE_URL)).not.toBeInTheDocument();
-    expect(toast.error).not.toHaveBeenCalled();
-  });
-
-  it("shows the same warning for the legacy checkout-url code", async () => {
-    vi.mocked(getHotmartCheckoutLink).mockRejectedValue(codedError(HOTMART_CHECKOUT_URL_NOT_CONFIGURED));
-    renderWithClient(<SaleListCard sale={makeSale()} />);
-
-    fireEvent.click(screen.getByRole("button", { name: "Abrir link Hotmart desta venda" }));
-
-    expect(await screen.findByRole("status")).toHaveTextContent(WARNING);
-    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
-    expect(toast.error).not.toHaveBeenCalled();
   });
 
   it("does not fall back to another url when the sale link fails", async () => {

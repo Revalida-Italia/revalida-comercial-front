@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Copy, ExternalLink, Link2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -12,7 +12,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import SendPaymentLinkDialog from "@/features/sales/organisms/SendPaymentLinkDialog";
-import { HOTMART_FIXED_LIST_WARNING, saleOffersHotmartCheckout } from "@/features/sales/utils/hotmartCheckout";
+import { HOTMART_FIXED_LIST_WARNING, retryHotmartCheckoutQuery, saleOffersHotmartCheckout } from "@/features/sales/utils/hotmartCheckout";
 import type { SaleRecord } from "@/services/commercialApi";
 import {
   getHotmartCheckoutLink,
@@ -27,6 +27,7 @@ type HotmartCheckoutLinkContentProps = {
 
 export function HotmartCheckoutLinkContent({ sale, enabled = true }: HotmartCheckoutLinkContentProps) {
   const [sendOpen, setSendOpen] = useState(false);
+  const queryClient = useQueryClient();
   const hotmartPayment = sale.payments?.find((payment) => payment.gateway === "HOTMART");
   const canSendPaymentLink = sale.payments?.some((payment) => Boolean(payment.linkPagamento)) ?? false;
 
@@ -34,6 +35,11 @@ export function HotmartCheckoutLinkContent({ sale, enabled = true }: HotmartChec
     queryKey: ["hotmart-checkout-link", sale.id],
     queryFn: () => getHotmartCheckoutLink(sale.id),
     enabled: enabled && Boolean(sale.id),
+    retry: (failureCount, error) => retryHotmartCheckoutQuery(
+      failureCount,
+      error,
+      queryClient.getDefaultOptions().queries?.retry,
+    ),
   });
 
   const unavailable = isHotmartCheckoutUnavailable(linkQuery.data) || isHotmartProductNotInFixedList(linkQuery.error);
