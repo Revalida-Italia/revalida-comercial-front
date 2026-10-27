@@ -84,6 +84,7 @@ describe("initial state", () => {
     expect(s.termEnd).toBe("");
     expect(s.parties[0].profession).toBe("Médico");
     expect(s.parties[0].professionIsOther).toBe(false);
+    expect(s).not.toHaveProperty("witnesses");
   });
 
   it("keeps a typed profession as Outra", () => {

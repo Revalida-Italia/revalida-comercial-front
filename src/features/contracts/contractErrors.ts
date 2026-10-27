@@ -150,3 +150,20 @@ export function mapGenerateError(error: unknown, ctx: GenerateErrorContext): Map
 
   return { issues, banner: unmapped ? t("contract.errors.generic") : null };
 }
+
+const DIGITAL_SIGNATURE_NOT_CONFIGURED = "DIGITAL_SIGNATURE_NOT_CONFIGURED";
+
+function errorCode(error: unknown): string | undefined {
+  if (!error || typeof error !== "object" || !("code" in error)) return undefined;
+  const code = (error as { code?: unknown }).code;
+  return typeof code === "string" ? code : undefined;
+}
+
+/**
+ * Message for a failed send. The not-configured code is the only one with its own sentence,
+ * and that sentence also says the contract is already registered. The code stays off the screen.
+ */
+export function sendForSignatureErrorMessage(error: unknown, fallback: string): string {
+  if (errorCode(error) === DIGITAL_SIGNATURE_NOT_CONFIGURED) return t("contract.page.signatureNotConfigured");
+  return fallback;
+}
