@@ -94,14 +94,6 @@ export function mapGenerateError(error: unknown, ctx: GenerateErrorContext): Map
       continue;
     }
 
-    match = /^witnesses\.(\d+)\.(fullName|document)$/.exec(field);
-    if (match) {
-      const n = Number(match[1]) + 1;
-      const id = `contract-witness-${match[1]}-${match[2]}`;
-      push(id, required, t(match[2] === "fullName" ? "contract.missing.witnessName" : "contract.missing.witnessDocument", { n }));
-      continue;
-    }
-
     if (field === "products" && code === "V_SERVICES") {
       push(INCLUDED_FIELD_ID, t("contract.errors.inclusion"), t("contract.errors.inclusion"));
       continue;
@@ -157,4 +149,21 @@ export function mapGenerateError(error: unknown, ctx: GenerateErrorContext): Map
   }
 
   return { issues, banner: unmapped ? t("contract.errors.generic") : null };
+}
+
+const DIGITAL_SIGNATURE_NOT_CONFIGURED = "DIGITAL_SIGNATURE_NOT_CONFIGURED";
+
+function errorCode(error: unknown): string | undefined {
+  if (!error || typeof error !== "object" || !("code" in error)) return undefined;
+  const code = (error as { code?: unknown }).code;
+  return typeof code === "string" ? code : undefined;
+}
+
+/**
+ * Message for a failed send. The not-configured code is the only one with its own sentence,
+ * and that sentence also says the contract is already registered. The code stays off the screen.
+ */
+export function sendForSignatureErrorMessage(error: unknown, fallback: string): string {
+  if (errorCode(error) === DIGITAL_SIGNATURE_NOT_CONFIGURED) return t("contract.page.signatureNotConfigured");
+  return fallback;
 }
