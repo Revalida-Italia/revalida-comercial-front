@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import {
-  defaultPortalPasswordHint,
   formatPortalStudentsSummary,
   isSignedContract,
   mapSignedContractError,
@@ -29,9 +28,11 @@ describe("isSignedContract", () => {
   });
 });
 
-describe("portal password helpers", () => {
-  it("uses Primeironome@YEAR as the ops hint", () => {
-    expect(defaultPortalPasswordHint(2026)).toBe("Primeironome@2026");
+describe("error text", () => {
+  it("only explains errors it knows, never raw API text", async () => {
+    const { knownSignedContractError } = await import("./signedContract");
+    expect(knownSignedContractError({ code: "CONTRACT_NOT_SIGNED" })).toBe("Este contrato ainda não está assinado.");
+    expect(knownSignedContractError(new Error("Internal Server Error"))).toBeNull();
   });
 });
 

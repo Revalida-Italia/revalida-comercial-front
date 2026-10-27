@@ -27,7 +27,7 @@ import {
   MAX_INSTALLMENTS,
   STEP_LABELS,
 } from "./constants";
-import { mapSaleToForm } from "./mapSaleToForm";
+import { brlAmountForSave, mapSaleToForm } from "./mapSaleToForm";
 import type { SaleItemDraft, SalePaymentDraft } from "./types";
 import ConfirmStep from "./organisms/ConfirmStep";
 import CustomersStep from "./organisms/CustomersStep";
@@ -362,15 +362,12 @@ const EditSaleFeature = () => {
         throw new Error("Cotação indisponível para converter o pagamento para BRL.");
       }
 
+      const originalCurrency = (payments.find((p) => p.inputCurrency && p.inputCurrency !== "BRL")
+        ?.inputCurrency ?? "USD") as "USD" | "EUR";
       await updateSale(id, {
         status,
         saveExchange: needsExchangeRates,
-        ...(needsExchangeRates
-          ? {
-              originalCurrency: (payments.find((p) => p.inputCurrency && p.inputCurrency !== "BRL")
-                ?.inputCurrency ?? "USD") as "USD" | "EUR",
-            }
-          : {}),
+        ...(needsExchangeRates ? { originalCurrency } : {}),
         ...(soldAt ? { soldAt } : {}),
         ...(isAdmin && sellerId && sellerId !== originalSellerId ? { sellerId } : {}),
         clients: filledCustomers.map((c) => ({
@@ -385,14 +382,13 @@ const EditSaleFeature = () => {
           .map((payment) => {
             const rawAmount = Number(payment.amount);
             const inputCurrency = payment.inputCurrency || "BRL";
-            const amountInBrl = inputCurrency === "BRL"
-              ? convertToBrl(rawAmount, "BRL")
-              : convertToBrl(rawAmount, inputCurrency, exchangeRatesQuery.data?.rates);
+            const amountInBrl = brlAmountForSave(payment, exchangeRatesQuery.data?.rates);
 
             return {
               type: payment.paymentType,
               gateway: payment.gateway,
               amount: amountInBrl,
+              ...(needsExchangeRates && inputCurrency === originalCurrency ? { originalAmount: rawAmount } : {}),
               dueDate: payment.dueDate || undefined,
               paymentDate: payment.paymentDate || undefined,
               status: payment.status || undefined,

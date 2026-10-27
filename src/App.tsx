@@ -30,12 +30,14 @@ import NotFound from "./pages/NotFound";
 import {
   RequireAdmin,
   RequireAuth,
+  RequireContractAccess,
   RequireBillingCalendarAccess,
   RequireCostsCalendarAccess,
   RequireSalesMutationAccess,
   RequireSalesViewAccess,
 } from "./components/RouteGuards";
 import NewSale from "./pages/NewSale";
+import SaleContract from "./pages/SaleContract";
 import Templates from "./pages/Templates";
 
 const queryClient = new QueryClient();
@@ -60,6 +62,10 @@ const App = () => (
                 <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/vendas" element={<Navigate to="/dashboard" replace />} />
                 <Route path="/vendas/:id" element={<SaleDetails />} />
+              </Route>
+
+              <Route element={<RequireContractAccess />}>
+                <Route path="/vendas/:id/contrato" element={<SaleContract />} />
               </Route>
 
               <Route element={<RequireSalesMutationAccess />}>

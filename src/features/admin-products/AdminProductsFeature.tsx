@@ -1,3 +1,4 @@
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -27,6 +28,8 @@ import { Package2, Pencil, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import ProductAutonomyFields from "./ProductAutonomyFields";
+import { buildProductUpdateInput, hotmartCheckoutUrlError } from "./productPayload";
 
 const AdminProductsFeature = () => {
   const navigate = useNavigate();
@@ -34,6 +37,12 @@ const AdminProductsFeature = () => {
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [editName, setEditName] = useState("");
   const [editDescription, setEditDescription] = useState("");
+  const [editHotmartProductId, setEditHotmartProductId] = useState("");
+  const [editHotmartCheckoutUrl, setEditHotmartCheckoutUrl] = useState("");
+  const [editHotmartOfferCode, setEditHotmartOfferCode] = useState("");
+  const [editIsAutonomy, setEditIsAutonomy] = useState(false);
+  const [checkoutUrlSubmitted, setCheckoutUrlSubmitted] = useState(false);
+  const checkoutUrlError = checkoutUrlSubmitted ? hotmartCheckoutUrlError(editHotmartCheckoutUrl) : null;
   const [deletingProduct, setDeletingProduct] = useState<Product | null>(null);
 
   const productsQuery = useQuery({
@@ -75,6 +84,11 @@ const AdminProductsFeature = () => {
     setEditingProduct(product);
     setEditName(product.name ?? "");
     setEditDescription(product.description ?? "");
+    setEditHotmartProductId(product.hotmartProductId ?? "");
+    setEditHotmartCheckoutUrl(product.hotmartCheckoutUrl ?? "");
+    setEditHotmartOfferCode(product.hotmartOfferCode ?? "");
+    setEditIsAutonomy(Boolean(product.isAutonomy));
+    setCheckoutUrlSubmitted(false);
   };
 
   const handleEditSubmit = () => {
@@ -82,22 +96,26 @@ const AdminProductsFeature = () => {
       return;
     }
 
-    const normalizedName = editName.trim();
-    const normalizedDescription = editDescription.trim();
-    const originalDescription = (editingProduct.description ?? "").trim();
-
-    if (!normalizedName) {
+    if (!editName.trim()) {
       toast.error("Nome do produto e obrigatorio.");
       return;
     }
 
-    const payload: UpdateProductInput = {};
-    if (normalizedName !== editingProduct.name) {
-      payload.name = normalizedName;
+    setCheckoutUrlSubmitted(true);
+    const urlError = hotmartCheckoutUrlError(editHotmartCheckoutUrl);
+    if (urlError) {
+      toast.error(urlError);
+      return;
     }
-    if (normalizedDescription !== originalDescription) {
-      payload.description = normalizedDescription;
-    }
+
+    const payload: UpdateProductInput = buildProductUpdateInput(editingProduct, {
+      name: editName,
+      description: editDescription,
+      hotmartProductId: editHotmartProductId,
+      hotmartCheckoutUrl: editHotmartCheckoutUrl,
+      hotmartOfferCode: editHotmartOfferCode,
+      isAutonomy: editIsAutonomy,
+    });
 
     if (Object.keys(payload).length === 0) {
       toast.info("Nenhuma alteracao para salvar.");
@@ -150,6 +168,22 @@ const AdminProductsFeature = () => {
                       <h3 className="truncate font-semibold text-foreground">{product.name}</h3>
                     </div>
                     <p className="text-sm text-muted-foreground">{product.description || "Sem descricao cadastrada."}</p>
+                    {(product.isAutonomy || product.hotmartProductId || product.hotmartCheckoutUrl || product.hotmartOfferCode) && (
+                      <div className="flex flex-wrap items-center gap-2 pt-1">
+                        {product.isAutonomy && (
+                          <Badge variant="outline" className="h-5 px-1.5 text-[10px]">Autonomy</Badge>
+                        )}
+                        {product.hotmartProductId && (
+                          <span className="text-xs text-muted-foreground">Hotmart {product.hotmartProductId}</span>
+                        )}
+                        {product.hotmartCheckoutUrl && (
+                          <ProductCheckoutUrl url={product.hotmartCheckoutUrl} />
+                        )}
+                        {product.hotmartOfferCode && (
+                          <span className="text-xs text-muted-foreground">Oferta {product.hotmartOfferCode}</span>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   <div className="flex shrink-0 items-center gap-2">
@@ -208,6 +242,20 @@ const AdminProductsFeature = () => {
                 disabled={updateProductMutation.isPending}
               />
             </div>
+
+            <ProductAutonomyFields
+              idPrefix="edit-product"
+              hotmartProductId={editHotmartProductId}
+              hotmartCheckoutUrl={editHotmartCheckoutUrl}
+              hotmartCheckoutUrlError={checkoutUrlError}
+              hotmartOfferCode={editHotmartOfferCode}
+              isAutonomy={editIsAutonomy}
+              disabled={updateProductMutation.isPending}
+              onHotmartProductIdChange={setEditHotmartProductId}
+              onHotmartCheckoutUrlChange={setEditHotmartCheckoutUrl}
+              onHotmartOfferCodeChange={setEditHotmartOfferCode}
+              onIsAutonomyChange={setEditIsAutonomy}
+            />
           </div>
 
           <DialogFooter>
@@ -247,5 +295,35 @@ const AdminProductsFeature = () => {
     </>
   );
 };
+
+function ProductCheckoutUrl({ url }: { url: string }) {
+  const trimmed = url.trim();
+  let safeHref: string | null = null;
+
+  try {
+    const parsed = new URL(trimmed);
+    if (parsed.protocol === "http:" || parsed.protocol === "https:") {
+      safeHref = parsed.href;
+    }
+  } catch {
+    safeHref = null;
+  }
+
+  if (!safeHref) {
+    return <span className="min-w-0 basis-full break-all text-xs text-muted-foreground">{trimmed}</span>;
+  }
+
+  return (
+    <a
+      href={safeHref}
+      target="_blank"
+      rel="noopener noreferrer"
+      title={safeHref}
+      className="min-w-0 basis-full break-all text-xs text-primary underline-offset-2 hover:underline"
+    >
+      {trimmed}
+    </a>
+  );
+}
 
 export default AdminProductsFeature;

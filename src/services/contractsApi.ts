@@ -3,6 +3,7 @@ import {
   normalizePortalStudentResults,
   type CreatePortalStudentsResponse,
 } from "@/features/contracts/signedContract";
+import { t } from "@/i18n";
 import { apiRequest } from "@/lib/http";
 import { getSession } from "@/lib/session";
 
@@ -36,6 +37,8 @@ export interface SaleContract {
   docusignEnvelopeId?: string | null;
   docusignUpdatedAt?: string | null;
   signerEmail?: string | null;
+  /** Internal team note. Never printed on the contract. */
+  internalNotes?: string | null;
   coreUserId?: string | null;
   signedContract?: {
     id: string;
@@ -54,101 +57,127 @@ export interface SaleContract {
   }>;
 }
 
+export type RevalidaProductCode =
+  | "START"
+  | "PREPARACAO_PROVAS"
+  | "ITALIANO_MEDICO"
+  | "ITALIANO_QUATTROMANI";
+
+/** Catalog entry from GET /contracts/revalida-products (description is the text printed in the contract). */
+export interface RevalidaProduct {
+  code: RevalidaProductCode;
+  name: string;
+  description: string;
+}
+
+/** Ticked product: release date (YYYY-MM-DD) and an optional duration in months or end date. */
+export interface RevalidaProductSelection {
+  code: RevalidaProductCode;
+  included?: boolean;
+  releaseDate?: string | null;
+  durationMonths?: number | null;
+  endDate?: string | null;
+}
+
+/** One installment line of the sale. A card installment line ("12 x R$ 1.000") has `installments` > 1. */
+export interface ContractPaymentPhase {
+  number: number;
+  name: string;
+  amount: number;
+  /** Equal parcels this line stands for; the line is worth amount x installments. */
+  installments?: number;
+  dueDateOrTrigger: string;
+  linkedModuleCodes: string[];
+}
+
+export type ContractCurrency = "BRL" | "EUR" | "USD";
+
+export interface ContractWitness {
+  fullName: string;
+  document: string;
+}
+
+export interface RevalidaContractParty {
+  id?: string;
+  clientId?: string | null;
+  fullName: string;
+  document: string;
+  /** Printed in the contract; Médico by default. */
+  profession?: string | null;
+  email: string;
+  phone: string;
+  nationality?: string | null;
+}
+
 export interface RevalidaContractPayload {
   productType: "PROGRAMA_REVALIDA_ITALIA";
-  parties: Array<{
-    id?: string;
-    fullName: string;
-    document: string;
-    profession: string;
-    email: string;
-    phone: string;
-    nationality?: string | null;
-  }>;
-  financialResponsibles?: Array<{
-    fullName: string;
-    document: string;
-    email?: string | null;
-    phone?: string | null;
-  }>;
-  liabilityRegime: "INDIVIDUAL" | "JOINT";
-  modules: Array<{
-    code: string;
-    name: string;
-    beneficiaryPartyIds: string[];
-    activationCondition?: string | null;
-    plannedReleaseOrTrigger?: string | null;
-    effectiveReleaseDate?: string | null;
-    accessPeriod?: string | null;
-  }>;
+  parties: RevalidaContractParty[];
+  /** Adds Annex A to the contract. */
+  decreeIncluded: boolean;
+  products?: RevalidaProductSelection[];
   expenses: {
     translationsIncluded: boolean;
     apostillesIncluded: boolean;
-    notaryServicesIncluded: boolean;
     postalExpensesIncluded: boolean;
-    expensesScope?: string | null;
   };
-  totalAmount: number;
-  paymentDescription: string;
-  phases: Array<{
-    number: number;
-    name: string;
-    amount: number;
-    dueDateOrTrigger: string;
-    linkedModuleCodes: string[];
-  }>;
-  contractTerm: string;
-  officialChannel: string;
-  cancellationChannel: string;
-  privacyNoticeUrl: string;
-  signaturePlatform: string;
+  /** Read-only: the API takes currency, total and installments from the sale. Not sent. */
+  currency?: ContractCurrency;
+  totalAmount?: number;
+  phases: ContractPaymentPhase[];
+  /** Term of the contract (clause 3.1), YYYY-MM-DD: start plus end date or duration in months. */
+  contractStartDate?: string | null;
+  contractEndDate?: string | null;
+  contractDurationMonths?: number | null;
+  /** City printed next to the signature date. */
+  referenceCity: string;
+  witnesses: ContractWitness[];
   contractVersion: string;
-  graceDays?: number;
-  terminationDays?: number;
-  witnesses?: Array<{ fullName: string; document: string }>;
+  notes?: string | null;
+}
+
+export interface SchoolStudent {
+  id?: string;
+  clientId?: string | null;
+  fullName: string;
+  /** YYYY-MM-DD */
+  birthDate: string;
+  birthPlace: string;
+  nationality: string;
+  passport?: string | null;
+  fullAddress: string;
+  email: string;
+  phone: string;
 }
 
 export interface SchoolContractPayload {
   productType: "ESCOLA_DE_ITALIANO";
-  student: {
-    fullName: string;
-    birthDate: string;
-    birthPlace: string;
-    nationality: string;
-    passport?: string | null;
-    fullAddress: string;
-    email: string;
-    phone: string;
-  };
+  students: SchoolStudent[];
   course: {
-    purpose: "LANGUAGE" | "LANGUAGE_STUDY_VISA";
     durationMonths: number;
+    /** YYYY-MM-DD */
     startDate: string;
-    endDate: string;
-    weeklyHours: number;
-    initialLevel: string;
-    targetLevel: string;
   };
-  distanceContract: boolean;
-  totalAmount: number;
-  paymentDescription: string;
-  phases: Array<{
-    number: number;
-    name: string;
-    amount: number;
-    dueDateOrTrigger: string;
-    linkedModuleCodes: string[];
-  }>;
-  officialChannel: string;
-  cancellationChannel: string;
-  signaturePlatform: string;
+  referenceCity: string;
+  currency?: ContractCurrency;
+  totalAmount?: number;
+  phases: ContractPaymentPhase[];
   contractVersion: string;
+  notes?: string | null;
 }
 
 export type ContractFormPayload = RevalidaContractPayload | SchoolContractPayload;
 
+/** What the form sends: payment is left out because the API takes it from the sale. */
+export type PaymentFields = "currency" | "totalAmount" | "phases";
+export type RevalidaGeneratePayload = Omit<RevalidaContractPayload, PaymentFields>;
+export type SchoolGeneratePayload = Omit<SchoolContractPayload, PaymentFields>;
+
 export async function listContractModules(): Promise<ContractModule[]> {
   return apiRequest(CORE_API_URL, "/contracts/modules");
+}
+
+export async function listRevalidaProducts(): Promise<RevalidaProduct[]> {
+  return apiRequest(CORE_API_URL, "/contracts/revalida-products");
 }
 
 export async function listSaleContracts(saleId: string): Promise<SaleContract[]> {
@@ -256,7 +285,7 @@ async function downloadContractFile(path: string, fallbackFileName: string): Pro
       window.open(payload.url, "_blank", "noopener,noreferrer");
       return;
     }
-    throw new Error("URL de download indisponível");
+    throw new Error(t("contract.errors.downloadUnavailable"));
   }
 
   const blob = await response.blob();

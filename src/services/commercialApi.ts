@@ -24,6 +24,8 @@ export interface SaleClient {
   nameCiphertext: string;
   documentCiphertext?: string | null;
   telefone?: string | null;
+  /** Present on some sale responses instead of `telefone`. */
+  phone?: string | null;
   email?: string | null;
   createdAt: string;
   updatedAt: string;
@@ -85,6 +87,7 @@ export interface SalePayment {
   notes?: string | null;
   linkPagamento?: string | null;
   currency?: CheckoutCurrency | string | null;
+  /** Amount as entered, in the sale's originalCurrency. `amount` stays in reais. */
   originalAmount?: string | number | null;
   stripeCheckoutSessionId?: string | null;
   stripePaymentMethod?: StripePaymentMethod | null;
@@ -130,9 +133,18 @@ export interface SaleFinancialSummary {
   };
 }
 
+export type SaleChannel = "SELLER" | "SELF_SERVICE";
+
 export interface SaleRecord {
   id: string;
-  sellerId: string;
+  sellerId: string | null;
+  /**
+   * Origem da venda. O comercial-back envia `origin` (`SELLER` | `SELF_SERVICE`)
+   * na listagem e no detalhe. `channel` cobre respostas antigas.
+   */
+  origin?: SaleChannel | string | null;
+  /** SELLER (padrão) ou SELF_SERVICE quando a venda não tem vendedor. */
+  channel?: SaleChannel | string | null;
   currency: string;
   /** Moeda digitada na venda quando houve FX (null = histórico sem classificação). */
   originalCurrency?: DisplayCurrency | string | null;
@@ -160,7 +172,7 @@ export interface SaleRecord {
       name?: string;
       individualCommissionRate?: string | number;
     };
-  };
+  } | null;
   clients: SaleClient[];
   items: SaleItem[];
   payments: SalePayment[];
@@ -227,6 +239,8 @@ export type SubscriptionCycle =
   | "YEARLY";
 
 export interface CreateSalePayment {
+  /** Amount as entered, in the sale's originalCurrency (EUR/USD); `amount` is in reais. */
+  originalAmount?: number;
   gateway: string;
   type: string;
   amount: number;
@@ -271,6 +285,8 @@ export interface UpdateSaleItem {
 }
 
 export interface UpdateSalePayment {
+  /** Amount as entered, in the sale's originalCurrency (EUR/USD); `amount` is in reais. */
+  originalAmount?: number;
   id?: string;
   type: string;
   gateway: string;
