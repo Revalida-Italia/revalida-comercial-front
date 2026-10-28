@@ -199,7 +199,7 @@ const SaleListCard = ({ sale }: SaleListCardProps) => {
                     Link de pagamento
                   </Button>
                 )}
-                {hasHotmartCheckout && (
+                {hasHotmartCheckout && !subscriptionCancelled && (
                   <Button
                     type="button"
                     variant="outline"
