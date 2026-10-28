@@ -17,9 +17,24 @@ export interface StripeCheckoutSession {
   amountBrl: number;
 }
 
-export interface HotmartCheckoutLink {
+export const HOTMART_PRODUCT_NOT_IN_FIXED_LIST = "HOTMART_PRODUCT_NOT_IN_FIXED_LIST";
+export const HOTMART_CHECKOUT_URL_NOT_CONFIGURED = "HOTMART_CHECKOUT_URL_NOT_CONFIGURED";
+
+const HOTMART_FIXED_LIST_CODES = new Set<string>([
+  HOTMART_PRODUCT_NOT_IN_FIXED_LIST,
+  HOTMART_CHECKOUT_URL_NOT_CONFIGURED,
+]);
+
+export interface HotmartCheckoutLinkReady {
   url: string;
 }
+
+export interface HotmartCheckoutLinkUnavailable {
+  available: false;
+  reason: typeof HOTMART_PRODUCT_NOT_IN_FIXED_LIST;
+}
+
+export type HotmartCheckoutLink = HotmartCheckoutLinkReady | HotmartCheckoutLinkUnavailable;
 
 export type PaymentWebhookStatus = "PROCESSED" | "UNMATCHED" | "IGNORED" | "ERROR";
 export type PaymentWebhookProvider = "STRIPE" | "HOTMART";
@@ -143,16 +158,78 @@ export function normalizeStripeCheckoutSession(payload: unknown): StripeCheckout
   };
 }
 
+export function isHotmartProductNotInFixedList(error: unknown): boolean {
+  return readErrorCodes(error).some((code) => HOTMART_FIXED_LIST_CODES.has(code));
+}
+
+export function isHotmartCheckoutUnavailable(
+  link: HotmartCheckoutLink | null | undefined,
+): link is HotmartCheckoutLinkUnavailable {
+  return Boolean(link && "available" in link && link.available === false);
+}
+
 export function normalizeHotmartCheckoutLink(payload: unknown): HotmartCheckoutLink {
-  const url = isRecord(payload)
-    ? readString(payload.url) ?? (isRecord(payload.data) ? readString(payload.data.url) : null)
-    : null;
+  const record = isRecord(payload) ? payload : null;
+  const data = record && isRecord(record.data) ? record.data : null;
+  const markedUnavailable = record?.available === false || data?.available === false;
+  const availableFlag = markedUnavailable ? false : record?.available ?? data?.available;
+  const reason = readString(record?.reason) ?? readString(data?.reason);
+  const url = readString(record?.url) ?? readString(data?.url);
+
+  if (availableFlag === false || isHotmartFixedListReason(reason)) {
+    if (reason && !isHotmartFixedListReason(reason)) {
+      throw new Error("Resposta de link Hotmart fora do contrato esperado.");
+    }
+
+    return { available: false, reason: HOTMART_PRODUCT_NOT_IN_FIXED_LIST };
+  }
 
   if (!url) {
     throw new Error("Resposta de link Hotmart fora do contrato esperado.");
   }
 
   return { url };
+}
+
+function isHotmartFixedListReason(reason: string | null): boolean {
+  return reason != null && HOTMART_FIXED_LIST_CODES.has(reason);
+}
+
+function readErrorCodes(error: unknown): string[] {
+  if (!error || typeof error !== "object") {
+    return [];
+  }
+
+  const record = error as {
+    code?: unknown;
+    message?: unknown;
+    error?: unknown;
+    errors?: unknown;
+  };
+  const codes: string[] = [];
+
+  for (const value of [record.code, record.message, record.error]) {
+    if (typeof value === "string" && value.trim()) {
+      codes.push(value.trim());
+    }
+  }
+
+  if (Array.isArray(record.errors)) {
+    for (const item of record.errors) {
+      if (!isRecord(item)) {
+        continue;
+      }
+
+      if (typeof item.code === "string" && item.code.trim()) {
+        codes.push(item.code.trim());
+      }
+      if (typeof item.message === "string" && item.message.trim()) {
+        codes.push(item.message.trim());
+      }
+    }
+  }
+
+  return codes;
 }
 
 function readSecondSettledCharge(value: unknown): SecondSettledCharge | null {
@@ -262,12 +339,20 @@ export async function createStripeCheckoutLink(
 }
 
 export async function getHotmartCheckoutLink(saleId: string): Promise<HotmartCheckoutLink> {
-  const payload = await apiRequest<unknown>(
-    CORE_API_URL,
-    `/sales/${encodeURIComponent(saleId)}/hotmart-checkout-link`,
-  );
+  try {
+    const payload = await apiRequest<unknown>(
+      CORE_API_URL,
+      `/sales/${encodeURIComponent(saleId)}/hotmart-checkout-link`,
+    );
 
-  return normalizeHotmartCheckoutLink(payload);
+    return normalizeHotmartCheckoutLink(payload);
+  } catch (error) {
+    if (isHotmartProductNotInFixedList(error)) {
+      return { available: false, reason: HOTMART_PRODUCT_NOT_IN_FIXED_LIST };
+    }
+
+    throw error;
+  }
 }
 
 function webhookPageSize(value: number | undefined): number {

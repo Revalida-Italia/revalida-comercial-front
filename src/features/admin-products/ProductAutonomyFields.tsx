@@ -5,13 +5,10 @@ import { Label } from "@/components/ui/label";
 type ProductAutonomyFieldsProps = {
   idPrefix: string;
   hotmartProductId: string;
-  hotmartCheckoutUrl: string;
-  hotmartCheckoutUrlError?: string | null;
   hotmartOfferCode: string;
   isAutonomy: boolean;
   disabled?: boolean;
   onHotmartProductIdChange: (value: string) => void;
-  onHotmartCheckoutUrlChange: (value: string) => void;
   onHotmartOfferCodeChange: (value: string) => void;
   onIsAutonomyChange: (value: boolean) => void;
 };
@@ -19,19 +16,14 @@ type ProductAutonomyFieldsProps = {
 const ProductAutonomyFields = ({
   idPrefix,
   hotmartProductId,
-  hotmartCheckoutUrl,
-  hotmartCheckoutUrlError,
   hotmartOfferCode,
   isAutonomy,
   disabled = false,
   onHotmartProductIdChange,
-  onHotmartCheckoutUrlChange,
   onHotmartOfferCodeChange,
   onIsAutonomyChange,
 }: ProductAutonomyFieldsProps) => {
   const productIdField = `${idPrefix}-hotmart-product-id`;
-  const checkoutUrlField = `${idPrefix}-hotmart-checkout-url`;
-  const checkoutUrlErrorId = `${checkoutUrlField}-error`;
   const offerField = `${idPrefix}-hotmart-offer-code`;
   const autonomyField = `${idPrefix}-is-autonomy`;
 
@@ -48,30 +40,6 @@ const ProductAutonomyFields = ({
           disabled={disabled}
         />
         <p className="text-xs text-muted-foreground">Único no cadastro. Deixe em branco se o produto não usa Hotmart.</p>
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor={checkoutUrlField}>URL de checkout Hotmart (opcional)</Label>
-        <Input
-          id={checkoutUrlField}
-          type="text"
-          inputMode="url"
-          value={hotmartCheckoutUrl}
-          onChange={(event) => onHotmartCheckoutUrlChange(event.target.value)}
-          placeholder="https://pay.hotmart.com/..."
-          autoComplete="off"
-          spellCheck={false}
-          disabled={disabled}
-          aria-invalid={Boolean(hotmartCheckoutUrlError)}
-          aria-describedby={hotmartCheckoutUrlError ? checkoutUrlErrorId : undefined}
-        />
-        {hotmartCheckoutUrlError ? (
-          <p id={checkoutUrlErrorId} className="text-xs text-destructive" role="alert">
-            {hotmartCheckoutUrlError}
-          </p>
-        ) : (
-          <p className="text-xs text-muted-foreground">Link absoluto http ou https. Deixe em branco se não houver checkout.</p>
-        )}
       </div>
 
       <div className="space-y-2">
