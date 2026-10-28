@@ -69,6 +69,25 @@ async function refreshAuthSession(refreshToken: string): Promise<AuthSession | n
   return nextSession;
 }
 
+/** Prefer `code`. Older responses omit it and put the same token on `error` or `reason`. */
+function readApiErrorCode(payload: {
+  code?: unknown;
+  error?: unknown;
+  reason?: unknown;
+} | null | undefined): string | undefined {
+  const candidates = [payload?.code, payload?.error, payload?.reason];
+  for (const candidate of candidates) {
+    if (typeof candidate !== "string") {
+      continue;
+    }
+    const trimmed = candidate.trim();
+    if (trimmed) {
+      return trimmed;
+    }
+  }
+  return undefined;
+}
+
 function handleExpiredSession(): never {
   clearSession();
   setAuthNotice(SESSION_EXPIRED_MESSAGE);
@@ -125,8 +144,9 @@ export async function apiRequest<T>(baseUrl: string, path: string, options: Requ
     try {
       const payload = (await response.json()) as {
         message?: string
-        error?: string
+        error?: unknown
         code?: string
+        reason?: unknown
         errors?: Array<{ field?: string; message?: string; code?: string }>
       }
       if (payload?.errors?.length) {
@@ -136,7 +156,7 @@ export async function apiRequest<T>(baseUrl: string, path: string, options: Requ
           .join('; ')
         message = details || payload.code || payload.message || message
       } else {
-        const apiError = payload?.message ?? payload?.code ?? payload?.error
+        const apiError = payload?.message ?? payload?.code ?? (typeof payload?.error === "string" ? payload.error : undefined)
         if (apiError) {
           message = apiError
         }
@@ -146,7 +166,7 @@ export async function apiRequest<T>(baseUrl: string, path: string, options: Requ
         status?: number
         errors?: Array<{ field?: string; message?: string; code?: string }>
       }
-      error.code = payload?.code
+      error.code = readApiErrorCode(payload)
       error.status = response.status
       // Keep the per-field list so screens can show each message next to its field.
       error.errors = payload?.errors
