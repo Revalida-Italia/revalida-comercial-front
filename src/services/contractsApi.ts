@@ -133,12 +133,9 @@ export interface SchoolStudent {
   id?: string;
   clientId?: string | null;
   fullName: string;
-  /** YYYY-MM-DD */
-  birthDate: string;
-  birthPlace: string;
   nationality: string;
-  passport?: string | null;
-  fullAddress: string;
+  /** Masked 000.000.000-00, or null when the field is empty. */
+  cpf?: string | null;
   email: string;
   phone: string;
 }

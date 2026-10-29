@@ -5,6 +5,7 @@ import {
   buildRevalidaSummary,
   buildSchoolPayload,
   buildSchoolSummaryRows,
+  schoolIncludedLabels,
   createInitialRevalidaState,
   formatPhone,
   schoolFormFromPrefill,
@@ -270,11 +271,8 @@ describe("Escola", () => {
   const student = {
     id: "s1",
     fullName: "Giulia Rossi",
-    birthDate: "1994-03-12",
-    birthPlace: "São Paulo",
     nationality: "brasiliana",
-    passport: "",
-    fullAddress: "Rua das Flores 100",
+    cpf: "529.982.247-25",
     email: "giulia@example.com",
     phone: "+55 (11) 98888-0000",
   };
@@ -310,12 +308,49 @@ describe("Escola", () => {
     ]);
   });
 
+  it("asks for a CPF and checks the digits", () => {
+    expect(validateSchoolForm(school({ students: [{ ...student, cpf: "" }] }), pay).map((i) => i.summary)).toEqual([
+      "Falta: CPF de Giulia Rossi",
+    ]);
+    const invalid = validateSchoolForm(school({ students: [{ ...student, cpf: "111.111.111-11" }] }), pay);
+    expect(invalid.map((i) => [i.fieldId, i.message, i.summary])).toEqual([
+      ["contract-school-0-cpf", "Digite um CPF válido.", "Falta: CPF válido de Giulia Rossi"],
+    ]);
+    expect(validateSchoolForm(school({ students: [{ ...student, cpf: "52998224725" }] }), pay)).toEqual([]);
+  });
+
   it("leaves the payment fields out and sends every student", () => {
-    const payload = buildSchoolPayload(school({ students: [student, { ...student, id: "s2", fullName: " Lucas " }] }));
+    const withOldFields = {
+      ...student,
+      birthDate: "1994-03-12",
+      birthPlace: "São Paulo",
+      passport: "AB123",
+      fullAddress: "Rua das Flores 100",
+    };
+    const payload = buildSchoolPayload(
+      school({ students: [withOldFields, { ...student, id: "s2", fullName: " Lucas ", cpf: "" }] }),
+    );
     for (const key of ["currency", "totalAmount", "phases"]) expect(payload).not.toHaveProperty(key);
     expect(payload.students.map((s) => s.fullName)).toEqual(["Giulia Rossi", "Lucas"]);
-    expect(payload.students[0].passport).toBeNull();
+    expect(payload.students[0]).toEqual({
+      id: "s1",
+      fullName: "Giulia Rossi",
+      nationality: "brasiliana",
+      cpf: "529.982.247-25",
+      email: "giulia@example.com",
+      phone: "+55 (11) 98888-0000",
+    });
+    expect(payload.students[1].cpf).toBeNull();
     expect(payload.course).toEqual({ durationMonths: 4, startDate: "2027-01-11" });
+  });
+
+  it("lists what is included in the school contract", () => {
+    expect(schoolIncludedLabels()).toEqual([
+      "Curso Start",
+      "Italiano Quattromani",
+      "Preparação para as provas de revalidação",
+      "Italiano Médico",
+    ]);
   });
 
   it("summarizes students and course", () => {
@@ -440,5 +475,6 @@ describe("formatPhone", () => {
   it("formats the phones that come from the sale", () => {
     expect(schoolFormFromPrefill({ students: [{ phone: "5511911112222" }, { phone: "+39 333 123 4567" }] }).students.map((s) => s.phone))
       .toEqual(["+55 (11) 91111-2222", "+39 333 123 4567"]);
+    expect(schoolFormFromPrefill({ students: [{ phone: "", cpf: "52998224725" }] }).students[0].cpf).toBe("529.982.247-25");
   });
 });
