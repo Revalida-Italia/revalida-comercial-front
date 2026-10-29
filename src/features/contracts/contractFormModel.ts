@@ -237,6 +237,26 @@ export function formatPhone(raw: string, previous = ""): string {
   return out;
 }
 
+const COMPLETE_BR_PHONE = /^\+55 \(\d{2}\) \d{4,5}-\d{4}$/;
+
+/**
+ * Phone shown on a saved sale. A complete Brazilian number, or a number that already
+ * carries another country code, uses the same mask as the contract form. Anything else
+ * is returned unchanged.
+ */
+export function displayPhone(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed || /[a-z]/i.test(trimmed)) return value;
+  const formatted = formatPhone(trimmed);
+  if (COMPLETE_BR_PHONE.test(formatted)) return formatted;
+  const otherCountry = trimmed.startsWith("+") && !/^\+5(5|$)/.test(trimmed) && /^[\d+\s()-]+$/.test(trimmed);
+  if (otherCountry) {
+    const digits = formatted.replace(/\D/g, "").length;
+    if (formatted.startsWith("+") && digits >= 8 && digits <= 15) return formatted;
+  }
+  return value;
+}
+
 /** School prefill with the students' phones and CPF in the same format as typed ones. */
 export function schoolFormFromPrefill<
   T extends { students: Array<{ phone?: string | null; cpf?: string | null }> },
