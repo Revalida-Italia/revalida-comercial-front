@@ -40,6 +40,7 @@ import {
   buildRevalidaSummary,
   buildSchoolPayload,
   buildSchoolSummaryRows,
+  schoolIncludedLabels,
   createInitialRevalidaState,
   modelName,
   partyLabel,
@@ -472,16 +473,16 @@ function SchoolBody({
           <>
             <SchoolFormFields payload={payload} update={update} form={form} />
             <ContractPaymentSection
-              number={3}
+              number={4}
               saleId={saleId}
               phases={payload.phases}
               total={total}
               currency={currency}
               error={feedback.errorFor("contract-section-payment")}
             />
-            <SchoolSignaturesSection number={4} payload={payload} update={update} form={form} />
+            <SchoolSignaturesSection number={5} payload={payload} update={update} form={form} />
             <ObservationsSection
-              number={5}
+              number={6}
               value={payload.notes ?? ""}
               disabled={generating}
               onChange={(notes) => update((p) => ({ ...p, notes }))}
@@ -492,6 +493,7 @@ function SchoolBody({
           <ContractSummary
             totalLabel={formatCurrency(total, currency)}
             contractors={tCount("contract.summary.students", payload.students.length)}
+            included={schoolIncludedLabels()}
             rows={rows}
             issues={feedback.allIssues}
             banner={feedback.banner}

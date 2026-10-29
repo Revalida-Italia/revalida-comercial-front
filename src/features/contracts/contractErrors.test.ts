@@ -54,13 +54,13 @@ describe("mapGenerateError", () => {
   it("maps errors on the Escola students and course", () => {
     const result = mapGenerateError(
       apiError([
-        { code: "V_SCHEMA", field: "students.1.birthPlace", message: "Too small" },
+        { code: "V_SCHEMA", field: "students.1.cpf", message: "Invalid CPF" },
         { code: "V_PERIOD", field: "course.startDate", message: "Invalid start date" },
       ]),
       { ...ctx, studentLabels: ["Giulia", "Lucas"] },
     );
     expect(result.issues.map((i) => [i.fieldId, i.summary])).toEqual([
-      ["contract-school-1-birthPlace", "Falta: local de nascimento de Lucas"],
+      ["contract-school-1-cpf", "Falta: CPF válido de Lucas"],
       ["contract-school-startDate", "Falta: início do curso"],
     ]);
   });

@@ -323,8 +323,9 @@ describe("Gerar contrato page", () => {
       birthDate: "1990-05-10",
       birthPlace: "São Paulo",
       nationality: "brasiliana",
-      passport: null,
+      passport: "AB123",
       fullAddress: "Rua A, 1",
+      cpf: "39053344705",
       email: "billy@example.com",
       phone: "+55 (11) 98888-0000",
     };
@@ -346,6 +347,25 @@ describe("Gerar contrato page", () => {
     fireEvent.keyDown(screen.getByRole("button", { name: /Trocar modelo/ }), { key: "Enter" });
     fireEvent.click(await screen.findByRole("menuitem", { name: "Escola de Italiano" }));
     await screen.findByRole("heading", { name: /Estudantes/ });
+    const students = screen.getByRole("region", { name: /Estudantes/ });
+    expect(within(students).getAllByText(/^(Nome completo|Nacionalidade|CPF|E-mail|Telefone)$/).map((label) => label.textContent)).toEqual([
+      "Nome completo",
+      "Nacionalidade",
+      "CPF",
+      "E-mail",
+      "Telefone",
+    ]);
+    expect(byId("contract-school-0-cpf").value).toBe("390.533.447-05");
+    for (const gone of ["Data de nascimento", "Local de nascimento", "Endereço completo", "Passaporte"]) {
+      expect(screen.queryByText(gone)).toBeNull();
+    }
+    const included = screen.getByRole("region", { name: /O que está incluso/ });
+    expect(within(included).getAllByRole("listitem").map((item) => item.textContent)).toEqual([
+      "Curso Start",
+      "Italiano Quattromani",
+      "Preparação para as provas de revalidação",
+      "Italiano Médico",
+    ]);
     const section = document.getElementById("contract-section-payment") as HTMLElement;
     await waitFor(() => expect(within(section).getAllByText(/^€\s*480,00$/)).toHaveLength(5));
     expect(section.textContent).toMatch(/Total\s*€\s*2\.400,00/);
@@ -357,10 +377,14 @@ describe("Gerar contrato page", () => {
     fireEvent.click(screen.getByRole("button", { name: "Adicionar estudante" }));
     expect(screen.getByRole("heading", { name: "Estudante 2" })).toBeInTheDocument();
     type("contract-school-1-fullName", "Ana Lima");
-    type("contract-school-1-birthDate", "02/03/1992");
-    type("contract-school-1-birthPlace", "Curitiba");
     type("contract-school-1-nationality", "brasiliana");
-    type("contract-school-1-fullAddress", "Rua B, 2");
+    type("contract-school-1-cpf", "52998224726");
+    expect(byId("contract-school-1-cpf").value).toBe("529.982.247-26");
+    fireEvent.click(generateButton());
+    expect(await screen.findByText("Digite um CPF válido.")).toBeInTheDocument();
+    expect(generateContract).not.toHaveBeenCalled();
+    type("contract-school-1-cpf", "52998224725");
+    expect(byId("contract-school-1-cpf").value).toBe("529.982.247-25");
     type("contract-school-1-email", "ana@example.com");
     type("contract-school-1-phone", "41977770000");
     type("contract-school-startDate", "11/01/2027");
@@ -368,6 +392,13 @@ describe("Gerar contrato page", () => {
     const resumo = screen.getByRole("complementary", { name: "Resumo" });
     expect(within(resumo).getByText("2 estudantes")).toBeInTheDocument();
     expect(within(resumo).getByText("4 meses a partir de 11/01/2027")).toBeInTheDocument();
+    const includedHeading = within(resumo).getByRole("heading", { name: "Incluso" });
+    expect(within(includedHeading.nextElementSibling as HTMLElement).getAllByRole("listitem").map((item) => item.textContent)).toEqual([
+      "Curso Start",
+      "Italiano Quattromani",
+      "Preparação para as provas de revalidação",
+      "Italiano Médico",
+    ]);
     await confirmRegister();
     await waitFor(() => expect(generateContract).toHaveBeenCalledTimes(1));
     const [, payload, productType] = vi.mocked(generateContract).mock.calls[0] as [string, Record<string, unknown>, string];
@@ -376,7 +407,25 @@ describe("Gerar contrato page", () => {
       course: { durationMonths: 4, startDate: "2027-01-11" },
       referenceCity: "Pordenone",
     });
-    expect((payload.students as Array<{ fullName: string }>).map((s) => s.fullName)).toEqual(["Billy Willy", "Ana Lima"]);
+    expect(payload.students).toEqual([
+      {
+        id: "c1",
+        clientId: "c1",
+        fullName: "Billy Willy",
+        nationality: "brasiliana",
+        cpf: "390.533.447-05",
+        email: "billy@example.com",
+        phone: "+55 (11) 98888-0000",
+      },
+      {
+        id: expect.any(String),
+        fullName: "Ana Lima",
+        nationality: "brasiliana",
+        cpf: "529.982.247-25",
+        email: "ana@example.com",
+        phone: "+55 (41) 97777-0000",
+      },
+    ]);
     for (const key of ["currency", "totalAmount", "phases"]) expect(payload).not.toHaveProperty(key);
   });
 

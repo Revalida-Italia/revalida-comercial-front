@@ -1,4 +1,5 @@
 import { t, tCount } from "@/i18n";
+import { formatCpf, isValidCpf } from "@/features/contracts/cpf";
 import { addMonthsIso, isoToDisplay } from "@/features/contracts/contractDates";
 import type {
   ContractPaymentPhase,
@@ -236,11 +237,17 @@ export function formatPhone(raw: string, previous = ""): string {
   return out;
 }
 
-/** School prefill with the students' phones in the same format as typed ones. */
-export function schoolFormFromPrefill<T extends { students: Array<{ phone?: string | null }> }>(prefill: T): T {
+/** School prefill with the students' phones and CPF in the same format as typed ones. */
+export function schoolFormFromPrefill<
+  T extends { students: Array<{ phone?: string | null; cpf?: string | null }> },
+>(prefill: T): T {
   return {
     ...prefill,
-    students: prefill.students.map((student) => ({ ...student, phone: formatPhone(student.phone ?? "") })),
+    students: prefill.students.map((student) => ({
+      ...student,
+      phone: formatPhone(student.phone ?? ""),
+      cpf: formatCpf(student.cpf ?? ""),
+    })),
   };
 }
 
@@ -400,16 +407,18 @@ export function buildSchoolPayload(payload: SchoolContractPayload): SchoolGenera
   const sent = withoutPayment(payload);
   return {
     ...sent,
-    students: payload.students.map((student) => ({
-      ...student,
-      fullName: student.fullName.trim(),
-      birthPlace: student.birthPlace.trim(),
-      nationality: student.nationality.trim(),
-      passport: student.passport?.trim() || null,
-      fullAddress: student.fullAddress.trim(),
-      email: student.email.trim(),
-      phone: student.phone.trim(),
-    })),
+    students: payload.students.map((student) => {
+      const next: SchoolStudent = {
+        fullName: student.fullName.trim(),
+        nationality: student.nationality.trim(),
+        cpf: formatCpf(student.cpf ?? "") || null,
+        email: student.email.trim(),
+        phone: student.phone.trim(),
+      };
+      if (student.id) next.id = student.id;
+      if (student.clientId) next.clientId = student.clientId;
+      return next;
+    }),
     referenceCity: payload.referenceCity.trim(),
     notes: payload.notes?.trim() ? payload.notes.trim() : null,
   };
@@ -504,15 +513,22 @@ export function buildRevalidaSummary(
 
 // ---- Escola de Italiano -------------------------------------------------
 
+/** What the Escola de Italiano contract lists as included, in print order. */
+export function schoolIncludedLabels(): string[] {
+  return [
+    t("contract.schoolIncluded.start"),
+    t("contract.schoolIncluded.quattromani"),
+    t("contract.schoolIncluded.examPreparation"),
+    t("contract.schoolIncluded.medicalItalian"),
+  ];
+}
+
 export function newStudent(): SchoolStudent {
   return {
     id: newPartyId(),
     fullName: "",
-    birthDate: "",
-    birthPlace: "",
     nationality: "",
-    passport: null,
-    fullAddress: "",
+    cpf: "",
     email: "",
     phone: "",
   };
@@ -529,10 +545,10 @@ export function validateSchoolForm(
     const who = studentLabel(s, i);
     const base = `contract-school-${i}`;
     if (!s.fullName.trim()) add(`${base}-fullName`, required, t("contract.missing.studentName", { n: i + 1 }));
-    if (!s.birthDate) add(`${base}-birthDate`, t("contract.errors.birthDate"), t("contract.missing.studentBirthDate", { who }));
-    if (!s.birthPlace.trim()) add(`${base}-birthPlace`, required, t("contract.missing.studentBirthPlace", { who }));
     if (!s.nationality.trim()) add(`${base}-nationality`, required, t("contract.missing.studentNationality", { who }));
-    if (!s.fullAddress.trim()) add(`${base}-fullAddress`, required, t("contract.missing.studentAddress", { who }));
+    const cpf = (s.cpf ?? "").trim();
+    if (!cpf) add(`${base}-cpf`, required, t("contract.missing.studentCpf", { who }));
+    else if (!isValidCpf(cpf)) add(`${base}-cpf`, t("contract.errors.cpf"), t("contract.missing.studentCpfValid", { who }));
     if (!s.email.trim()) add(`${base}-email`, required, t("contract.missing.studentEmail", { who }));
     else if (!isValidEmail(s.email)) {
       add(`${base}-email`, t("contract.errors.email"), t("contract.missing.studentEmailValid", { who }));
