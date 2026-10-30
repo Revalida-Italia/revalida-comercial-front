@@ -103,6 +103,42 @@ async function confirmRegister(choice: "Sim" | "Não" = "Não") {
   });
 }
 
+function schoolPrefill(referenceCity: string) {
+  return {
+    productType: "ESCOLA_DE_ITALIANO",
+    students: [
+      {
+        id: "c1",
+        clientId: "c1",
+        fullName: "Billy Willy",
+        nationality: "brasiliana",
+        cpf: "39053344705",
+        email: "billy@example.com",
+        phone: "+55 (11) 98888-0000",
+      },
+    ],
+    course: { durationMonths: 4, startDate: "2027-01-11" },
+    referenceCity,
+    currency: "EUR",
+    totalAmount: 2400,
+    phases: [] as never[],
+    contractVersion: "1.0",
+    notes: null,
+  };
+}
+
+function mockSchoolPrefill(referenceCity: string) {
+  vi.mocked(prefillContract).mockImplementation((async (_saleId: string, productType: string) =>
+    productType === "ESCOLA_DE_ITALIANO" ? schoolPrefill(referenceCity) : makePrefill()) as never);
+}
+
+async function openSchoolForm() {
+  await ready();
+  fireEvent.keyDown(screen.getByRole("button", { name: /Trocar modelo/ }), { key: "Enter" });
+  fireEvent.click(await screen.findByRole("menuitem", { name: "Escola de Italiano" }));
+  await screen.findByRole("heading", { name: /Estudantes/ });
+}
+
 /** Everything the form asks for, in the order a seller would do it. */
 function fillEverything() {
   type("contract-party-0-email", "billy@example.com");
@@ -730,5 +766,49 @@ describe("Gerar contrato page", () => {
     const text = document.body.textContent ?? "";
     expect(text).not.toMatch(/REVALIDA_v|SCUOLA_IT|Regime de responsabilidade|Partes|módulo|gatilho|DocuSign|Senha/i);
     expect(text).not.toMatch(/\p{Extended_Pictographic}/u);
+  });
+
+  it("starts a new Revalida form with the default city and lets the seller change it", async () => {
+    await ready();
+    expect(byId("contract-reference-city").value).toBe("Caxias do Sul, RS, Brasil");
+    type("contract-reference-city", "Bento Gonçalves");
+    expect(byId("contract-reference-city").value).toBe("Bento Gonçalves");
+  });
+
+  it("sends the default city when a new Revalida form is left unchanged", async () => {
+    vi.mocked(generateContract).mockResolvedValue({ id: "ct_city" } as never);
+    await ready();
+    type("contract-party-0-email", "billy@example.com");
+    type("contract-party-0-phone", "11988880000");
+    fireEvent.click(screen.getByRole("switch", { name: "Decreto" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Curso Start" }));
+    type("contract-product-START-release", "15/10/2026");
+    type("contract-product-START-duration", "12");
+    type("contract-term-end", "15/04/2028");
+    expect(byId("contract-reference-city").value).toBe("Caxias do Sul, RS, Brasil");
+    await confirmRegister();
+    await waitFor(() => expect(generateContract).toHaveBeenCalledTimes(1));
+    const payload = vi.mocked(generateContract).mock.calls[0][1] as { referenceCity: string };
+    expect(payload.referenceCity).toBe("Caxias do Sul, RS, Brasil");
+  });
+
+  it("keeps the city already saved on a Revalida sale", async () => {
+    vi.mocked(prefillContract).mockResolvedValue(makePrefill({ referenceCity: "São Paulo" }) as never);
+    await ready();
+    expect(byId("contract-reference-city").value).toBe("São Paulo");
+  });
+
+  it("starts a new Escola form with the default city and lets the seller change it", async () => {
+    mockSchoolPrefill("");
+    await openSchoolForm();
+    expect(byId("contract-reference-city").value).toBe("Caxias do Sul, RS, Brasil");
+    type("contract-reference-city", "Bento Gonçalves");
+    expect(byId("contract-reference-city").value).toBe("Bento Gonçalves");
+  });
+
+  it("keeps the city already saved on an Escola sale", async () => {
+    mockSchoolPrefill("Pordenone");
+    await openSchoolForm();
+    expect(byId("contract-reference-city").value).toBe("Pordenone");
   });
 });

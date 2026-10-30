@@ -51,6 +51,18 @@ export type ProfessionChoice = (typeof PROFESSIONS)[number]["id"] | "other";
 
 export const DEFAULT_PROFESSION = PROFESSIONS[0].value;
 
+/** City printed next to the signature date when the sale has none saved yet. */
+export const DEFAULT_CONTRACT_CITY = "Caxias do Sul, RS, Brasil";
+
+/**
+ * City from the sale's last contract, when the prefill sends one.
+ * Empty or missing becomes the default; a non-empty value is kept as sent.
+ */
+function contractCity(value: string | null | undefined): string {
+  if (value != null && value.trim() !== "") return value;
+  return DEFAULT_CONTRACT_CITY;
+}
+
 export function professionChoice(value: string): ProfessionChoice {
   return PROFESSIONS.find((option) => option.value === value)?.id ?? "other";
 }
@@ -162,7 +174,7 @@ export function createInitialRevalidaState(prefill: RevalidaContractPayload): Re
     },
     termStart: prefill.contractStartDate ?? "",
     termEnd: prefill.contractEndDate ?? "",
-    referenceCity: prefill.referenceCity ?? "",
+    referenceCity: contractCity(prefill.referenceCity),
     notes: prefill.notes ?? "",
   };
 }
@@ -257,10 +269,13 @@ export function displayPhone(value: string): string {
   return value;
 }
 
-/** School prefill with the students' phones and CPF in the same format as typed ones. */
+/** School prefill: phones and CPF in the typed format, and the default city when none is saved. */
 export function schoolFormFromPrefill<
-  T extends { students: Array<{ phone?: string | null; cpf?: string | null }> },
->(prefill: T): T {
+  T extends {
+    students: Array<{ phone?: string | null; cpf?: string | null }>;
+    referenceCity?: string | null;
+  },
+>(prefill: T): Omit<T, "referenceCity"> & { referenceCity: string } {
   return {
     ...prefill,
     students: prefill.students.map((student) => ({
@@ -268,6 +283,7 @@ export function schoolFormFromPrefill<
       phone: formatPhone(student.phone ?? ""),
       cpf: formatCpf(student.cpf ?? ""),
     })),
+    referenceCity: contractCity(prefill.referenceCity),
   };
 }
 
