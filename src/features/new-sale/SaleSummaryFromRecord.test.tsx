@@ -127,6 +127,8 @@ describe("SaleSummaryFromRecord", () => {
     renderPreview();
 
     expect(await screen.findByText("Maria Souza")).toBeInTheDocument();
+    expect(screen.getByText("+55 (11) 98888-0000")).toBeInTheDocument();
+    expect(screen.queryByText("11988880000")).toBeNull();
     expect(screen.getByText("Curso Start")).toBeInTheDocument();
     expect(screen.getAllByText(/1\.500,00/).length).toBeGreaterThan(0);
     expect(getSaleById).toHaveBeenCalledTimes(1);
@@ -198,7 +200,8 @@ describe("SaleSummaryFromRecord", () => {
     } as never);
     const { unmount } = renderPreview("sale-brl");
     expect(await screen.findByText("Ana Lima")).toBeInTheDocument();
-    expect(screen.getByText("11977770000")).toBeInTheDocument();
+    expect(screen.getByText("+55 (11) 97777-0000")).toBeInTheDocument();
+    expect(screen.queryByText("11977770000")).toBeNull();
     expect(screen.getByText("Liberação: 20/10/2026")).toBeInTheDocument();
     expect(screen.getByText("Vencimento: 20/10/2026")).toBeInTheDocument();
     expect(screen.getAllByText(/R\$\s*1\.500,00/).length).toBeGreaterThan(0);
@@ -222,6 +225,7 @@ describe("SaleSummaryFromRecord", () => {
     expect(screen.getAllByText(/6 parcelas de R\$\s*200,00/).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/R\$\s*800,00/).length).toBeGreaterThan(0);
     expect(screen.queryByText("11977770000")).toBeNull();
+    expect(screen.queryByText("+55 (11) 97777-0000")).toBeNull();
     withEntrada.unmount();
 
     vi.mocked(getSaleById).mockResolvedValue({
@@ -254,9 +258,20 @@ describe("SaleSummaryFromRecord", () => {
     } as never);
     renderPreview("sale-eur-entry");
     const entry = await screen.findByText("Entrada");
+    expect(screen.getByText("+55 (11) 98888-0000")).toBeInTheDocument();
+    expect(screen.queryByText("11988880000")).toBeNull();
     expect(entry.closest("li")?.textContent).toMatch(/€\s*500,00/);
     expect(entry.closest("li")?.textContent).not.toMatch(/R\$/);
     expect(screen.queryByText("Preencha os pagamentos para calcular")).toBeNull();
+  });
+
+  it("shows an unreadable phone as stored, without changing the mapped value", async () => {
+    const record = sale();
+    record.clients[0].telefone = "not-a-phone";
+    expect(saleSummaryPropsFromRecord(record).filledCustomers[0].telefone).toBe("not-a-phone");
+    vi.mocked(getSaleById).mockResolvedValue(record);
+    renderPreview();
+    expect(await screen.findByText("not-a-phone")).toBeInTheDocument();
   });
 
   it("offers another try when the sale does not load", async () => {
