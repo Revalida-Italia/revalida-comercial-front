@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { t } from "@/i18n";
+import { displayPhone } from "@/features/contracts/contractFormModel";
 import SaleSummary from "@/features/new-sale/organisms/SaleSummary";
 import { saleQueryOptions } from "./saleQuery";
 import { saleSummaryPropsFromRecord } from "./mapSaleRecordToSummary";
@@ -32,5 +33,15 @@ export default function SaleSummaryFromRecord({ saleId }: { saleId: string }) {
     );
   }
 
-  return <SaleSummary {...saleSummaryPropsFromRecord(saleQuery.data)} variant="record" />;
+  const props = saleSummaryPropsFromRecord(saleQuery.data);
+  return (
+    <SaleSummary
+      {...props}
+      filledCustomers={props.filledCustomers.map((customer) => ({
+        ...customer,
+        telefone: displayPhone(customer.telefone),
+      }))}
+      variant="record"
+    />
+  );
 }
