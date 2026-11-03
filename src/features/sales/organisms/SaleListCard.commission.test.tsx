@@ -170,4 +170,29 @@ describe("dashboard sale card cancelled subscription", () => {
     expect(screen.getByRole("button", { name: "Link de pagamento" })).toBeInTheDocument();
     expect(screen.queryByText("Assinatura cancelada")).not.toBeInTheDocument();
   });
+
+  it("hides Link Hotmart when the subscription is cancelled and keeps it for an active subscription", () => {
+    renderCard(sale());
+
+    expect(screen.getByText("Assinatura cancelada")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Abrir link Hotmart desta venda" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Link Hotmart")).not.toBeInTheDocument();
+
+    cleanup();
+
+    const active = sale();
+    active.payments = active.payments.map((item, index) => ({
+      ...item,
+      status: index < 4 ? "PAID" : "PENDING",
+      commission: item.commission
+        ? { ...item.commission, status: "PENDING" }
+        : item.commission,
+    }));
+    renderCard(active);
+
+    expect(screen.queryByText("Assinatura cancelada")).not.toBeInTheDocument();
+    expect(screen.getByText("8 parcela(s) pendente(s)")).toBeInTheDocument();
+    const hotmart = screen.getByRole("button", { name: "Abrir link Hotmart desta venda" });
+    expect(hotmart).toHaveTextContent("Link Hotmart");
+  });
 });
