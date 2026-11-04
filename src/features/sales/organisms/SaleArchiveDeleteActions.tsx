@@ -113,29 +113,32 @@ const SaleArchiveDeleteActions = ({
   });
 
   const buttonSize = size === "sm" ? "sm" : "default";
-  const buttonClass = size === "sm" ? "h-7 gap-1 px-2 text-[11px]" : "gap-1.5";
+  const buttonClass = size === "sm" ? "h-7 shrink-0 gap-1 px-1.5 text-[11px] sm:px-2" : "gap-1.5";
+  const labelClass = size === "sm" ? "sr-only sm:not-sr-only sm:whitespace-nowrap" : undefined;
 
   if (isArchived) {
     return (
       <Button type="button" variant="outline" size={buttonSize} className={buttonClass} disabled>
         <Archive className="h-3.5 w-3.5" />
-        Arquivada
+        <span className={labelClass}>Arquivada</span>
       </Button>
     );
   }
 
   return (
     <>
-      <div className={className ?? "flex flex-wrap items-center gap-1.5"}>
+      <div className={className ?? "flex flex-wrap items-center gap-1"}>
         <Button
           type="button"
           variant="outline"
           size={buttonSize}
           className={buttonClass}
+          aria-label="Arquivar"
+          title="Arquivar"
           onClick={() => setArchiveOpen(true)}
         >
           <Archive className="h-3.5 w-3.5" />
-          Arquivar
+          <span className={labelClass}>Arquivar</span>
         </Button>
         <Button
           type="button"
@@ -143,11 +146,12 @@ const SaleArchiveDeleteActions = ({
           size={buttonSize}
           className={`${buttonClass} text-destructive hover:text-destructive`}
           disabled={hasPaid}
+          aria-label="Excluir"
           title={hasPaid ? "Venda com registros pagos — use Arquivar" : "Excluir permanentemente"}
           onClick={() => setDeleteOpen(true)}
         >
           <Trash2 className="h-3.5 w-3.5" />
-          Excluir
+          <span className={labelClass}>Excluir</span>
         </Button>
       </div>
 

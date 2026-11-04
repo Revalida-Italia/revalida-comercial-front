@@ -129,7 +129,7 @@ const Dashboard = () => {
               {[1, 2, 3].map((i) => (
                 <Card key={i} className="border-border/70">
                   <CardContent className="p-3.5">
-                    <div className="grid gap-x-3 gap-y-2 md:grid-cols-[1.25fr_repeat(5,minmax(0,1fr))_auto] md:items-start">
+                    <div className="grid gap-x-3 gap-y-2 md:grid-cols-[minmax(0,1.25fr)_repeat(5,minmax(0,1fr))_minmax(0,auto)] md:items-start">
                       <div className="space-y-2">
                         <Skeleton className="h-4 w-3/4" />
                         <Skeleton className="h-3 w-1/2" />

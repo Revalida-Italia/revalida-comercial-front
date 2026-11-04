@@ -186,10 +186,14 @@ export const getPrimaryClientName = (sale: SaleRecord): string =>
 export const getPrimaryClientPhone = (sale: SaleRecord): string =>
   sale.clients?.[0]?.telefone?.trim() || "";
 
-export const getSaleCustomerNames = (sale: SaleRecord): string => {
-  const names = (sale.clients ?? [])
+export function saleClientNames(sale: Pick<SaleRecord, "clients">): string[] {
+  return (sale.clients ?? [])
     .map((client) => client.nameCiphertext?.trim())
     .filter((name): name is string => Boolean(name));
+}
+
+export const getSaleCustomerNames = (sale: SaleRecord): string => {
+  const names = saleClientNames(sale);
 
   if (names.length === 0) {
     return "Cliente não informado";
