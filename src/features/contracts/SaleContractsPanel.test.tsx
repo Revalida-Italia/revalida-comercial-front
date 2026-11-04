@@ -120,14 +120,14 @@ describe("Contratos list", () => {
     expect(document.body.textContent).not.toMatch(/REVALIDA_v1\.0|\.pdf|DocuSign/);
   });
 
-  it("shows the internal notes in the list with a label that says they are not in the contract", async () => {
+  it("shows the notes in the list under Observações", async () => {
     vi.mocked(listSaleContracts).mockResolvedValue([
       contract("c1", { internalNotes: "Cliente pediu ligar antes de enviar" }),
       contract("c2", { internalNotes: null }),
     ]);
     renderPanel();
     const items = await screen.findAllByRole("listitem");
-    expect(items[0]).toHaveTextContent("Observações internas (não vão no contrato): Cliente pediu ligar antes de enviar");
+    expect(items[0]).toHaveTextContent("Observações: Cliente pediu ligar antes de enviar");
     expect(items[1]).not.toHaveTextContent("Observações internas");
   });
 
