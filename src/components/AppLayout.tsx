@@ -33,7 +33,7 @@ const AppLayout = () => {
             </SheetContent>
           </Sheet>
         </div>
-        <main className="min-h-0 flex-1 overflow-y-auto p-4 md:p-5 xl:p-6">
+        <main className="min-h-0 flex-1 overflow-y-auto p-3 md:p-5 xl:p-6">
           <Outlet />
         </main>
       </div>
