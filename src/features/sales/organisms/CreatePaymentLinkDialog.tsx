@@ -27,6 +27,7 @@ import {
   saleClientToDraft,
   salePaymentToDraft,
 } from "@/features/sales/utils/paymentLink";
+import { t } from "@/i18n";
 import {
   createAsaasPaymentLinkForSale,
   getSaleById,
@@ -186,15 +187,15 @@ const CreatePaymentLinkDialog = ({ sale, open, onOpenChange }: CreatePaymentLink
   const createLinkMutation = useMutation({
     mutationFn: async () => {
       if (!targetPayment?.id) {
-        throw new Error("Venda sem pagamento disponível para gerar link.");
+        throw new Error(t("sales.paymentLink.noPayment"));
       }
 
       if (!isValidAsaasPaymentDraft(paymentDraft)) {
-        throw new Error("Preencha todos os campos do pagamento Asaas.");
+        throw new Error(t("sales.paymentLink.incomplete"));
       }
 
       if (targetPayment.linkPagamento) {
-        throw new Error("Esta venda já possui link de pagamento.");
+        throw new Error(t("sales.paymentLink.alreadyLinked"));
       }
 
       return createAsaasPaymentLinkForSale(sale.id, targetPayment.id, {
@@ -221,10 +222,11 @@ const CreatePaymentLinkDialog = ({ sale, open, onOpenChange }: CreatePaymentLink
       await queryClient.invalidateQueries({ queryKey: ["sale", sale.id] });
 
       setGeneratedLink(result.linkPagamento);
-      toast.success("Link de pagamento vinculado à venda com sucesso.");
+      toast.success(t("sales.paymentLink.linked"));
     },
     onError: (error: unknown) => {
-      toast.error(error instanceof Error ? error.message : "Erro ao criar link de pagamento.");
+      const message = error instanceof Error ? error.message.trim() : "";
+      toast.error(!message || /asaas|\bAPI\b|gateway/i.test(message) ? t("sales.paymentLink.createFailed") : message);
     },
   });
 
@@ -242,10 +244,10 @@ const CreatePaymentLinkDialog = ({ sale, open, onOpenChange }: CreatePaymentLink
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Link2 className="h-5 w-5" />
-            Criar link de pagamento
+            {t("sales.paymentLink.title")}
           </DialogTitle>
           <DialogDescription>
-            Gere o link no Asaas para pagamento à vista, parcelado no cartão ou assinatura.
+            {t("sales.paymentLink.description")}
           </DialogDescription>
         </DialogHeader>
 
@@ -266,13 +268,13 @@ const CreatePaymentLinkDialog = ({ sale, open, onOpenChange }: CreatePaymentLink
 
           {generatedLink && (
             <div className="space-y-2 rounded-md border border-primary/30 bg-primary/5 p-3">
-              <p className="text-xs font-medium text-muted-foreground">Link gerado</p>
+              <p className="text-xs font-medium text-muted-foreground">{t("sales.paymentLink.generated")}</p>
               <p className="break-all text-sm">{generatedLink}</p>
               <div className="flex flex-wrap gap-2">
                 <Button variant="outline" size="sm" className="h-7 gap-1 text-xs" asChild>
                   <a href={generatedLink} target="_blank" rel="noopener noreferrer">
                     <ExternalLink className="h-3 w-3" />
-                    Abrir
+                    {t("sales.paymentLink.open")}
                   </a>
                 </Button>
                 <Button
@@ -282,11 +284,11 @@ const CreatePaymentLinkDialog = ({ sale, open, onOpenChange }: CreatePaymentLink
                   className="h-7 gap-1 text-xs"
                   onClick={() => {
                     void navigator.clipboard.writeText(generatedLink);
-                    toast.success("Link copiado.");
+                    toast.success(t("sales.paymentLink.copied"));
                   }}
                 >
                   <Copy className="h-3 w-3" />
-                  Copiar
+                  {t("sales.paymentLink.copy")}
                 </Button>
               </div>
             </div>
@@ -295,14 +297,14 @@ const CreatePaymentLinkDialog = ({ sale, open, onOpenChange }: CreatePaymentLink
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            {generatedLink ? "Fechar" : "Cancelar"}
+            {generatedLink ? t("sales.paymentLink.close") : t("common.cancel")}
           </Button>
           {!generatedLink && (
             <Button
               onClick={() => createLinkMutation.mutate()}
               disabled={createLinkMutation.isPending || !canSubmit}
             >
-              {createLinkMutation.isPending ? "Gerando..." : "Gerar link de pagamento"}
+              {createLinkMutation.isPending ? t("sales.paymentLink.working") : t("sales.paymentLink.submit")}
             </Button>
           )}
         </DialogFooter>
