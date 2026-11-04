@@ -274,6 +274,28 @@ describe("buildRevalidaPayload", () => {
     expect(payload.decreeIncluded).toBe(false);
     expect(payload.expenses).toEqual({ translationsIncluded: true, apostillesIncluded: false, postalExpensesIncluded: false });
     expect(payload.notes).toBeNull();
+    expect(payload.includeNotesInContract).toBe(false);
+  });
+
+  it("sends the notes choice and restores it only when prefill says true", () => {
+    expect(createInitialRevalidaState(prefill()).includeNotesInContract).toBe(false);
+    expect(createInitialRevalidaState(prefill({ includeNotesInContract: false })).includeNotesInContract).toBe(false);
+    expect(createInitialRevalidaState(prefill({ includeNotesInContract: null })).includeNotesInContract).toBe(false);
+    const restored = createInitialRevalidaState(prefill({ includeNotesInContract: true, notes: "Entregar em mãos" }));
+    expect(restored.includeNotesInContract).toBe(true);
+    expect(restored.notes).toBe("Entregar em mãos");
+
+    const off = brenoState();
+    off.notes = "Ligação antes";
+    expect(buildRevalidaPayload(prefill(), off).payload).toMatchObject({
+      notes: "Ligação antes",
+      includeNotesInContract: false,
+    });
+    off.includeNotesInContract = true;
+    expect(buildRevalidaPayload(prefill(), off).payload).toMatchObject({
+      notes: "Ligação antes",
+      includeNotesInContract: true,
+    });
   });
 });
 
@@ -372,6 +394,19 @@ describe("Escola", () => {
     });
     expect(payload.students[1].cpf).toBeNull();
     expect(payload.course).toEqual({ durationMonths: 4, startDate: "2027-01-11" });
+    expect(payload.includeNotesInContract).toBe(false);
+    expect(payload.notes).toBeNull();
+  });
+
+  it("sends the notes choice and treats a missing prefill value as off", () => {
+    expect(schoolFormFromPrefill(school()).includeNotesInContract).toBe(false);
+    expect(schoolFormFromPrefill(school({ includeNotesInContract: null })).includeNotesInContract).toBe(false);
+    expect(schoolFormFromPrefill(school({ includeNotesInContract: true })).includeNotesInContract).toBe(true);
+    expect(buildSchoolPayload(school({ notes: "Sala 2", includeNotesInContract: true }))).toMatchObject({
+      notes: "Sala 2",
+      includeNotesInContract: true,
+    });
+    expect(buildSchoolPayload(school({ notes: "Sala 2" })).includeNotesInContract).toBe(false);
   });
 
   it("lists what is included in the school contract", () => {
