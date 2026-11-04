@@ -201,7 +201,7 @@ const SaleListCard = ({ sale }: SaleListCardProps) => {
       <article
         aria-labelledby={nameId}
         className={cn(
-          "sale-card rounded-md bg-card p-4 shadow-[0_1px_2px_rgba(36,56,79,0.06),0_4px_12px_rgba(36,56,79,0.06)]",
+          "sale-card rounded-md bg-card p-3 shadow-[0_1px_2px_rgba(36,56,79,0.06),0_4px_12px_rgba(36,56,79,0.06)] sm:p-4",
           isArchived && "opacity-[.72]",
         )}
       >
@@ -265,7 +265,7 @@ const SaleListCard = ({ sale }: SaleListCardProps) => {
             </Button>
           ) : null}
           {showViewLink || showCreateLink ? (
-            <div className="inline-flex shrink-0">
+            <div className="sale-split inline-flex min-w-0">
               {showViewLink ? (
                 <Button
                   type="button"
