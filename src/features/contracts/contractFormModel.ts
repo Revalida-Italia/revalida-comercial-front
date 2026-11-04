@@ -97,6 +97,8 @@ export interface RevalidaFormState {
   termEnd: string;
   referenceCity: string;
   notes: string;
+  /** True only when prefill or the seller confirmed it. */
+  includeNotesInContract: boolean;
 }
 
 /** A thing the user still has to fix. `fieldId` is the DOM id that gets focus. */
@@ -176,6 +178,7 @@ export function createInitialRevalidaState(prefill: RevalidaContractPayload): Re
     termEnd: prefill.contractEndDate ?? "",
     referenceCity: contractCity(prefill.referenceCity),
     notes: prefill.notes ?? "",
+    includeNotesInContract: prefill.includeNotesInContract === true,
   };
 }
 
@@ -274,8 +277,9 @@ export function schoolFormFromPrefill<
   T extends {
     students: Array<{ phone?: string | null; cpf?: string | null }>;
     referenceCity?: string | null;
+    includeNotesInContract?: boolean | null;
   },
->(prefill: T): Omit<T, "referenceCity"> & { referenceCity: string } {
+>(prefill: T): Omit<T, "referenceCity" | "includeNotesInContract"> & { referenceCity: string; includeNotesInContract: boolean } {
   return {
     ...prefill,
     students: prefill.students.map((student) => ({
@@ -284,6 +288,7 @@ export function schoolFormFromPrefill<
       cpf: formatCpf(student.cpf ?? ""),
     })),
     referenceCity: contractCity(prefill.referenceCity),
+    includeNotesInContract: prefill.includeNotesInContract === true,
   };
 }
 
@@ -457,6 +462,7 @@ export function buildSchoolPayload(payload: SchoolContractPayload): SchoolGenera
     }),
     referenceCity: payload.referenceCity.trim(),
     notes: payload.notes?.trim() ? payload.notes.trim() : null,
+    includeNotesInContract: payload.includeNotesInContract === true,
   };
 }
 
@@ -509,6 +515,7 @@ export function buildRevalidaPayload(
     contractDurationMonths: null,
     referenceCity: state.referenceCity.trim(),
     notes: state.notes.trim() ? state.notes.trim() : null,
+    includeNotesInContract: state.includeNotesInContract === true,
   };
 
   return { payload, sentProductCodes: sentProducts.map((p) => p.code) };

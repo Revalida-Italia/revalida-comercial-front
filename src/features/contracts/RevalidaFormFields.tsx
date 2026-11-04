@@ -477,18 +477,19 @@ export function RevalidaSignaturesSection({
 export function ObservationsSection({
   number,
   value,
+  included,
   onChange,
+  onIncludedChange,
   disabled,
 }: {
   number: number;
   value: string;
+  included: boolean;
   onChange: (value: string) => void;
+  onIncludedChange: (included: boolean) => void;
   disabled: boolean;
 }) {
   const [open, setOpen] = useState(value.trim() !== "");
-  // Off until the seller confirms. The generate payload has nowhere to store this:
-  // `notes` is saved as an internal note and the contract file is built by the API.
-  const [included, setIncluded] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const title = t(included ? "contract.sections.notesIncluded" : "contract.sections.notes");
 
@@ -505,7 +506,7 @@ export function ObservationsSection({
           disabled={disabled}
           onCheckedChange={(checked) => {
             if (checked) setConfirmOpen(true);
-            else setIncluded(false);
+            else onIncludedChange(false);
           }}
         />
       </div>
@@ -543,7 +544,7 @@ export function ObservationsSection({
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={disabled}>{t("common.cancel")}</AlertDialogCancel>
-            <AlertDialogAction disabled={disabled} onClick={() => setIncluded(true)}>
+            <AlertDialogAction disabled={disabled} onClick={() => onIncludedChange(true)}>
               {t("contract.notes.confirm")}
             </AlertDialogAction>
           </AlertDialogFooter>
