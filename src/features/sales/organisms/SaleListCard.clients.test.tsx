@@ -57,48 +57,36 @@ describe("sale list client names and actions", () => {
     clearSession();
   });
 
-  it("shows every client name, with the full list on the title and the count when there are several", () => {
+  it("shows every client name on the card, with the full line on the title and the count in the cell", () => {
     renderCard(sale(["Maria", "João", "Ana"]));
 
-    const lines = screen.getAllByTitle("Maria, João, Ana");
-    expect(lines).toHaveLength(2);
-    for (const line of lines) {
-      expect(line).toHaveTextContent("Maria, João, Ana");
-      expect(line).toHaveTextContent("3");
-    }
+    const line = screen.getByTitle(/Maria · João · Ana/);
+    expect(line).toHaveTextContent("Maria · João · Ana");
     expect(screen.getByText("Clientes")).toBeInTheDocument();
+    expect(screen.getByText("3")).toBeInTheDocument();
     expect(screen.queryByText("Maria +2")).not.toBeInTheDocument();
   });
 
-  it("shows a single client name without a count", () => {
+  it("shows a single client name in the header line", () => {
     renderCard(sale(["Maria"]));
-
-    const lines = screen.getAllByTitle("Maria");
-    expect(lines.length).toBeGreaterThanOrEqual(1);
-    for (const line of lines) expect(line).toHaveTextContent(/^Maria$/);
+    expect(screen.getByTitle(/^Maria · /)).toHaveTextContent(/^Maria · /);
   });
 
-  it("keeps Editar, Arquivar and Excluir on the card, with icons and the delete confirmation", () => {
+  it("keeps Editar, Arquivar and Excluir in Mais ações, with the delete confirmation", async () => {
     renderCard(sale(["Maria"]));
 
-    expect(screen.queryByRole("button", { name: /Mais ações/i })).not.toBeInTheDocument();
-    expect(screen.queryByText("Mais ações")).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Detalhes" })).toHaveAttribute("href", "/vendas/sale_1");
+    expect(screen.getByRole("button", { name: "Abrir WhatsApp do cliente" }).querySelector("svg")).toBeTruthy();
+    expect(screen.queryByRole("menuitem", { name: "Editar" })).not.toBeInTheDocument();
 
-    const edit = screen.getByRole("link", { name: "Editar" });
-    const details = screen.getByRole("link", { name: "Detalhes" });
-    const archive = screen.getByRole("button", { name: "Arquivar" });
-    const remove = screen.getByRole("button", { name: "Excluir" });
-
+    fireEvent.keyDown(screen.getByRole("button", { name: "Mais ações" }), { key: "Enter" });
+    const edit = await screen.findByRole("menuitem", { name: "Editar" });
     expect(edit).toHaveAttribute("href", "/vendas/sale_1/editar");
-    expect(details).toHaveAttribute("href", "/vendas/sale_1");
-    expect(edit.querySelector("svg")).toBeTruthy();
-    expect(details.querySelector("svg")).toBeTruthy();
-    expect(archive.querySelector("svg")).toBeTruthy();
-    expect(remove.querySelector("svg")).toBeTruthy();
+    expect(screen.getByRole("menuitem", { name: "Arquivar" })).toBeInTheDocument();
+    const remove = screen.getByRole("menuitem", { name: "Excluir" });
     expect(remove.className).toContain("text-destructive");
-    expect(screen.getByRole("button", { name: "WhatsApp" }).querySelector("svg")).toBeTruthy();
 
     fireEvent.click(remove);
-    expect(screen.getByRole("alertdialog", { name: "Excluir venda?" })).toBeInTheDocument();
+    expect(await screen.findByRole("alertdialog", { name: "Excluir venda?" })).toBeInTheDocument();
   });
 });
