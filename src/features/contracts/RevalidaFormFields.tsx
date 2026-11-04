@@ -1,5 +1,15 @@
 import { useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -476,13 +486,33 @@ export function ObservationsSection({
   disabled: boolean;
 }) {
   const [open, setOpen] = useState(value.trim() !== "");
+  // Off until the seller confirms. The generate payload has nowhere to store this:
+  // `notes` is saved as an internal note and the contract file is built by the API.
+  const [included, setIncluded] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const title = t(included ? "contract.sections.notesIncluded" : "contract.sections.notes");
+
   return (
     <section aria-labelledby="contract-notes-title">
-      <SectionHeading number={number} title={t("contract.sections.notes")} id="contract-notes-title" />
+      <SectionHeading number={number} title={title} id="contract-notes-title" />
+      <div className="mb-4 flex min-h-[56px] items-center justify-between gap-4">
+        <label htmlFor="contract-notes-include" className="cursor-pointer text-[15px] font-semibold">
+          {t("contract.notes.include")}
+        </label>
+        <Switch
+          id="contract-notes-include"
+          checked={included}
+          disabled={disabled}
+          onCheckedChange={(checked) => {
+            if (checked) setConfirmOpen(true);
+            else setIncluded(false);
+          }}
+        />
+      </div>
       {open ? (
         <Expand>
           <Label htmlFor="contract-notes" className="sr-only">
-            {t("contract.sections.notes")}
+            {title}
           </Label>
           <Textarea
             id="contract-notes"
@@ -502,9 +532,23 @@ export function ObservationsSection({
           onClick={() => setOpen(true)}
         >
           <Plus className="h-4 w-4" />
-          {t("contract.notes.add")}
+          {t(included ? "contract.notes.addIncluded" : "contract.notes.add")}
         </Button>
       )}
+      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("contract.notes.confirmTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>{t("contract.notes.confirmBody")}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={disabled}>{t("common.cancel")}</AlertDialogCancel>
+            <AlertDialogAction disabled={disabled} onClick={() => setIncluded(true)}>
+              {t("contract.notes.confirm")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </section>
   );
 }
