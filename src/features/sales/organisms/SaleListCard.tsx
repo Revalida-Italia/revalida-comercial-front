@@ -1,16 +1,28 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import type { SaleRecord } from "@/services/commercialApi";
 import { formatCurrency, formatDate } from "@/shared/utils/format";
-import { Badge } from "@/components/ui/badge";
 import StripeMark from "@/components/icons/StripeMark";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { CalendarDays, CircleDollarSign, Eye, FileText, HandCoins, Link as LinkIcon, MessageCircle, Pencil, Users, UserCircle } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { t, tCount, type MessageKey } from "@/i18n";
+import { cn } from "@/lib/utils";
 import { hasRole, getProfile } from "@/lib/session";
 import { canMutateSales } from "@/services/usersApi";
 import {
-  formatSalePaymentsProgress,
+  ChevronDown,
+  Ellipsis,
+  Eye,
+  Link as LinkIcon,
+  MessageCircle,
+} from "lucide-react";
+import {
   getInstallmentPaymentsProgress,
   getSaleCommissionValue,
   getSaleContractValue,
@@ -18,10 +30,12 @@ import {
   getSaleProductName,
   getSaleSellerInfo,
   getSubscriptionPaymentsProgress,
+  isSelfServiceSale,
   saleAllowsStripeCheckoutLink,
-  saleHasCancelledPayments,
   saleClientNames,
+  saleHasCancelledPayments,
   saleStatusLabel,
+  type SalePaymentsProgress,
 } from "../utils";
 import { saleHasPaymentLink } from "@/features/sales/utils/paymentLink";
 import { saleOffersHotmartCheckout } from "@/features/sales/utils/hotmartCheckout";
@@ -29,27 +43,140 @@ import CreatePaymentLinkDialog from "./CreatePaymentLinkDialog";
 import { HotmartCheckoutLinkDialog } from "./HotmartCheckoutLink";
 import SendPaymentLinkDialog from "./SendPaymentLinkDialog";
 import StripeCheckoutLinkDialog from "./StripeCheckoutLinkDialog";
-import SaleArchiveDeleteActions from "./SaleArchiveDeleteActions";
+import { useSaleArchiveDelete } from "./SaleArchiveDeleteActions";
 import ViewPaymentLinkDialog from "./ViewPaymentLinkDialog";
 
 type SaleListCardProps = {
   sale: SaleRecord;
 };
 
-const ACTION_LABEL = "sr-only sm:not-sr-only sm:whitespace-nowrap";
-const ACTION_BUTTON = "h-7 shrink-0 gap-1 px-1.5 text-[11px] sm:px-2";
+const MAIN_BUTTON = "sale-main-btn h-9 gap-1.5 px-3 text-[13px] font-semibold";
 
-function ClientNames({ names, muted, icon }: { names: string[]; muted?: boolean; icon?: boolean }) {
-  const full = names.length > 0 ? names.join(", ") : "Cliente não informado";
+function paidPhrase(
+  group: "sales.card.paidInstallments" | "sales.card.paidSubscriptions",
+  paid: number,
+  total: number,
+) {
+  return t(`${group}.${total === 1 ? "one" : "other"}` as MessageKey, { paid, total });
+}
+
+function progressNote(kind: "installment" | "subscription", progress: SalePaymentsProgress, cancelled: boolean) {
+  if (progress.pending > 0) return tCount("sales.card.pending", progress.pending);
+  if (cancelled) {
+    return t(kind === "subscription" ? "sales.card.subscriptionCancelled" : "sales.card.installmentCancelled");
+  }
+  return t(kind === "subscription" ? "sales.card.subscriptionSettled" : "sales.card.installmentSettled");
+}
+
+function paymentCell(sale: SaleRecord) {
+  const installments = getInstallmentPaymentsProgress(sale);
+  const subscription = getSubscriptionPaymentsProgress(sale);
+  const summary = sale.financialSummary?.payments;
+
+  const fromProgress = (
+    group: "sales.card.paidInstallments" | "sales.card.paidSubscriptions",
+    progress: SalePaymentsProgress,
+    kind: "installment" | "subscription",
+    cancelled: boolean,
+  ) => ({
+    value: paidPhrase(group, progress.paid, progress.total),
+    ratio: progress.total > 0 ? (progress.paid / progress.total) * 100 : 0,
+    settled: progress.pending === 0 && !cancelled && progress.total > 0,
+    note: progressNote(kind, progress, cancelled),
+  });
+
+  if (installments) {
+    const cancelled = installments.pending === 0 && saleHasCancelledPayments(sale, "INSTALLMENT");
+    return fromProgress("sales.card.paidInstallments", installments, "installment", cancelled);
+  }
+  if (subscription) {
+    const cancelled = subscription.pending === 0 && saleHasCancelledPayments(sale, "SUBSCRIPTION");
+    return fromProgress("sales.card.paidSubscriptions", subscription, "subscription", cancelled);
+  }
+  if (summary?.installmentTotal && summary.installmentTotal > 0) {
+    const paid = summary.installmentPaid ?? 0;
+    const total = summary.installmentTotal;
+    const pending = summary.installmentPending ?? Math.max(0, total - paid);
+    return fromProgress("sales.card.paidInstallments", { paid, total, pending }, "installment", false);
+  }
+  if (summary && summary.subscriptionTotal > 0) {
+    return fromProgress(
+      "sales.card.paidSubscriptions",
+      { paid: summary.subscriptionPaid, total: summary.subscriptionTotal, pending: summary.subscriptionPending },
+      "subscription",
+      false,
+    );
+  }
+  if (summary) {
+    return {
+      value: t("sales.card.paymentsCount", { count: summary.paid, pending: summary.pending }),
+      ratio: null as number | null,
+      settled: false,
+      note: null as string | null,
+    };
+  }
+  return {
+    value: String(sale.payments?.length ?? 0),
+    ratio: null as number | null,
+    settled: false,
+    note: null as string | null,
+  };
+}
+
+function NumberCell({ label, value, children }: { label: string; value: string; children?: ReactNode }) {
   return (
-    <p
-      title={full}
-      className={`flex min-w-0 items-center gap-1 text-xs ${muted ? "text-muted-foreground" : "font-medium text-foreground"}`}
-    >
-      {icon ? <Users className="h-3.5 w-3.5 shrink-0" aria-hidden="true" /> : null}
-      <span className="min-w-0 flex-1 truncate">{full}</span>
-      {names.length > 1 ? <span className="shrink-0 tabular-nums">{names.length}</span> : null}
-    </p>
+    <div className="min-w-0">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.04em] text-muted-foreground">{label}</p>
+      <p className="overflow-hidden text-ellipsis text-[15px] font-semibold tabular-nums whitespace-nowrap">{value}</p>
+      {children}
+    </div>
+  );
+}
+
+function SaleMoreMenu({ sale, canEdit, isAdmin }: { sale: SaleRecord; canEdit: boolean; isAdmin: boolean }) {
+  const { isArchived, hasPaid, openArchive, openDelete, dialogs } = useSaleArchiveDelete(sale);
+  const showArchive = isAdmin && !isArchived;
+  if (!canEdit && !isAdmin) return null;
+
+  return (
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            type="button"
+            variant="outline"
+            className="sale-icon-btn h-9 w-9 px-0"
+            aria-label={t("sales.actions.more")}
+            title={t("sales.actions.more")}
+          >
+            <Ellipsis className="h-4 w-4" aria-hidden="true" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="min-w-[180px] rounded-md p-1.5 shadow-lg">
+          {canEdit ? (
+            <DropdownMenuItem asChild>
+              <Link to={`/vendas/${sale.id}/editar`}>{t("sales.actions.edit")}</Link>
+            </DropdownMenuItem>
+          ) : null}
+          {showArchive ? (
+            <DropdownMenuItem onSelect={openArchive}>{t("sales.actions.archive")}</DropdownMenuItem>
+          ) : null}
+          {showArchive ? <DropdownMenuSeparator /> : null}
+          {showArchive ? (
+            <DropdownMenuItem
+              className="text-destructive focus:text-destructive"
+              disabled={hasPaid}
+              title={hasPaid ? t("sales.actions.removeBlocked") : t("sales.actions.removeReady")}
+              onSelect={openDelete}
+            >
+              {t("sales.actions.remove")}
+            </DropdownMenuItem>
+          ) : null}
+          {isAdmin && isArchived ? <DropdownMenuItem disabled>{t("sales.actions.archived")}</DropdownMenuItem> : null}
+        </DropdownMenuContent>
+      </DropdownMenu>
+      {dialogs}
+    </>
   );
 }
 
@@ -62,14 +189,15 @@ const SaleListCard = ({ sale }: SaleListCardProps) => {
   const [viewLinkOpen, setViewLinkOpen] = useState(false);
   const [stripeOpen, setStripeOpen] = useState(false);
   const [hotmartOpen, setHotmartOpen] = useState(false);
-  const customerNames = saleClientNames(sale);
+  const names = saleClientNames(sale);
+  const clientLabel = names.length > 0 ? names.join(" · ") : t("sales.card.unknownClient");
   const contractValue = getSaleContractValue(sale);
   const netContractValue = getSaleNetContractValue(sale);
   const commissionValue = getSaleCommissionValue(sale);
-  const paymentsProgress = formatSalePaymentsProgress(sale);
+  const payments = paymentCell(sale);
   const subscriptionProgress = getSubscriptionPaymentsProgress(sale);
-  const installmentProgress = getInstallmentPaymentsProgress(sale);
   const sellerInfo = getSaleSellerInfo(sale);
+  const sellerShort = isSelfServiceSale(sale) ? sellerInfo : sale.seller?.name?.trim() || sellerInfo;
   const hasPaymentLink = saleHasPaymentLink(sale);
   const hasPayments = (sale.payments?.length ?? 0) > 0;
   const hasStripePayment = sale.payments?.some((payment) => payment.gateway === "STRIPE") ?? false;
@@ -79,191 +207,171 @@ const SaleListCard = ({ sale }: SaleListCardProps) => {
     subscriptionProgress != null
     && subscriptionProgress.pending === 0
     && saleHasCancelledPayments(sale, "SUBSCRIPTION");
-  const subscriptionSummary = sale.financialSummary?.payments;
+  const statusLabel = saleStatusLabel(sale.status);
+  const hideStatus = subscriptionCancelled && statusLabel === "Pendente";
+  const productName = getSaleProductName(sale);
+  const meta = `${clientLabel} · ${sellerInfo} · ${formatDate(sale.soldAt)}`;
+  const metaVisible = `${clientLabel} · ${sellerShort} · ${formatDate(sale.soldAt)}`;
+  const nameId = `sale-name-${sale.id}`;
+  const currency = sale.currency || "BRL";
+  const showStripe = canMutate && !isArchived && hasStripePayment && !subscriptionCancelled && saleAllowsStripeCheckoutLink(sale);
+  const showViewLink = hasPaymentLink && !subscriptionCancelled;
+  const showCreateLink = canMutate && !hasPaymentLink && !isArchived && !subscriptionCancelled;
+  const showWhatsapp = canMutate && !isArchived;
+  const showEdit = canMutate && !isArchived;
+  const dotClass = isArchived
+    ? "bg-muted-foreground"
+    : String(sale.status).toUpperCase() === "CONCLUDED"
+      ? "bg-success"
+      : "bg-warning";
 
   return (
     <>
-      <Card className="border-border/70 transition-all hover:border-primary/40 hover:shadow-md">
-        <CardContent className="p-3.5">
-          <div className="grid min-w-0 gap-x-3 gap-y-2 md:grid-cols-[minmax(0,1.25fr)_repeat(5,minmax(0,1fr))_minmax(0,auto)] md:items-start">
-            <Link
-              to={`/vendas/${sale.id}`}
-              className="space-y-0.5 min-w-0 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
+      <article
+        aria-labelledby={nameId}
+        className={cn(
+          "sale-card rounded-md bg-card p-4 shadow-[0_1px_2px_rgba(36,56,79,0.06),0_4px_12px_rgba(36,56,79,0.06)]",
+          isArchived && "opacity-[.72]",
+        )}
+      >
+        <div className="sale-card-head grid min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-1">
+          <h2 id={nameId} title={productName} className="line-clamp-2 text-base font-semibold leading-snug">
+            {productName}
+          </h2>
+          {hideStatus ? <span /> : (
+            <p className="flex items-center gap-1.5 self-start whitespace-nowrap pt-0.5 text-xs font-semibold">
+              <span className={cn("h-1.5 w-1.5 rounded-full", dotClass)} aria-hidden="true" />
+              {statusLabel}
+            </p>
+          )}
+          <p title={meta} className="col-span-2 truncate text-[13px] text-muted-foreground">
+            {metaVisible}
+          </p>
+        </div>
+
+        <div className="sale-card-nums">
+          <NumberCell label={t("sales.card.clients")} value={String(sale.clients?.length ?? 0)} />
+          <div className="min-w-0">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.04em] text-muted-foreground">{t("sales.card.payments")}</p>
+            <p className="overflow-hidden text-ellipsis text-sm font-semibold tabular-nums whitespace-nowrap">{payments.value}</p>
+            {payments.ratio != null ? (
+              <div className="my-1 h-1 overflow-hidden rounded-sm bg-border" aria-hidden="true">
+                <span
+                  className={cn("block h-full", payments.settled ? "bg-success" : "bg-primary")}
+                  style={{ width: `${payments.ratio}%` }}
+                />
+              </div>
+            ) : null}
+            {payments.note ? <p className="whitespace-nowrap text-xs text-muted-foreground">{payments.note}</p> : null}
+          </div>
+          <NumberCell label={t("sales.card.contract")} value={formatCurrency(contractValue, currency)} />
+          <NumberCell label={t("sales.card.netCommission")} value={formatCurrency(netContractValue, currency)}>
+            <p className="whitespace-nowrap text-xs text-muted-foreground">
+              {t("sales.card.commissionValue", { value: formatCurrency(commissionValue, "BRL") })}
+            </p>
+          </NumberCell>
+        </div>
+
+        <div className="sale-card-acts">
+          {showStripe ? (
+            <Button
+              type="button"
+              variant="success"
+              className={MAIN_BUTTON}
+              title={t("sales.actions.stripeTitle")}
+              aria-label={t("sales.actions.stripeName")}
+              onClick={() => setStripeOpen(true)}
             >
-              <p className="truncate text-sm font-semibold text-foreground">{getSaleProductName(sale)}</p>
-              <ClientNames names={customerNames} muted icon />
-              <p className="truncate text-xs text-muted-foreground flex items-center gap-1">
-                <UserCircle className="h-3.5 w-3.5" />
-                {sellerInfo}
-              </p>
-              <p className="text-[11px] text-muted-foreground flex items-center gap-1">
-                <CalendarDays className="h-3.5 w-3.5" />
-                {formatDate(sale.soldAt)}
-              </p>
-            </Link>
-
-            <div className="min-w-0">
-              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Clientes</p>
-              <ClientNames names={customerNames} />
-            </div>
-
-            <div>
-              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Pagamentos</p>
-              <p className="text-xs font-medium">{paymentsProgress}</p>
-              {subscriptionProgress ? (
-                <p className="mt-0.5 text-[10px] leading-tight text-muted-foreground">
-                  {subscriptionProgress.pending > 0
-                    ? `${subscriptionProgress.pending} parcela(s) pendente(s)`
-                    : saleHasCancelledPayments(sale, "SUBSCRIPTION")
-                      ? "Assinatura cancelada"
-                      : "Assinatura quitada"}
-                </p>
-              ) : installmentProgress ? (
-                <p className="mt-0.5 text-[10px] leading-tight text-muted-foreground">
-                  {installmentProgress.pending > 0
-                    ? `${installmentProgress.pending} parcela(s) pendente(s)`
-                    : saleHasCancelledPayments(sale, "INSTALLMENT")
-                      ? "Parcelamento cancelado"
-                      : "Parcelamento quitado"}
-                </p>
-              ) : subscriptionSummary && subscriptionSummary.subscriptionTotal > 0 ? (
-                <p className="mt-0.5 text-[10px] leading-tight text-muted-foreground">
-                  {subscriptionSummary.subscriptionPending > 0
-                    ? `${subscriptionSummary.subscriptionPending} parcela(s) pendente(s)`
-                    : "Assinatura quitada"}
-                </p>
-              ) : subscriptionSummary && (subscriptionSummary.installmentTotal ?? 0) > 0 ? (
-                <p className="mt-0.5 text-[10px] leading-tight text-muted-foreground">
-                  {(subscriptionSummary.installmentPending ?? 0) > 0
-                    ? `${subscriptionSummary.installmentPending} parcela(s) pendente(s)`
-                    : "Parcelamento quitado"}
-                </p>
+              <StripeMark className="h-3.5 w-3.5" />
+              <span>{t("sales.actions.stripe")}</span>
+            </Button>
+          ) : null}
+          {showViewLink || showCreateLink ? (
+            <div className={cn("sale-split inline-flex", hasHotmartCheckout && "pr-0")}>
+              {showViewLink ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className={cn(MAIN_BUTTON, hasHotmartCheckout && "rounded-r-none")}
+                  title={t("sales.actions.viewLinkTitle")}
+                  aria-label={t("sales.actions.viewLink")}
+                  onClick={() => setViewLinkOpen(true)}
+                >
+                  <Eye className="h-3.5 w-3.5" aria-hidden="true" />
+                  <span>{t("sales.actions.viewLink")}</span>
+                </Button>
+              ) : (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className={cn(MAIN_BUTTON, hasHotmartCheckout && "rounded-r-none")}
+                  disabled={!hasPayments}
+                  aria-label={t("sales.actions.paymentLink")}
+                  title={hasPayments ? t("sales.actions.createLinkTitle") : t("sales.actions.noPayments")}
+                  onClick={() => setCreateLinkOpen(true)}
+                >
+                  <LinkIcon className="h-4 w-4" aria-hidden="true" />
+                  <span className="sale-link-long">{t("sales.actions.paymentLink")}</span>
+                  <span className="sale-link-short">{t("sales.actions.paymentLinkShort")}</span>
+                </Button>
+              )}
+              {hasHotmartCheckout ? (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="sale-icon-btn h-9 w-9 rounded-l-none border-l-0 px-0"
+                      aria-label={t("sales.actions.otherLinks")}
+                      title={t("sales.actions.otherLinks")}
+                    >
+                      <ChevronDown className="h-4 w-4" aria-hidden="true" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="min-w-[180px] rounded-md p-1.5 shadow-lg">
+                    <DropdownMenuItem
+                      aria-label={t("sales.actions.hotmartOpen")}
+                      onSelect={() => setHotmartOpen(true)}
+                    >
+                      {t("sales.actions.hotmart")}
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               ) : null}
             </div>
-
-            <div>
-              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Contrato</p>
-              <p className="text-xs font-semibold flex items-center gap-1">
-                <CircleDollarSign className="h-3.5 w-3.5" />
-                {formatCurrency(contractValue, sale.currency || "BRL")}
-              </p>
-            </div>
-
-            <div>
-              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Líquido contrato</p>
-              <p className="text-xs font-semibold flex items-center gap-1 text-sky-700" title="Bruto − taxas gateway (antes da comissão)">
-                <HandCoins className="h-3.5 w-3.5" />
-                {formatCurrency(netContractValue, sale.currency || "BRL")}
-              </p>
-            </div>
-
-            <div>
-              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Comissão total</p>
-              <p className="text-xs font-semibold text-primary">{formatCurrency(commissionValue, "BRL")}</p>
-            </div>
-
-            <div className="flex min-w-0 flex-col items-stretch justify-end gap-2 sm:items-end">
-              {!(subscriptionCancelled && saleStatusLabel(sale.status) === "Pendente") && (
-                <Badge
-                  variant="outline"
-                  className={`h-6 px-2 text-[10px] ${isArchived ? "border-amber-500/40 text-amber-700" : ""}`}
-                >
-                  {saleStatusLabel(sale.status)}
-                </Badge>
-              )}
-              <div className="flex max-w-full flex-wrap items-center justify-end gap-1">
-                {canMutate && !isArchived && hasStripePayment && !subscriptionCancelled && saleAllowsStripeCheckoutLink(sale) && (
-                  <Button
-                    type="button"
-                    variant="success"
-                    size="sm"
-                    className={ACTION_BUTTON}
-                    title="Gerar ou atualizar o link de pagamento Stripe"
-                    aria-label="Link de pagamento Stripe"
-                    onClick={() => setStripeOpen(true)}
-                  >
-                    <StripeMark className="h-3.5 w-3.5" />
-                    <span className={ACTION_LABEL}>Link Stripe</span>
-                  </Button>
-                )}
-                {hasPaymentLink && !subscriptionCancelled && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className={ACTION_BUTTON}
-                    title="Ver link de pagamento"
-                    aria-label="Ver link"
-                    onClick={() => setViewLinkOpen(true)}
-                  >
-                    <Eye className="h-3.5 w-3.5" aria-hidden="true" />
-                    <span className={ACTION_LABEL}>Ver link</span>
-                  </Button>
-                )}
-                {canMutate && !hasPaymentLink && !isArchived && !subscriptionCancelled && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className={ACTION_BUTTON}
-                    disabled={!hasPayments}
-                    aria-label="Link de pagamento"
-                    title={hasPayments ? "Criar link de pagamento no Asaas" : "Venda sem pagamentos"}
-                    onClick={() => setCreateLinkOpen(true)}
-                  >
-                    <LinkIcon className="h-3.5 w-3.5" aria-hidden="true" />
-                    <span className={ACTION_LABEL}>Link de pagamento</span>
-                  </Button>
-                )}
-                {hasHotmartCheckout && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className={ACTION_BUTTON}
-                    title="Link Hotmart desta venda"
-                    aria-label="Abrir link Hotmart desta venda"
-                    onClick={() => setHotmartOpen(true)}
-                  >
-                    <LinkIcon className="h-3.5 w-3.5" aria-hidden="true" />
-                    <span className={ACTION_LABEL}>Link Hotmart</span>
-                  </Button>
-                )}
-                {canMutate && !isArchived && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className={ACTION_BUTTON}
-                    disabled={!hasPaymentLink}
-                    aria-label="WhatsApp"
-                    title={hasPaymentLink ? "Enviar link no WhatsApp" : "Venda sem link de pagamento"}
-                    onClick={() => setWhatsappOpen(true)}
-                  >
-                    <MessageCircle className="h-3.5 w-3.5" aria-hidden="true" />
-                    <span className={ACTION_LABEL}>WhatsApp</span>
-                  </Button>
-                )}
-                {canMutate && !isArchived && (
-                  <Button asChild variant="ghost" size="sm" className={`${ACTION_BUTTON} text-primary`}>
-                    <Link to={`/vendas/${sale.id}/editar`} aria-label="Editar" title="Editar">
-                      <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
-                      <span className={ACTION_LABEL}>Editar</span>
-                    </Link>
-                  </Button>
-                )}
-                <Button asChild variant="ghost" size="sm" className={`${ACTION_BUTTON} text-primary`}>
-                  <Link to={`/vendas/${sale.id}`} aria-label="Detalhes" title="Detalhes">
-                    <FileText className="h-3.5 w-3.5" aria-hidden="true" />
-                    <span className={ACTION_LABEL}>Detalhes</span>
-                  </Link>
-                </Button>
-                {isAdmin && <SaleArchiveDeleteActions sale={sale} />}
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+          ) : hasHotmartCheckout ? (
+            <Button
+              type="button"
+              variant="outline"
+              className={MAIN_BUTTON}
+              aria-label={t("sales.actions.hotmartOpen")}
+              title={t("sales.actions.hotmart")}
+              onClick={() => setHotmartOpen(true)}
+            >
+              <LinkIcon className="h-4 w-4" aria-hidden="true" />
+              {t("sales.actions.hotmart")}
+            </Button>
+          ) : null}
+          {showWhatsapp ? (
+            <Button
+              type="button"
+              variant="outline"
+              className="sale-icon-btn h-9 w-9 px-0"
+              disabled={!hasPaymentLink}
+              aria-label={t("sales.actions.whatsapp")}
+              title={hasPaymentLink ? t("sales.actions.whatsappReady") : t("sales.actions.whatsappMissing")}
+              onClick={() => setWhatsappOpen(true)}
+            >
+              <MessageCircle className="h-4 w-4" aria-hidden="true" />
+            </Button>
+          ) : null}
+          <span className="sale-card-spacer flex-1" />
+          <Button asChild variant="ghost" className="h-9 px-1.5 text-[13px] font-semibold text-primary underline underline-offset-[3px]">
+            <Link to={`/vendas/${sale.id}`}>{t("sales.actions.details")}</Link>
+          </Button>
+          <SaleMoreMenu sale={sale} canEdit={showEdit} isAdmin={isAdmin} />
+        </div>
+      </article>
 
       <CreatePaymentLinkDialog sale={sale} open={createLinkOpen} onOpenChange={setCreateLinkOpen} />
       <ViewPaymentLinkDialog sale={sale} open={viewLinkOpen} onOpenChange={setViewLinkOpen} />

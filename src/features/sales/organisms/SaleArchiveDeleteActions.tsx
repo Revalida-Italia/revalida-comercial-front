@@ -43,12 +43,7 @@ function getSaleActionErrorMessage(error: unknown): string {
   return error.message || "Não foi possível concluir a operação.";
 }
 
-const SaleArchiveDeleteActions = ({
-  sale,
-  size = "sm",
-  onDeleted,
-  className,
-}: SaleArchiveDeleteActionsProps) => {
+export function useSaleArchiveDelete(sale: SaleRecord, onDeleted?: () => void) {
   const queryClient = useQueryClient();
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -112,49 +107,11 @@ const SaleArchiveDeleteActions = ({
     },
   });
 
-  const buttonSize = size === "sm" ? "sm" : "default";
-  const buttonClass = size === "sm" ? "h-7 shrink-0 gap-1 px-1.5 text-[11px] sm:px-2" : "gap-1.5";
-  const labelClass = size === "sm" ? "sr-only sm:not-sr-only sm:whitespace-nowrap" : undefined;
+  const openArchive = () => setArchiveOpen(true);
+  const openDelete = () => setDeleteOpen(true);
 
-  if (isArchived) {
-    return (
-      <Button type="button" variant="outline" size={buttonSize} className={buttonClass} disabled>
-        <Archive className="h-3.5 w-3.5" />
-        <span className={labelClass}>Arquivada</span>
-      </Button>
-    );
-  }
-
-  return (
+  const dialogs = (
     <>
-      <div className={className ?? "flex flex-wrap items-center gap-1"}>
-        <Button
-          type="button"
-          variant="outline"
-          size={buttonSize}
-          className={buttonClass}
-          aria-label="Arquivar"
-          title="Arquivar"
-          onClick={() => setArchiveOpen(true)}
-        >
-          <Archive className="h-3.5 w-3.5" />
-          <span className={labelClass}>Arquivar</span>
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
-          size={buttonSize}
-          className={`${buttonClass} text-destructive hover:text-destructive`}
-          disabled={hasPaid}
-          aria-label="Excluir"
-          title={hasPaid ? "Venda com registros pagos — use Arquivar" : "Excluir permanentemente"}
-          onClick={() => setDeleteOpen(true)}
-        >
-          <Trash2 className="h-3.5 w-3.5" />
-          <span className={labelClass}>Excluir</span>
-        </Button>
-      </div>
-
       <AlertDialog open={archiveOpen} onOpenChange={setArchiveOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -231,6 +188,62 @@ const SaleArchiveDeleteActions = ({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+    </>
+  );
+
+  return { isArchived, hasPaid, openArchive, openDelete, dialogs };
+}
+
+const SaleArchiveDeleteActions = ({
+  sale,
+  size = "sm",
+  onDeleted,
+  className,
+}: SaleArchiveDeleteActionsProps) => {
+  const { isArchived, hasPaid, openArchive, openDelete, dialogs } = useSaleArchiveDelete(sale, onDeleted);
+  const buttonSize = size === "sm" ? "sm" : "default";
+  const buttonClass = size === "sm" ? "h-7 shrink-0 gap-1 px-1.5 text-[11px] sm:px-2" : "gap-1.5";
+  const labelClass = size === "sm" ? "sr-only sm:not-sr-only sm:whitespace-nowrap" : undefined;
+
+  if (isArchived) {
+    return (
+      <Button type="button" variant="outline" size={buttonSize} className={buttonClass} disabled>
+        <Archive className="h-3.5 w-3.5" />
+        <span className={labelClass}>Arquivada</span>
+      </Button>
+    );
+  }
+
+  return (
+    <>
+      <div className={className ?? "flex flex-wrap items-center gap-1"}>
+        <Button
+          type="button"
+          variant="outline"
+          size={buttonSize}
+          className={buttonClass}
+          aria-label="Arquivar"
+          title="Arquivar"
+          onClick={openArchive}
+        >
+          <Archive className="h-3.5 w-3.5" />
+          <span className={labelClass}>Arquivar</span>
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          size={buttonSize}
+          className={`${buttonClass} text-destructive hover:text-destructive`}
+          disabled={hasPaid}
+          aria-label="Excluir"
+          title={hasPaid ? "Venda com registros pagos — use Arquivar" : "Excluir permanentemente"}
+          onClick={openDelete}
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+          <span className={labelClass}>Excluir</span>
+        </Button>
+      </div>
+      {dialogs}
     </>
   );
 };

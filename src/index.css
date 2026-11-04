@@ -139,3 +139,53 @@ html {
     background: linear-gradient(135deg, hsl(195 80% 35%), hsl(38 92% 55%));
   }
 }
+
+/* Sales list: layout follows the list width, not the window. */
+.sale-list {
+  container-name: sales;
+  container-type: inline-size;
+}
+.sale-card {
+  display: grid;
+  gap: 14px;
+  grid-template-areas: "head" "nums" "acts";
+}
+.sale-card-head { grid-area: head; }
+.sale-card-nums {
+  grid-area: nums;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 16px;
+}
+.sale-card-acts {
+  grid-area: acts;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.sale-link-short { display: none; }
+@container sales (min-width: 620px) {
+  .sale-card-nums { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+@container sales (min-width: 1040px) {
+  .sale-card {
+    grid-template-columns: minmax(0, 1fr) minmax(280px, 540px) max-content;
+    column-gap: 20px;
+    grid-template-areas: "head nums acts";
+    align-items: center;
+  }
+  .sale-card-nums { grid-template-columns: 48px minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 1.15fr); }
+  .sale-card-acts { justify-content: flex-end; flex-wrap: nowrap; }
+  .sale-card-spacer { display: none; }
+}
+@media (max-width: 767px) {
+  .sale-card-acts { flex-wrap: nowrap; }
+  .sale-card-acts .sale-main-btn,
+  .sale-card-acts .sale-icon-btn { height: 44px; }
+  .sale-card-acts .sale-icon-btn { width: 44px; }
+  .sale-split { flex: 1; min-width: 0; }
+  .sale-split .sale-main-btn { flex: 1; justify-content: center; }
+  .sale-link-long { display: none; }
+  .sale-link-short { display: inline; }
+}
