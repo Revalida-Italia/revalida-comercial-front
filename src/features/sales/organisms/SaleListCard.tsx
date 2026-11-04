@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import StripeMark from "@/components/icons/StripeMark";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { CalendarDays, CircleDollarSign, Eye, HandCoins, Link2, MessageCircle, Pencil, Users, UserCircle } from "lucide-react";
+import { CalendarDays, CircleDollarSign, Eye, FileText, HandCoins, Link as LinkIcon, MessageCircle, Pencil, Users, UserCircle } from "lucide-react";
 import { hasRole, getProfile } from "@/lib/session";
 import { canMutateSales } from "@/services/usersApi";
 import {
@@ -14,13 +14,13 @@ import {
   getInstallmentPaymentsProgress,
   getSaleCommissionValue,
   getSaleContractValue,
-  getSaleCustomerNames,
   getSaleNetContractValue,
   getSaleProductName,
   getSaleSellerInfo,
   getSubscriptionPaymentsProgress,
   saleAllowsStripeCheckoutLink,
   saleHasCancelledPayments,
+  saleClientNames,
   saleStatusLabel,
 } from "../utils";
 import { saleHasPaymentLink } from "@/features/sales/utils/paymentLink";
@@ -36,6 +36,23 @@ type SaleListCardProps = {
   sale: SaleRecord;
 };
 
+const ACTION_LABEL = "sr-only sm:not-sr-only sm:whitespace-nowrap";
+const ACTION_BUTTON = "h-7 shrink-0 gap-1 px-1.5 text-[11px] sm:px-2";
+
+function ClientNames({ names, muted, icon }: { names: string[]; muted?: boolean; icon?: boolean }) {
+  const full = names.length > 0 ? names.join(", ") : "Cliente não informado";
+  return (
+    <p
+      title={full}
+      className={`flex min-w-0 items-center gap-1 text-xs ${muted ? "text-muted-foreground" : "font-medium text-foreground"}`}
+    >
+      {icon ? <Users className="h-3.5 w-3.5 shrink-0" aria-hidden="true" /> : null}
+      <span className="min-w-0 flex-1 truncate">{full}</span>
+      {names.length > 1 ? <span className="shrink-0 tabular-nums">{names.length}</span> : null}
+    </p>
+  );
+}
+
 const SaleListCard = ({ sale }: SaleListCardProps) => {
   const profile = getProfile();
   const isAdmin = hasRole("ADMIN");
@@ -45,7 +62,7 @@ const SaleListCard = ({ sale }: SaleListCardProps) => {
   const [viewLinkOpen, setViewLinkOpen] = useState(false);
   const [stripeOpen, setStripeOpen] = useState(false);
   const [hotmartOpen, setHotmartOpen] = useState(false);
-  const customerNames = getSaleCustomerNames(sale);
+  const customerNames = saleClientNames(sale);
   const contractValue = getSaleContractValue(sale);
   const netContractValue = getSaleNetContractValue(sale);
   const commissionValue = getSaleCommissionValue(sale);
@@ -68,16 +85,13 @@ const SaleListCard = ({ sale }: SaleListCardProps) => {
     <>
       <Card className="border-border/70 transition-all hover:border-primary/40 hover:shadow-md">
         <CardContent className="p-3.5">
-          <div className="grid gap-x-3 gap-y-2 md:grid-cols-[1.25fr_repeat(5,minmax(0,1fr))_auto] md:items-start">
+          <div className="grid min-w-0 gap-x-3 gap-y-2 md:grid-cols-[minmax(0,1.25fr)_repeat(5,minmax(0,1fr))_minmax(0,auto)] md:items-start">
             <Link
               to={`/vendas/${sale.id}`}
               className="space-y-0.5 min-w-0 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
             >
               <p className="truncate text-sm font-semibold text-foreground">{getSaleProductName(sale)}</p>
-              <p className="truncate text-xs text-muted-foreground flex items-center gap-1">
-                <Users className="h-3.5 w-3.5" />
-                {customerNames}
-              </p>
+              <ClientNames names={customerNames} muted icon />
               <p className="truncate text-xs text-muted-foreground flex items-center gap-1">
                 <UserCircle className="h-3.5 w-3.5" />
                 {sellerInfo}
@@ -88,9 +102,9 @@ const SaleListCard = ({ sale }: SaleListCardProps) => {
               </p>
             </Link>
 
-            <div>
+            <div className="min-w-0">
               <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Clientes</p>
-              <p className="text-xs font-medium">{sale.clients?.length ?? 0}</p>
+              <ClientNames names={customerNames} />
             </div>
 
             <div>
@@ -148,7 +162,7 @@ const SaleListCard = ({ sale }: SaleListCardProps) => {
               <p className="text-xs font-semibold text-primary">{formatCurrency(commissionValue, "BRL")}</p>
             </div>
 
-            <div className="flex flex-col items-end justify-end gap-2">
+            <div className="flex min-w-0 flex-col items-stretch justify-end gap-2 sm:items-end">
               {!(subscriptionCancelled && saleStatusLabel(sale.status) === "Pendente") && (
                 <Badge
                   variant="outline"
@@ -157,19 +171,19 @@ const SaleListCard = ({ sale }: SaleListCardProps) => {
                   {saleStatusLabel(sale.status)}
                 </Badge>
               )}
-              <div className="flex flex-wrap items-center justify-end gap-1.5">
+              <div className="flex max-w-full flex-wrap items-center justify-end gap-1">
                 {canMutate && !isArchived && hasStripePayment && !subscriptionCancelled && saleAllowsStripeCheckoutLink(sale) && (
                   <Button
                     type="button"
                     variant="success"
                     size="sm"
-                    className="h-7 gap-1 px-2 text-[11px]"
+                    className={ACTION_BUTTON}
                     title="Gerar ou atualizar o link de pagamento Stripe"
                     aria-label="Link de pagamento Stripe"
                     onClick={() => setStripeOpen(true)}
                   >
                     <StripeMark className="h-3.5 w-3.5" />
-                    Link Stripe
+                    <span className={ACTION_LABEL}>Link Stripe</span>
                   </Button>
                 )}
                 {hasPaymentLink && !subscriptionCancelled && (
@@ -177,12 +191,13 @@ const SaleListCard = ({ sale }: SaleListCardProps) => {
                     type="button"
                     variant="outline"
                     size="sm"
-                    className="h-7 gap-1 px-2 text-[11px]"
+                    className={ACTION_BUTTON}
                     title="Ver link de pagamento"
+                    aria-label="Ver link"
                     onClick={() => setViewLinkOpen(true)}
                   >
-                    <Eye className="h-3.5 w-3.5" />
-                    Ver link
+                    <Eye className="h-3.5 w-3.5" aria-hidden="true" />
+                    <span className={ACTION_LABEL}>Ver link</span>
                   </Button>
                 )}
                 {canMutate && !hasPaymentLink && !isArchived && !subscriptionCancelled && (
@@ -190,13 +205,14 @@ const SaleListCard = ({ sale }: SaleListCardProps) => {
                     type="button"
                     variant="outline"
                     size="sm"
-                    className="h-7 gap-1 px-2 text-[11px]"
+                    className={ACTION_BUTTON}
                     disabled={!hasPayments}
+                    aria-label="Link de pagamento"
                     title={hasPayments ? "Criar link de pagamento no Asaas" : "Venda sem pagamentos"}
                     onClick={() => setCreateLinkOpen(true)}
                   >
-                    <Link2 className="h-3.5 w-3.5" />
-                    Link de pagamento
+                    <LinkIcon className="h-3.5 w-3.5" aria-hidden="true" />
+                    <span className={ACTION_LABEL}>Link de pagamento</span>
                   </Button>
                 )}
                 {hasHotmartCheckout && (
@@ -204,13 +220,13 @@ const SaleListCard = ({ sale }: SaleListCardProps) => {
                     type="button"
                     variant="outline"
                     size="sm"
-                    className="h-7 gap-1 px-2 text-[11px]"
+                    className={ACTION_BUTTON}
                     title="Link Hotmart desta venda"
                     aria-label="Abrir link Hotmart desta venda"
                     onClick={() => setHotmartOpen(true)}
                   >
-                    <Link2 className="h-3.5 w-3.5" />
-                    Link Hotmart
+                    <LinkIcon className="h-3.5 w-3.5" aria-hidden="true" />
+                    <span className={ACTION_LABEL}>Link Hotmart</span>
                   </Button>
                 )}
                 {canMutate && !isArchived && (
@@ -218,25 +234,29 @@ const SaleListCard = ({ sale }: SaleListCardProps) => {
                     type="button"
                     variant="outline"
                     size="sm"
-                    className="h-7 gap-1 px-2 text-[11px]"
+                    className={ACTION_BUTTON}
                     disabled={!hasPaymentLink}
+                    aria-label="WhatsApp"
                     title={hasPaymentLink ? "Enviar link no WhatsApp" : "Venda sem link de pagamento"}
                     onClick={() => setWhatsappOpen(true)}
                   >
-                    <MessageCircle className="h-3.5 w-3.5" />
-                    WhatsApp
+                    <MessageCircle className="h-3.5 w-3.5" aria-hidden="true" />
+                    <span className={ACTION_LABEL}>WhatsApp</span>
                   </Button>
                 )}
                 {canMutate && !isArchived && (
-                  <Button asChild variant="ghost" size="sm" className="h-7 px-2 text-[11px] text-primary">
-                    <Link to={`/vendas/${sale.id}/editar`}>
-                      <Pencil className="mr-1 h-3.5 w-3.5" />
-                      Editar
+                  <Button asChild variant="ghost" size="sm" className={`${ACTION_BUTTON} text-primary`}>
+                    <Link to={`/vendas/${sale.id}/editar`} aria-label="Editar" title="Editar">
+                      <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
+                      <span className={ACTION_LABEL}>Editar</span>
                     </Link>
                   </Button>
                 )}
-                <Button asChild variant="ghost" size="sm" className="h-7 px-2 text-[11px] text-primary">
-                  <Link to={`/vendas/${sale.id}`}>Detalhes</Link>
+                <Button asChild variant="ghost" size="sm" className={`${ACTION_BUTTON} text-primary`}>
+                  <Link to={`/vendas/${sale.id}`} aria-label="Detalhes" title="Detalhes">
+                    <FileText className="h-3.5 w-3.5" aria-hidden="true" />
+                    <span className={ACTION_LABEL}>Detalhes</span>
+                  </Link>
                 </Button>
                 {isAdmin && <SaleArchiveDeleteActions sale={sale} />}
               </div>
