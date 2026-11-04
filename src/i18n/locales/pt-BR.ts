@@ -45,6 +45,7 @@ export const ptBR = {
       payment: "Pagamento",
       signatures: "Assinaturas",
       notes: "Observações internas (não vão no contrato)",
+      notesIncluded: "Observações (vão no contrato)",
       students: "Estudantes",
       course: "Curso",
     },
@@ -92,6 +93,11 @@ export const ptBR = {
     },
     notes: {
       add: "Adicionar observação interna",
+      addIncluded: "Adicionar observação",
+      include: "Incluir no contrato",
+      confirmTitle: "Colocar as observações no contrato?",
+      confirmBody: "As observações passam a fazer parte do contrato.",
+      confirm: "Confirmar",
     },
     payment: {
       noPayment: "Cadastre o pagamento da venda para gerar o contrato.",

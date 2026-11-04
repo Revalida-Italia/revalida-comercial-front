@@ -216,6 +216,40 @@ describe("Gerar contrato page", () => {
     expect(document.getElementById("contract-witness-0-fullName")).toBeNull();
   });
 
+  it("keeps observations out of the contract until the seller confirms", async () => {
+    await ready();
+    const toggle = screen.getByRole("switch", { name: "Incluir no contrato" });
+    expect(toggle).toHaveAttribute("aria-checked", "false");
+    expect(screen.getByRole("heading", { name: /Observações internas \(não vão no contrato\)/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Adicionar observação interna" })).toBeInTheDocument();
+
+    fireEvent.click(toggle);
+    const dialog = await screen.findByRole("alertdialog");
+    expect(within(dialog).getByRole("heading", { name: "Colocar as observações no contrato?" })).toBeInTheDocument();
+    expect(dialog).toHaveTextContent("As observações passam a fazer parte do contrato.");
+    expect(dialog.textContent).not.toMatch(/payload|\bAPI\b|PDF|DocuSign/i);
+    expect(dialog.textContent).not.toMatch(/\p{Extended_Pictographic}/u);
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cancelar" }));
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
+    expect(toggle).toHaveAttribute("aria-checked", "false");
+    expect(screen.getByRole("heading", { name: /Observações internas \(não vão no contrato\)/ })).toBeInTheDocument();
+
+    fireEvent.click(toggle);
+    fireEvent.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Confirmar" }));
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
+    expect(toggle).toHaveAttribute("aria-checked", "true");
+    expect(screen.getByRole("heading", { name: /Observações \(vão no contrato\)/ })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: /não vão no contrato/ })).toBeNull();
+    expect(screen.getByRole("button", { name: "Adicionar observação" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Adicionar observação interna" })).toBeNull();
+
+    fireEvent.click(toggle);
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    expect(toggle).toHaveAttribute("aria-checked", "false");
+    expect(screen.getByRole("heading", { name: /Observações internas \(não vão no contrato\)/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Adicionar observação interna" })).toBeInTheDocument();
+  });
+
   it("shows each product with the description from the catalog, read only, and Não as the default for extras", async () => {
     await ready();
     expect(screen.getByText("Curso de entrada do programa, com o conteúdo da parte documental do processo de revalidação")).toBeInTheDocument();
@@ -796,6 +830,21 @@ describe("Gerar contrato page", () => {
     vi.mocked(prefillContract).mockResolvedValue(makePrefill({ referenceCity: "São Paulo" }) as never);
     await ready();
     expect(byId("contract-reference-city").value).toBe("São Paulo");
+  });
+
+  it("asks on the Escola form before including the observations", async () => {
+    mockSchoolPrefill("");
+    await openSchoolForm();
+    const toggle = screen.getByRole("switch", { name: "Incluir no contrato" });
+    expect(toggle).toHaveAttribute("aria-checked", "false");
+    expect(screen.getByRole("heading", { name: /Observações internas \(não vão no contrato\)/ })).toBeInTheDocument();
+    fireEvent.click(toggle);
+    fireEvent.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Confirmar" }));
+    await waitFor(() => expect(toggle).toHaveAttribute("aria-checked", "true"));
+    expect(screen.getByRole("heading", { name: /Observações \(vão no contrato\)/ })).toBeInTheDocument();
+    fireEvent.click(toggle);
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    expect(toggle).toHaveAttribute("aria-checked", "false");
   });
 
   it("starts a new Escola form with the default city and lets the seller change it", async () => {
