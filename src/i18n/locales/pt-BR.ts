@@ -9,6 +9,16 @@ export const ptBR = {
     no: "Não",
   },
   sales: {
+    status: {
+      active: "Ativa",
+      pending: "Pendente",
+      paid: "Paga",
+      concluded: "Concluída",
+      cancelled: "Cancelada",
+      archived: "Arquivada",
+      overdue: "Atrasada",
+      unknown: "—",
+    },
     list: {
       title: "Vendas",
       empty: "Nenhuma venda por aqui ainda. Registre a primeira para acompanhar pagamentos e comissão.",
