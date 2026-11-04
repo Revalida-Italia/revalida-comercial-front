@@ -2,7 +2,7 @@ import { useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Download, Loader2, RefreshCw, Send } from "lucide-react";
+import { Ban, Download, Loader2, RefreshCw, Send } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -20,6 +20,7 @@ import {
   downloadSignedContractPdf,
   refreshContractSignatureStatus,
   sendContractForSignature,
+  voidContract,
   type SaleContract,
 } from "@/services/contractsApi";
 import { cn } from "@/lib/utils";
@@ -79,6 +80,7 @@ function IconAction({
 
 export default function ContractListItem({ contract, saleId, sale, highlight, onChanged }: Props) {
   const [sendOpen, setSendOpen] = useState(false);
+  const [cancelOpen, setCancelOpen] = useState(false);
   const signed = isSignedContract(contract);
   const statusKey = signed ? "SIGNED" : contract.status;
   const status = CONTRACT_STATUS[statusKey];
@@ -106,6 +108,20 @@ export default function ContractListItem({ contract, saleId, sale, highlight, on
       onChanged();
     },
     onError: () => toast.error("Não foi possível atualizar o status. Tente novamente."),
+  });
+
+  const voidMutation = useMutation({
+    mutationFn: () => voidContract(contract.id),
+    onSuccess: () => {
+      toast.success(t("contract.list.cancelSuccess"));
+      setCancelOpen(false);
+      onChanged();
+    },
+    onError: () => {
+      toast.error(t("contract.list.cancelFailed"));
+      setCancelOpen(false);
+      onChanged();
+    },
   });
 
   const recipients = (contract.signers ?? []).map((signer) => signer.email).filter(Boolean);
@@ -164,16 +180,29 @@ export default function ContractListItem({ contract, saleId, sale, highlight, on
       <>
         {download}
         {contract.docusignEnvelopeId && canManageSignature() && (
-          <Button
-            size="sm"
-            variant="outline"
-            className="gap-1.5"
-            disabled={refreshMutation.isPending}
-            onClick={() => refreshMutation.mutate()}
-          >
-            <RefreshCw className={cn("h-3.5 w-3.5", refreshMutation.isPending && "animate-spin")} />
-            Atualizar status
-          </Button>
+          <>
+            <Button
+              size="sm"
+              variant="outline"
+              className="gap-1.5"
+              disabled={refreshMutation.isPending}
+              onClick={() => refreshMutation.mutate()}
+            >
+              <RefreshCw className={cn("h-3.5 w-3.5", refreshMutation.isPending && "animate-spin")} />
+              Atualizar status
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="gap-1.5 border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
+              disabled={voidMutation.isPending}
+              onClick={() => setCancelOpen(true)}
+            >
+              <Ban className="h-3.5 w-3.5" />
+              {t("contract.list.cancel")}
+            </Button>
+          </>
         )}
       </>
     );
@@ -233,6 +262,35 @@ export default function ContractListItem({ contract, saleId, sale, highlight, on
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction onClick={() => sendMutation.mutate()}>Enviar</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={cancelOpen}
+        onOpenChange={(open) => {
+          if (!open && voidMutation.isPending) return;
+          setCancelOpen(open);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("contract.list.cancelTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>{t("contract.list.cancelBody")}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={voidMutation.isPending}>{t("contract.list.cancelBack")}</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={voidMutation.isPending}
+              onClick={(event) => {
+                event.preventDefault();
+                if (!voidMutation.isPending) voidMutation.mutate();
+              }}
+            >
+              {voidMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              {voidMutation.isPending ? t("contract.list.cancelPending") : t("contract.list.cancel")}
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

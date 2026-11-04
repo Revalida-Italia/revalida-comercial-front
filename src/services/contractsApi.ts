@@ -214,6 +214,14 @@ export async function refreshContractSignatureStatus(contractId: string): Promis
   });
 }
 
+/** POST /contracts/:contractId/void — administrators. Optional reason. Returns the updated contract. */
+export async function voidContract(contractId: string, reason?: string): Promise<SaleContract> {
+  return apiRequest(CORE_API_URL, `/contracts/${contractId}/void`, {
+    method: "POST",
+    body: reason === undefined ? {} : { reason },
+  });
+}
+
 export async function provisionCoreStudent(
   contractId: string,
   body?: { email?: string; name?: string; document?: string; password?: string; sendAccessEmail?: boolean },
