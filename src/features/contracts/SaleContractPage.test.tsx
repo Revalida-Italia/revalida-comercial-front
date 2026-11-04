@@ -250,6 +250,42 @@ describe("Gerar contrato page", () => {
     expect(screen.getByRole("button", { name: "Adicionar observação interna" })).toBeInTheDocument();
   });
 
+  it("sends the notes and includeNotesInContract after the seller confirms", async () => {
+    vi.mocked(generateContract).mockResolvedValue({ id: "ct_notes" } as never);
+    await ready();
+    fillEverything();
+    fireEvent.click(screen.getByRole("button", { name: "Adicionar observação interna" }));
+    type("contract-notes", "Entregar em mãos");
+    fireEvent.click(screen.getByRole("switch", { name: "Incluir no contrato" }));
+    fireEvent.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Confirmar" }));
+    await confirmRegister();
+    await waitFor(() => expect(generateContract).toHaveBeenCalledTimes(1));
+    const payload = vi.mocked(generateContract).mock.calls[0][1] as { notes: string | null; includeNotesInContract: boolean };
+    expect(payload.notes).toBe("Entregar em mãos");
+    expect(payload.includeNotesInContract).toBe(true);
+  });
+
+  it("keeps sending the notes and leaves the flag off when the toggle stays off", async () => {
+    vi.mocked(generateContract).mockResolvedValue({ id: "ct_notes_off" } as never);
+    await ready();
+    fillEverything();
+    fireEvent.click(screen.getByRole("button", { name: "Adicionar observação interna" }));
+    type("contract-notes", "Ligação antes");
+    await confirmRegister();
+    await waitFor(() => expect(generateContract).toHaveBeenCalledTimes(1));
+    const payload = vi.mocked(generateContract).mock.calls[0][1] as { notes: string | null; includeNotesInContract: boolean };
+    expect(payload.notes).toBe("Ligação antes");
+    expect(payload.includeNotesInContract).toBe(false);
+  });
+
+  it("restores the toggle when prefill says the notes go in the contract", async () => {
+    vi.mocked(prefillContract).mockResolvedValue(makePrefill({ includeNotesInContract: true, notes: "Já incluso" }) as never);
+    await ready();
+    expect(screen.getByRole("switch", { name: "Incluir no contrato" })).toHaveAttribute("aria-checked", "true");
+    expect(screen.getByRole("heading", { name: /Observações \(vão no contrato\)/ })).toBeInTheDocument();
+    expect(byId("contract-notes").value).toBe("Já incluso");
+  });
+
   it("shows each product with the description from the catalog, read only, and Não as the default for extras", async () => {
     await ready();
     expect(screen.getByText("Curso de entrada do programa, com o conteúdo da parte documental do processo de revalidação")).toBeInTheDocument();
@@ -516,6 +552,7 @@ describe("Gerar contrato page", () => {
       },
     ]);
     for (const key of ["currency", "totalAmount", "phases"]) expect(payload).not.toHaveProperty(key);
+    expect(payload.includeNotesInContract).toBe(false);
   });
 
   it("shows a EUR sale in € with the amounts entered on the sale, with no conversion", async () => {
@@ -830,6 +867,16 @@ describe("Gerar contrato page", () => {
     vi.mocked(prefillContract).mockResolvedValue(makePrefill({ referenceCity: "São Paulo" }) as never);
     await ready();
     expect(byId("contract-reference-city").value).toBe("São Paulo");
+  });
+
+  it("restores the Escola toggle when prefill says the notes go in the contract", async () => {
+    vi.mocked(prefillContract).mockImplementation((async (_saleId: string, productType: string) =>
+      productType === "ESCOLA_DE_ITALIANO"
+        ? { ...schoolPrefill("Pordenone"), includeNotesInContract: true, notes: "Sala 2" }
+        : makePrefill()) as never);
+    await openSchoolForm();
+    expect(screen.getByRole("switch", { name: "Incluir no contrato" })).toHaveAttribute("aria-checked", "true");
+    expect(byId("contract-notes").value).toBe("Sala 2");
   });
 
   it("asks on the Escola form before including the observations", async () => {

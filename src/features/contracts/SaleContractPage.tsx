@@ -375,8 +375,10 @@ function RevalidaBody({
             <ObservationsSection
               number={6}
               value={state.notes}
+              included={state.includeNotesInContract}
               disabled={generating}
               onChange={(notes) => update((s) => ({ ...s, notes }))}
+              onIncludedChange={(includeNotesInContract) => update((s) => ({ ...s, includeNotesInContract }))}
             />
           </>
         }
@@ -484,8 +486,10 @@ function SchoolBody({
             <ObservationsSection
               number={6}
               value={payload.notes ?? ""}
+              included={payload.includeNotesInContract === true}
               disabled={generating}
               onChange={(notes) => update((p) => ({ ...p, notes }))}
+              onIncludedChange={(includeNotesInContract) => update((p) => ({ ...p, includeNotesInContract }))}
             />
           </>
         }

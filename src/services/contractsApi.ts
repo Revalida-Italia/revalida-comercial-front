@@ -37,8 +37,10 @@ export interface SaleContract {
   docusignEnvelopeId?: string | null;
   docusignUpdatedAt?: string | null;
   signerEmail?: string | null;
-  /** Internal team note. Never printed on the contract. */
+  /** Internal team note. Printed at the end of the contract only when includeNotesInContract is true. */
   internalNotes?: string | null;
+  /** Absent means the notes stay off the contract. */
+  includeNotesInContract?: boolean | null;
   coreUserId?: string | null;
   signedContract?: {
     id: string;
@@ -127,6 +129,8 @@ export interface RevalidaContractPayload {
   referenceCity: string;
   contractVersion: string;
   notes?: string | null;
+  /** Absent means the notes stay off the contract. */
+  includeNotesInContract?: boolean | null;
 }
 
 export interface SchoolStudent {
@@ -154,6 +158,8 @@ export interface SchoolContractPayload {
   phases: ContractPaymentPhase[];
   contractVersion: string;
   notes?: string | null;
+  /** Absent means the notes stay off the contract. */
+  includeNotesInContract?: boolean | null;
 }
 
 export type ContractFormPayload = RevalidaContractPayload | SchoolContractPayload;
