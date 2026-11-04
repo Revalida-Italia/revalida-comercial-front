@@ -208,7 +208,7 @@ describe("Gerar contrato page", () => {
     await ready();
     expect(screen.getByRole("heading", { name: "Gerar contrato", level: 1 })).toBeInTheDocument();
     expect(await screen.findByText("Billy Willy e mais 1")).toBeInTheDocument();
-    for (const title of ["Contratantes", "O que está incluso", "Vigência do contrato", "Pagamento", "Assinaturas", "Observações internas \\(não vão no contrato\\)"]) {
+    for (const title of ["Contratantes", "O que está incluso", "Vigência do contrato", "Pagamento", "Assinaturas", "Observações$"]) {
       expect(screen.getByRole("heading", { name: new RegExp(title) })).toBeInTheDocument();
     }
     expect(screen.getByRole("link", { name: /Venda/ })).toHaveAttribute("href", "/vendas/s1");
@@ -220,7 +220,7 @@ describe("Gerar contrato page", () => {
     await ready();
     const toggle = screen.getByRole("switch", { name: "Incluir no contrato" });
     expect(toggle).toHaveAttribute("aria-checked", "false");
-    expect(screen.getByRole("heading", { name: /Observações internas \(não vão no contrato\)/ })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /Observações$/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Adicionar observação interna" })).toBeInTheDocument();
 
     fireEvent.click(toggle);
@@ -232,13 +232,13 @@ describe("Gerar contrato page", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: "Cancelar" }));
     await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
     expect(toggle).toHaveAttribute("aria-checked", "false");
-    expect(screen.getByRole("heading", { name: /Observações internas \(não vão no contrato\)/ })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /Observações$/ })).toBeInTheDocument();
 
     fireEvent.click(toggle);
     fireEvent.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Confirmar" }));
     await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
     expect(toggle).toHaveAttribute("aria-checked", "true");
-    expect(screen.getByRole("heading", { name: /Observações \(vão no contrato\)/ })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /Observações$/ })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: /não vão no contrato/ })).toBeNull();
     expect(screen.getByRole("button", { name: "Adicionar observação" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Adicionar observação interna" })).toBeNull();
@@ -246,7 +246,7 @@ describe("Gerar contrato page", () => {
     fireEvent.click(toggle);
     expect(screen.queryByRole("alertdialog")).toBeNull();
     expect(toggle).toHaveAttribute("aria-checked", "false");
-    expect(screen.getByRole("heading", { name: /Observações internas \(não vão no contrato\)/ })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /Observações$/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Adicionar observação interna" })).toBeInTheDocument();
   });
 
@@ -282,7 +282,7 @@ describe("Gerar contrato page", () => {
     vi.mocked(prefillContract).mockResolvedValue(makePrefill({ includeNotesInContract: true, notes: "Já incluso" }) as never);
     await ready();
     expect(screen.getByRole("switch", { name: "Incluir no contrato" })).toHaveAttribute("aria-checked", "true");
-    expect(screen.getByRole("heading", { name: /Observações \(vão no contrato\)/ })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /Observações$/ })).toBeInTheDocument();
     expect(byId("contract-notes").value).toBe("Já incluso");
   });
 
@@ -884,11 +884,11 @@ describe("Gerar contrato page", () => {
     await openSchoolForm();
     const toggle = screen.getByRole("switch", { name: "Incluir no contrato" });
     expect(toggle).toHaveAttribute("aria-checked", "false");
-    expect(screen.getByRole("heading", { name: /Observações internas \(não vão no contrato\)/ })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /Observações$/ })).toBeInTheDocument();
     fireEvent.click(toggle);
     fireEvent.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Confirmar" }));
     await waitFor(() => expect(toggle).toHaveAttribute("aria-checked", "true"));
-    expect(screen.getByRole("heading", { name: /Observações \(vão no contrato\)/ })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /Observações$/ })).toBeInTheDocument();
     fireEvent.click(toggle);
     expect(screen.queryByRole("alertdialog")).toBeNull();
     expect(toggle).toHaveAttribute("aria-checked", "false");

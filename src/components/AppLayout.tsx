@@ -23,7 +23,13 @@ const AppLayout = () => {
         <div className="flex items-center border-b border-border/60 px-3 py-2 md:hidden">
           <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
             <SheetTrigger asChild>
-              <Button type="button" variant="ghost" className="h-11 w-11 px-0" aria-label={t("common.openMenu")}>
+              <Button
+                type="button"
+                variant="ghost"
+                className="h-11 w-11 px-0"
+                aria-label={t("common.openMenu")}
+                title={t("common.openMenu")}
+              >
                 <Menu className="h-5 w-5" aria-hidden="true" />
               </Button>
             </SheetTrigger>
