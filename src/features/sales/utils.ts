@@ -190,7 +190,7 @@ export const getSaleCommissionValue = (sale: SaleRecord): number => {
 };
 
 export const getPrimaryClientName = (sale: SaleRecord): string =>
-  sale.clients?.[0]?.nameCiphertext?.trim() || "Cliente";
+  sale.clients?.[0]?.nameCiphertext?.trim() || t("sales.card.clientFallback");
 
 export const getPrimaryClientPhone = (sale: SaleRecord): string =>
   sale.clients?.[0]?.telefone?.trim() || "";
@@ -205,7 +205,7 @@ export const getSaleCustomerNames = (sale: SaleRecord): string => {
   const names = saleClientNames(sale);
 
   if (names.length === 0) {
-    return "Cliente não informado";
+    return t("sales.card.unknownClient");
   }
 
   if (names.length === 1) {
@@ -216,7 +216,7 @@ export const getSaleCustomerNames = (sale: SaleRecord): string => {
 };
 
 export const getSaleProductName = (sale: SaleRecord): string =>
-  sale.items?.[0]?.product?.name ?? "Produto não informado";
+  sale.items?.[0]?.product?.name ?? t("sales.card.unknownProduct");
 
 export const SELF_SERVICE_SELLER_LABEL = "Self-service";
 
@@ -262,14 +262,14 @@ export const getSaleSellerInfo = (sale: SaleRecord): string => {
   }
 
   if (!sale.seller) {
-    return "Vendedor não informado";
+    return t("sales.card.sellerUnknown");
   }
 
   if (sale.seller.name) {
-    return `${sale.seller.name} (${sale.seller.email || "sem email"})`;
+    return `${sale.seller.name} (${sale.seller.email || t("sales.card.noEmail")})`;
   }
 
-  return sale.seller.email || "Vendedor não informado";
+  return sale.seller.email || t("sales.card.sellerUnknown");
 };
 
 export const saleHasPaidRecords = (sale: SaleRecord): boolean => {

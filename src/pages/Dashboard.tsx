@@ -42,6 +42,13 @@ const Dashboard = () => {
   };
 
   const sales = salesQuery.data?.sales ?? [];
+  const filtersActive = Boolean(
+    searchTerm.trim()
+    || debouncedSearchTerm.trim()
+    || gateway !== "all"
+    || status !== "all"
+    || exchangeScope !== "all",
+  );
   const summary = salesQuery.data?.summary ?? {
     totalSales: 0,
     totalAmount: 0,
@@ -61,9 +68,9 @@ const Dashboard = () => {
     <div className="space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-border/60 bg-gradient-to-br from-background to-muted/30 px-4 py-4">
         <div>
-          <h1 className="text-xl font-bold tracking-tight">Dashboard comercial</h1>
+          <h1 className="text-xl font-bold tracking-tight">{t("sales.dashboard.title")}</h1>
           <p className="mt-0.5 text-xs text-muted-foreground">
-            Resumo, metas e histórico de vendas.
+            {t("sales.dashboard.subtitle")}
           </p>
         </div>
 
@@ -73,7 +80,7 @@ const Dashboard = () => {
             onChange={setDisplayCurrency}
             ratesStale={ratesStale}
             rateDate={rateDate}
-            label="Moeda do balanço"
+            label={t("sales.dashboard.currency")}
           />
         </div>
       </div>
@@ -140,6 +147,13 @@ const Dashboard = () => {
             <p className="text-sm">{t("sales.list.error")}</p>
             <Button type="button" variant="outline" className="mt-3" onClick={() => void salesQuery.refetch()}>
               {t("sales.list.retry")}
+            </Button>
+          </div>
+        ) : sales.length === 0 && filtersActive ? (
+          <div className="rounded-md bg-card p-6 shadow-[0_1px_2px_rgba(36,56,79,0.06)]">
+            <p className="text-sm">{t("sales.list.emptyFiltered")}</p>
+            <Button type="button" variant="outline" className="mt-3" onClick={handleClearFilters}>
+              {t("sales.list.clearFilters")}
             </Button>
           </div>
         ) : sales.length === 0 ? (

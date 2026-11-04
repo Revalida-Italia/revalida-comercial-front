@@ -178,10 +178,7 @@ html {
   justify-content: center;
 }
 .sale-link-short { display: none; }
-.sale-pay-value { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-@container sales (max-width: 480px) {
-  .sale-pay-value { white-space: normal; overflow: visible; text-overflow: unset; }
-}
+.sale-pay-value { white-space: normal; overflow: visible; line-height: 1.25; }
 @container sales (min-width: 620px) {
   .sale-card-nums { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }

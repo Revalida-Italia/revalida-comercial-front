@@ -253,8 +253,9 @@ const AppSidebar = () => {
               onClick={() => setIsEditingName(true)}
               className="rounded-full bg-sidebar-primary/15 p-2 text-sidebar-primary transition-colors hover:bg-sidebar-primary/25"
               title="Editar nome"
+              aria-label="Editar nome"
             >
-              <PenLine className="h-4 w-4" />
+              <PenLine className="h-4 w-4" aria-hidden="true" />
             </button>
           )}
           {isEditingName && (

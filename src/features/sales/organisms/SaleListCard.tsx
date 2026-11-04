@@ -310,9 +310,11 @@ const SaleListCard = ({ sale }: SaleListCardProps) => {
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="start" className="min-w-[180px] rounded-md p-1.5 shadow-lg">
                     <DropdownMenuItem
+                      className="gap-2"
                       aria-label={t("sales.actions.hotmartOpen")}
                       onSelect={() => setHotmartOpen(true)}
                     >
+                      <LinkIcon className="h-4 w-4" aria-hidden="true" />
                       {t("sales.actions.hotmart")}
                     </DropdownMenuItem>
                   </DropdownMenuContent>
