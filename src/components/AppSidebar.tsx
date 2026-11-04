@@ -182,7 +182,7 @@ const AppSidebar = () => {
   return (
     <aside
       className={cn(
-        "sticky top-0 hidden h-[100dvh] w-64 shrink-0 flex-col overflow-hidden gradient-primary md:flex",
+        "flex h-full w-64 shrink-0 flex-col overflow-hidden gradient-primary",
         isAdmin && "gradient-primary-admin ring-1",
         isFixedCostsManager && "gradient-primary-costs-manager ring-1 ring-emerald-400/20",
       )}

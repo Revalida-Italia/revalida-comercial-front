@@ -298,7 +298,7 @@ const ChartPanel = ({
               ))}
             </TabsList>
           </Tabs>
-          <p className="py-4 text-center text-sm text-muted-foreground">
+          <p className="w-full min-w-0 whitespace-normal break-normal px-4 py-4 text-center text-sm leading-relaxed text-muted-foreground">
             Sem dados para os filtros selecionados.
           </p>
         </CardContent>

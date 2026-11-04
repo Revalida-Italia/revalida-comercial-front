@@ -75,19 +75,15 @@ describe("sale list client names and actions", () => {
     expect(line).not.toHaveTextContent("+");
   });
 
-  it("keeps Editar, Arquivar and Excluir in Mais ações, with the delete confirmation", async () => {
+  it("keeps Editar, Arquivar and Excluir on the card, with the delete confirmation", async () => {
     renderCard(sale(["Maria"]));
 
     expect(screen.getByRole("link", { name: "Detalhes" })).toHaveAttribute("href", "/vendas/sale_1");
-    expect(screen.getByRole("button", { name: "Abrir WhatsApp do cliente" }).querySelector("svg")).toBeTruthy();
-    expect(screen.queryByRole("menuitem", { name: "Editar" })).not.toBeInTheDocument();
-
-    fireEvent.keyDown(screen.getByRole("button", { name: "Mais ações" }), { key: "Enter" });
-    const edit = await screen.findByRole("menuitem", { name: "Editar" });
-    expect(edit).toHaveAttribute("href", "/vendas/sale_1/editar");
-    expect(screen.getByRole("menuitem", { name: "Arquivar" })).toBeInTheDocument();
-    const remove = screen.getByRole("menuitem", { name: "Excluir" });
-    expect(remove.className).toContain("text-destructive");
+    expect(screen.getByRole("link", { name: "Editar" })).toHaveAttribute("href", "/vendas/sale_1/editar");
+    expect(screen.getByRole("button", { name: "Arquivar" })).toBeInTheDocument();
+    const remove = screen.getByRole("button", { name: "Excluir" });
+    expect(remove.className).toContain("9A3F3F");
+    expect(remove.className).not.toContain("border-destructive");
 
     fireEvent.click(remove);
     expect(await screen.findByRole("alertdialog", { name: "Excluir venda?" })).toBeInTheDocument();
