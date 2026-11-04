@@ -33,6 +33,14 @@ export const ptBR = {
     },
     list: {
       sendFailed: "Não foi possível enviar para assinatura. Tente novamente.",
+      cancel: "Cancelar contrato",
+      cancelTitle: "Cancelar este contrato?",
+      cancelBody:
+        "O cliente não vai mais conseguir assinar. A venda continua ativa e você pode gerar um novo contrato.",
+      cancelBack: "Voltar",
+      cancelPending: "Cancelando…",
+      cancelSuccess: "Contrato cancelado",
+      cancelFailed: "Não foi possível cancelar. Atualize o status e tente de novo.",
     },
     models: {
       revalida: "Programa Revalida Itália",

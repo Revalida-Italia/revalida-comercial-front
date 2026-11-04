@@ -28,14 +28,14 @@ vi.mock("@/services/contractsApi", async () => {
     listSaleContracts: vi.fn(),
     sendContractForSignature: vi.fn(),
     refreshContractSignatureStatus: vi.fn(),
+    voidContract: vi.fn(),
     downloadContractPdf: vi.fn(),
     downloadSignedContractPdf: vi.fn(),
   };
 });
 
-const { listSaleContracts, sendContractForSignature, downloadContractPdf, downloadSignedContractPdf } = await import(
-  "@/services/contractsApi"
-);
+const { listSaleContracts, sendContractForSignature, voidContract, downloadContractPdf, downloadSignedContractPdf } =
+  await import("@/services/contractsApi");
 const { toast } = await import("sonner");
 const { default: SaleContractsPanel } = await import("./SaleContractsPanel");
 
@@ -191,8 +191,98 @@ describe("Contratos list", () => {
     const item = (await screen.findAllByRole("listitem"))[0];
     expect(within(item).getByText("Enviado")).toBeInTheDocument();
     expect(within(item).getByRole("button", { name: "Atualizar status" })).toBeInTheDocument();
+    expect(within(item).getByRole("button", { name: "Cancelar contrato" })).toBeInTheDocument();
     expect(within(item).getByRole("button", { name: "Baixar PDF" })).toBeInTheDocument();
     expect(within(item).queryByRole("button", { name: "Enviar para assinatura" })).toBeNull();
+  });
+
+  it("shows Cancelar contrato only on a sent contract for an admin", async () => {
+    vi.mocked(listSaleContracts).mockResolvedValue([
+      contract("generated", { status: "GENERATED", docusignEnvelopeId: "env", generatedAt: "2026-10-05T12:00:00.000Z" }),
+      contract("sent", { status: "SENT", docusignEnvelopeId: "env", generatedAt: "2026-10-04T12:00:00.000Z" }),
+      contract("sent-plain", { status: "SENT", docusignEnvelopeId: null, generatedAt: "2026-10-03T12:00:00.000Z" }),
+      contract("signed", { status: "SIGNED", docusignEnvelopeId: "env", generatedAt: "2026-10-02T12:00:00.000Z" }),
+      contract("voided", { status: "VOIDED", docusignEnvelopeId: "env", generatedAt: "2026-10-01T12:00:00.000Z" }),
+    ]);
+    renderPanel();
+    const items = await screen.findAllByRole("listitem");
+    expect(within(items[0]).queryByRole("button", { name: "Cancelar contrato" })).toBeNull();
+    expect(within(items[1]).getByRole("button", { name: "Cancelar contrato" })).toBeInTheDocument();
+    expect(within(items[1]).getByRole("button", { name: "Atualizar status" })).toBeInTheDocument();
+    expect(within(items[2]).queryByRole("button", { name: "Cancelar contrato" })).toBeNull();
+    expect(within(items[2]).queryByRole("button", { name: "Atualizar status" })).toBeNull();
+    expect(within(items[3]).queryByRole("button", { name: "Cancelar contrato" })).toBeNull();
+    expect(within(items[4]).queryByRole("button", { name: "Cancelar contrato" })).toBeNull();
+    expect(within(items[4]).getByText("Cancelado")).toBeInTheDocument();
+  });
+
+  it("Voltar in the cancel dialog does nothing", async () => {
+    vi.mocked(listSaleContracts).mockResolvedValue([contract("c1", { status: "SENT", docusignEnvelopeId: "env" })]);
+    renderPanel();
+    const item = (await screen.findAllByRole("listitem"))[0];
+    fireEvent.click(within(item).getByRole("button", { name: "Cancelar contrato" }));
+    const dialog = await screen.findByRole("alertdialog");
+    expect(dialog).toHaveTextContent("Cancelar este contrato?");
+    expect(dialog).toHaveTextContent(
+      "O cliente não vai mais conseguir assinar. A venda continua ativa e você pode gerar um novo contrato.",
+    );
+    fireEvent.click(within(dialog).getByRole("button", { name: "Voltar" }));
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument());
+    expect(voidContract).not.toHaveBeenCalled();
+    expect(within(item).getByText("Enviado")).toBeInTheDocument();
+    expect(document.body.textContent).not.toMatch(/DocuSign|envelope|\bAPI\b/i);
+  });
+
+  it("confirm cancels the contract, refreshes the list and shows Cancelado", async () => {
+    const sent = contract("c1", { status: "SENT", docusignEnvelopeId: "env" });
+    const voided = contract("c1", { status: "VOIDED", docusignEnvelopeId: "env" });
+    vi.mocked(listSaleContracts).mockResolvedValueOnce([sent]).mockResolvedValue([voided]);
+    vi.mocked(voidContract).mockResolvedValue(voided);
+    renderPanel();
+    const item = (await screen.findAllByRole("listitem"))[0];
+    fireEvent.click(within(item).getByRole("button", { name: "Cancelar contrato" }));
+    fireEvent.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Cancelar contrato" }));
+    await waitFor(() => expect(voidContract).toHaveBeenCalledWith("c1"));
+    await waitFor(() => expect(toast.success).toHaveBeenCalledWith("Contrato cancelado"));
+    await waitFor(() => expect(screen.getByText("Cancelado")).toBeInTheDocument());
+    expect(screen.queryByRole("button", { name: "Cancelar contrato" })).toBeNull();
+    expect(screen.getByRole("link", { name: "Gerar novo contrato" })).toBeInTheDocument();
+  });
+
+  it("shows a loading state while the cancellation runs", async () => {
+    let resolveVoid: (value: SaleContract) => void = () => {};
+    vi.mocked(listSaleContracts).mockResolvedValue([contract("c1", { status: "SENT", docusignEnvelopeId: "env" })]);
+    vi.mocked(voidContract).mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveVoid = resolve;
+        }),
+    );
+    renderPanel();
+    const item = (await screen.findAllByRole("listitem"))[0];
+    fireEvent.click(within(item).getByRole("button", { name: "Cancelar contrato" }));
+    const dialog = await screen.findByRole("alertdialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cancelar contrato" }));
+    expect(await within(dialog).findByRole("button", { name: "Cancelando…" })).toBeDisabled();
+    expect(within(dialog).getByRole("button", { name: "Voltar" })).toBeDisabled();
+    resolveVoid(contract("c1", { status: "VOIDED", docusignEnvelopeId: "env" }));
+    await waitFor(() => expect(toast.success).toHaveBeenCalledWith("Contrato cancelado"));
+  });
+
+  it.each([409, 500])("shows a toast when cancelling fails (%s) and refreshes the list", async (status) => {
+    const sent = contract("c1", { status: "SENT", docusignEnvelopeId: "env" });
+    const signed = contract("c1", { status: "SIGNED", docusignEnvelopeId: "env", signedContract: { id: "sc" } });
+    vi.mocked(listSaleContracts).mockResolvedValueOnce([sent]).mockResolvedValue([signed]);
+    vi.mocked(voidContract).mockRejectedValue(Object.assign(new Error("conflict"), { status }));
+    renderPanel();
+    fireEvent.click(within((await screen.findAllByRole("listitem"))[0]).getByRole("button", { name: "Cancelar contrato" }));
+    fireEvent.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Cancelar contrato" }));
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith("Não foi possível cancelar. Atualize o status e tente de novo."),
+    );
+    await waitFor(() => expect(screen.getByText("Assinado")).toBeInTheDocument());
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    expect(toast.success).not.toHaveBeenCalled();
   });
 
   it("Assinado: Baixar contrato primary, plus Criar acesso dos alunos, and no password text", async () => {
@@ -216,6 +306,7 @@ describe("Contratos list", () => {
     renderPanel();
     const item = (await screen.findAllByRole("listitem"))[0];
     expect(within(item).getByText(label)).toBeInTheDocument();
+    expect(within(item).queryByRole("button", { name: "Cancelar contrato" })).toBeNull();
     expect(within(item).getByRole("link", { name: "Gerar novo contrato" })).toHaveAttribute("href", "/vendas/s1/contrato");
     expect(within(item).getByRole("button", { name: "Baixar PDF" })).toBeInTheDocument();
   });
@@ -249,6 +340,7 @@ describe("Contratos list for a seller", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: "Enviar" }));
     await waitFor(() => expect(sendContractForSignature).toHaveBeenCalledWith("c1"));
     expect(screen.queryByRole("button", { name: "Atualizar status" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Cancelar contrato" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Criar acesso dos alunos" })).toBeNull();
     expect(screen.getAllByRole("button", { name: "Baixar PDF" })).toHaveLength(2);
     expect(screen.getByRole("link", { name: "Gerar contrato" })).toBeInTheDocument();
@@ -265,6 +357,7 @@ describe("Contratos list for a seller", () => {
     await screen.findAllByText("Programa Revalida Itália");
     expect(screen.queryByRole("button", { name: "Enviar para assinatura" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Atualizar status" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Cancelar contrato" })).toBeNull();
     expect(screen.getAllByRole("button", { name: "Baixar PDF" })).toHaveLength(2);
   });
 });
