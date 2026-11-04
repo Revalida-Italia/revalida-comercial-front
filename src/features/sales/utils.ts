@@ -1,16 +1,25 @@
-import { SALE_STATUS_OPTIONS } from "@/features/new-sale/constants";
 import type { SalePayment, SaleRecord } from "@/services/commercialApi";
+import { t, type MessageKey } from "@/i18n";
 import { toNumberOrZero } from "@/shared/utils/number";
 import { getPaymentGrossValue, toPaymentGrossValueContext } from "@/shared/utils/payment";
 import { isCancelledStatus } from "@/features/sales/utils/commissionStatus";
 
-const SALE_STATUS_LABELS = Object.fromEntries(
-  SALE_STATUS_OPTIONS.map((option) => [option.value, option.label]),
-) as Record<string, string>;
+const SALE_STATUS_KEYS: Record<string, MessageKey> = {
+  ACTIVE: "sales.status.active",
+  PENDING: "sales.status.pending",
+  PAID: "sales.status.paid",
+  PAGA: "sales.status.paid",
+  CONCLUDED: "sales.status.concluded",
+  CANCELLED: "sales.status.cancelled",
+  CANCELED: "sales.status.cancelled",
+  ARCHIVED: "sales.status.archived",
+  OVERDUE: "sales.status.overdue",
+};
 
 export function saleStatusLabel(status?: string | null): string {
-  const normalized = String(status ?? "").toUpperCase();
-  return SALE_STATUS_LABELS[normalized] ?? (status?.trim() || "—");
+  const normalized = String(status ?? "").trim().toUpperCase();
+  const key = SALE_STATUS_KEYS[normalized];
+  return key ? t(key) : t("sales.status.unknown");
 }
 
 export type SalePaymentsProgress = {

@@ -37,6 +37,7 @@ import {
   saleStatusLabel,
   type SalePaymentsProgress,
 } from "../utils";
+import { isCancelledStatus } from "@/features/sales/utils/commissionStatus";
 import { saleHasPaymentLink } from "@/features/sales/utils/paymentLink";
 import { saleOffersHotmartCheckout } from "@/features/sales/utils/hotmartCheckout";
 import CreatePaymentLinkDialog from "./CreatePaymentLinkDialog";
@@ -107,26 +108,38 @@ function paymentCell(sale: SaleRecord) {
       false,
     );
   }
-  if (summary) {
-    return {
-      value: t("sales.card.paymentsCount", { count: summary.paid, pending: summary.pending }),
-      ratio: null as number | null,
-      settled: false,
-      note: null as string | null,
-    };
+  if (summary && summary.total > 0) {
+    return fromProgress(
+      "sales.card.paidInstallments",
+      { paid: summary.paid, total: summary.total, pending: summary.pending },
+      "installment",
+      false,
+    );
+  }
+  const payments = sale.payments ?? [];
+  if (payments.length > 0) {
+    const active = payments.filter((payment) => !isCancelledStatus(payment.status));
+    const paid = active.filter((payment) => String(payment.status).toUpperCase() === "PAID").length;
+    const progress = { paid, total: active.length, pending: active.length - paid };
+    return fromProgress(
+      "sales.card.paidInstallments",
+      progress,
+      "installment",
+      progress.pending === 0 && saleHasCancelledPayments(sale),
+    );
   }
   return {
-    value: String(sale.payments?.length ?? 0),
-    ratio: null as number | null,
+    value: paidPhrase("sales.card.paidInstallments", 0, 0),
+    ratio: 0,
     settled: false,
-    note: null as string | null,
+    note: null,
   };
 }
 
 function NumberCell({ label, value, children }: { label: string; value: string; children?: ReactNode }) {
   return (
     <div className="min-w-0">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.04em] text-muted-foreground">{label}</p>
+      <p className="overflow-hidden text-ellipsis whitespace-nowrap text-[11px] font-semibold uppercase tracking-[0.04em] text-muted-foreground">{label}</p>
       <p className="overflow-hidden text-ellipsis text-[15px] font-semibold tabular-nums whitespace-nowrap">{value}</p>
       {children}
     </div>
@@ -190,7 +203,8 @@ const SaleListCard = ({ sale }: SaleListCardProps) => {
   const [stripeOpen, setStripeOpen] = useState(false);
   const [hotmartOpen, setHotmartOpen] = useState(false);
   const names = saleClientNames(sale);
-  const clientLabel = names.length > 0 ? names.join(" · ") : t("sales.card.unknownClient");
+  const clientTitle = names.length > 0 ? names.join(", ") : t("sales.card.unknownClient");
+  const extraClients = Math.max(0, names.length - 1);
   const contractValue = getSaleContractValue(sale);
   const netContractValue = getSaleNetContractValue(sale);
   const commissionValue = getSaleCommissionValue(sale);
@@ -210,8 +224,8 @@ const SaleListCard = ({ sale }: SaleListCardProps) => {
   const statusLabel = saleStatusLabel(sale.status);
   const hideStatus = subscriptionCancelled && statusLabel === "Pendente";
   const productName = getSaleProductName(sale);
-  const meta = `${clientLabel} · ${sellerInfo} · ${formatDate(sale.soldAt)}`;
-  const metaVisible = `${clientLabel} · ${sellerShort} · ${formatDate(sale.soldAt)}`;
+  const meta = `${sellerInfo} · ${formatDate(sale.soldAt)}`;
+  const metaVisible = `${sellerShort} · ${formatDate(sale.soldAt)}`;
   const nameId = `sale-name-${sale.id}`;
   const currency = sale.currency || "BRL";
   const showStripe = canMutate && !isArchived && hasStripePayment && !subscriptionCancelled && saleAllowsStripeCheckoutLink(sale);
@@ -235,7 +249,7 @@ const SaleListCard = ({ sale }: SaleListCardProps) => {
         )}
       >
         <div className="sale-card-head grid min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-1">
-          <h2 id={nameId} title={productName} className="line-clamp-2 text-base font-semibold leading-snug">
+          <h2 id={nameId} title={productName} className="line-clamp-2 min-w-0 text-base font-semibold leading-snug">
             {productName}
           </h2>
           {hideStatus ? <span /> : (
@@ -248,11 +262,15 @@ const SaleListCard = ({ sale }: SaleListCardProps) => {
             {metaVisible}
           </p>
         </div>
+        <p title={clientTitle} className="sale-card-clients flex min-w-0 items-baseline gap-1 text-[13px] text-foreground">
+          <span className="min-w-0 truncate">{names[0] ?? clientTitle}</span>
+          {extraClients > 0 ? <span className="shrink-0 tabular-nums">+{extraClients}</span> : null}
+        </p>
 
         <div className="sale-card-nums">
           <NumberCell label={t("sales.card.clients")} value={String(sale.clients?.length ?? 0)} />
           <div className="min-w-0">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.04em] text-muted-foreground">{t("sales.card.payments")}</p>
+            <p className="overflow-hidden text-ellipsis whitespace-nowrap text-[11px] font-semibold uppercase tracking-[0.04em] text-muted-foreground">{t("sales.card.payments")}</p>
             <p className="overflow-hidden text-ellipsis text-sm font-semibold tabular-nums whitespace-nowrap">{payments.value}</p>
             {payments.ratio != null ? (
               <div className="my-1 h-1 overflow-hidden rounded-sm bg-border" aria-hidden="true">

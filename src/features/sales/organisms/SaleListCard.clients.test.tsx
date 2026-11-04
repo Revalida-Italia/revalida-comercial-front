@@ -60,16 +60,19 @@ describe("sale list client names and actions", () => {
   it("shows every client name on the card, with the full line on the title and the count in the cell", () => {
     renderCard(sale(["Maria", "João", "Ana"]));
 
-    const line = screen.getByTitle(/Maria · João · Ana/);
-    expect(line).toHaveTextContent("Maria · João · Ana");
+    const line = screen.getByTitle("Maria, João, Ana");
+    expect(line).toHaveTextContent("Maria");
+    expect(line).toHaveTextContent("+2");
+    expect(line).not.toHaveTextContent("João");
     expect(screen.getByText("Clientes")).toBeInTheDocument();
     expect(screen.getByText("3")).toBeInTheDocument();
-    expect(screen.queryByText("Maria +2")).not.toBeInTheDocument();
   });
 
   it("shows a single client name in the header line", () => {
     renderCard(sale(["Maria"]));
-    expect(screen.getByTitle(/^Maria · /)).toHaveTextContent(/^Maria · /);
+    const line = screen.getByTitle("Maria");
+    expect(line).toHaveTextContent("Maria");
+    expect(line).not.toHaveTextContent("+");
   });
 
   it("keeps Editar, Arquivar and Excluir in Mais ações, with the delete confirmation", async () => {
