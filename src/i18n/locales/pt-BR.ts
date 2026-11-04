@@ -3,6 +3,8 @@ export const ptBR = {
   common: {
     cancel: "Cancelar",
     retry: "Tentar novamente",
+    openMenu: "Abrir menu",
+    menu: "Menu",
     loading: "Carregando",
     remove: "Remover",
     yes: "Sim",
@@ -30,8 +32,9 @@ export const ptBR = {
       clients: "Clientes",
       payments: "Pagamentos",
       contract: "Contrato",
-      netCommission: "Líquido · Comissão",
-      commissionValue: "Comissão {value}",
+      net: "Líquido",
+      commission: "Comissão",
+      noSeller: "Sem vendedor",
       paidInstallments: {
         one: "{paid} de {total} parcela paga",
         other: "{paid} de {total} parcelas pagas",

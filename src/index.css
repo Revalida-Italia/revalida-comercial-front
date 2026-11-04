@@ -148,11 +148,12 @@ html {
 .sale-card {
   display: grid;
   gap: 14px;
-  grid-template-areas: "head" "clients" "nums" "acts";
+  grid-template-areas: "head" "clients" "meta" "nums" "acts";
   min-width: 0;
 }
 .sale-card-head { grid-area: head; min-width: 0; }
 .sale-card-clients { grid-area: clients; min-width: 0; }
+.sale-card-meta { grid-area: meta; min-width: 0; }
 .sale-card-nums {
   grid-area: nums;
   display: grid;
@@ -164,11 +165,23 @@ html {
   grid-area: acts;
   display: flex;
   align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
+  gap: 6px;
+  flex-wrap: nowrap;
   min-width: 0;
+  overflow-x: auto;
+}
+.sale-wide-label { display: none; }
+.sale-compact {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  justify-content: center;
 }
 .sale-link-short { display: none; }
+.sale-pay-value { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@container sales (max-width: 480px) {
+  .sale-pay-value { white-space: normal; overflow: visible; text-overflow: unset; }
+}
 @container sales (min-width: 620px) {
   .sale-card-nums { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }
@@ -176,17 +189,19 @@ html {
   .sale-card {
     grid-template-columns: minmax(220px, 1fr) minmax(320px, 520px) max-content;
     column-gap: 20px;
-    grid-template-areas: "head nums acts" "clients clients clients";
+    grid-template-areas: "head nums acts" "clients clients clients" "meta meta meta";
     align-items: center;
   }
   .sale-card-nums { grid-template-columns: 5.5rem minmax(10.5rem, 1.7fr) minmax(6.5rem, 1fr) minmax(8.75rem, 1.2fr); }
-  .sale-card-acts { justify-content: flex-end; flex-wrap: nowrap; }
-  .sale-card-spacer { display: none; }
+  .sale-card-acts { justify-content: flex-end; overflow: visible; }
+  .sale-wide-label { display: inline; }
+  .sale-compact { width: auto; height: 36px; padding: 0 10px; }
 }
 @media (max-width: 767px) {
-  .sale-card-acts .sale-main-btn,
-  .sale-card-acts .sale-icon-btn { height: 44px; }
-  .sale-card-acts .sale-icon-btn { width: 44px; }
+  .sale-card-acts { flex-wrap: nowrap; gap: 2px; }
+  .sale-action,
+  .sale-compact { height: 44px; }
+  .sale-compact { width: 44px; padding: 0; }
   .sale-link-long { display: none; }
   .sale-link-short { display: inline; }
 }

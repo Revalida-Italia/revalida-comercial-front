@@ -74,20 +74,18 @@ describe("dashboard Link Stripe button", () => {
     const stripe = screen.getByRole("button", { name: "Link de pagamento Stripe" });
     expect(stripe).toHaveTextContent("Link Stripe");
     expect(stripe.parentElement?.firstElementChild).toBe(stripe);
-    expect(stripe.className).toContain("hsl(var(--success))");
-    expect(stripe.className).toContain("black_32%");
-    expect(stripe.className).toContain("black_42%");
-    expect(stripe).toHaveClass("text-success-foreground");
+    expect(stripe.className).not.toContain("--success");
+    expect(stripe).toHaveClass("border");
     const mark = stripe.querySelector("svg");
     expect(mark?.querySelector("path")?.getAttribute("d")).toMatch(/^M13\.976/);
-    expect(mark).toHaveClass("h-3.5", "w-3.5");
+    expect(mark).toHaveClass("h-4", "w-4");
     expect(mark?.getAttribute("viewBox")).toBe("0 0 24 24");
     expect(mark?.querySelector("g")?.getAttribute("transform")).toBe(
       `translate(12 12) scale(${13.3 / 24}) translate(-12 -12)`,
     );
 
     const viewLink = screen.getByRole("button", { name: "Ver link" });
-    expect(viewLink.querySelector("svg")).toHaveClass("h-3.5", "w-3.5");
+    expect(viewLink.querySelector("svg")).toHaveClass("h-4", "w-4");
     expect(stripe.compareDocumentPosition(viewLink) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(viewLink).toHaveClass("border");
     expect(viewLink.className).not.toContain("--success");
@@ -98,7 +96,7 @@ describe("dashboard Link Stripe button", () => {
     renderCard(sale([payment()]));
 
     const stripe = screen.getByRole("button", { name: "Link de pagamento Stripe" });
-    expect(stripe.className).toContain("hsl(var(--success))");
+    expect(stripe.className).not.toContain("--success");
     expect(stripe.parentElement?.firstElementChild).toBe(stripe);
 
     const asaas = screen.getByRole("button", { name: "Link de pagamento" });

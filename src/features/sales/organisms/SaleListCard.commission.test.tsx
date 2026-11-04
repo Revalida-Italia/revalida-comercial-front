@@ -101,11 +101,9 @@ describe("dashboard sale card cancelled subscription", () => {
     expect(screen.queryByText("Assinatura quitada")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Marcar como pago" })).not.toBeInTheDocument();
 
-    const commission = screen.getByText((_, element) => {
-      const normalized = (element?.textContent ?? "").replace(/[\u00a0\u202f]/g, " ");
-      return normalized.startsWith("Comissão") && normalized.includes("40,00");
-    });
-    expect((commission.textContent ?? "").replace(/[\u00a0\u202f]/g, " ")).not.toContain("120,00");
+    expect(screen.getByText("Comissão")).toBeInTheDocument();
+    expect(screen.getByText(/40,00/)).toBeInTheDocument();
+    expect(screen.queryByText(/120,00/)).not.toBeInTheDocument();
   });
 
   it("hides the pending badge and payment links when the subscription is cancelled", () => {
