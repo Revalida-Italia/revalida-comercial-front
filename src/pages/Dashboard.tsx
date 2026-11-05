@@ -122,22 +122,25 @@ const Dashboard = () => {
         {salesQuery.isLoading ? (
           <div className="sale-list" aria-busy="true" aria-label={t("common.loading")}>
             {[1, 2, 3].map((item) => (
-              <div key={item} className="sale-card rounded-md bg-card p-4 shadow-[0_1px_2px_rgba(36,56,79,0.06)]">
-                <div className="sale-card-head space-y-2">
-                  <div className="h-4 w-2/3 rounded bg-muted" />
-                  <div className="h-3 w-1/2 rounded bg-muted" />
+              <div key={item} className="sale-card" aria-hidden="true">
+                <div className="sale-card-id">
+                  <div className="sale-tile" />
+                  <div className="sale-id-body space-y-2">
+                    <div className="h-4 w-2/3 rounded bg-muted" />
+                    <div className="h-3 w-1/2 rounded bg-muted" />
+                  </div>
                 </div>
                 <div className="sale-card-nums">
                   {[1, 2, 3, 4].map((cell) => (
-                    <div key={cell} className="space-y-2">
+                    <div key={cell} className="sale-cell space-y-2">
                       <div className="h-3 w-16 rounded bg-muted" />
                       <div className="h-4 w-20 rounded bg-muted" />
                     </div>
                   ))}
                 </div>
                 <div className="sale-card-acts">
-                  <div className="h-9 w-36 rounded bg-muted" />
-                  <div className="h-9 w-9 rounded bg-muted" />
+                  <div className="h-8 w-36 rounded bg-muted" />
+                  <div className="h-8 w-8 rounded bg-muted" />
                 </div>
               </div>
             ))}

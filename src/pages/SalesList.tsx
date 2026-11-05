@@ -121,9 +121,11 @@ const SalesList = () => {
           ) : sales.length === 0 ? (
             <p className="text-sm text-muted-foreground">Nenhuma venda encontrada.</p>
           ) : (
-            sales.map((sale) => (
-              <SaleListCard key={sale.id} sale={sale} />
-            ))
+            <div className="sale-list">
+              {sales.map((sale) => (
+                <SaleListCard key={sale.id} sale={sale} />
+              ))}
+            </div>
           )}
         </CardContent>
       </Card>

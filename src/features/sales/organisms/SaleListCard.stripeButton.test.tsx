@@ -75,7 +75,7 @@ describe("dashboard Link Stripe button", () => {
     expect(stripe).toHaveTextContent("Link Stripe");
     expect(stripe.parentElement?.firstElementChild).toBe(stripe);
     expect(stripe.className).not.toContain("--success");
-    expect(stripe).toHaveClass("border");
+    expect(stripe).not.toHaveClass("border");
     const mark = stripe.querySelector("svg");
     expect(mark?.querySelector("path")?.getAttribute("d")).toMatch(/^M13\.976/);
     expect(mark).toHaveClass("h-4", "w-4");
@@ -85,9 +85,9 @@ describe("dashboard Link Stripe button", () => {
     );
 
     const viewLink = screen.getByRole("button", { name: "Ver link" });
-    expect(viewLink.querySelector("svg")).toHaveClass("h-4", "w-4");
-    expect(stripe.compareDocumentPosition(viewLink) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(viewLink).toHaveClass("border");
+    expect(viewLink.querySelector("svg")).toHaveClass("h-3.5", "w-3.5");
+    expect(viewLink.compareDocumentPosition(stripe) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(viewLink).not.toHaveClass("border");
     expect(viewLink.className).not.toContain("--success");
     expect(screen.queryByRole("button", { name: "Link de pagamento" })).not.toBeInTheDocument();
   });
@@ -100,8 +100,8 @@ describe("dashboard Link Stripe button", () => {
     expect(stripe.parentElement?.firstElementChild).toBe(stripe);
 
     const asaas = screen.getByRole("button", { name: "Link de pagamento" });
-    expect(stripe.compareDocumentPosition(asaas) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(asaas).toHaveClass("border");
+    expect(asaas.compareDocumentPosition(stripe) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(asaas).not.toHaveClass("border");
     expect(asaas.className).not.toContain("--success");
     expect(asaas.querySelector("svg path")?.getAttribute("d") ?? "").not.toMatch(/^M13\.976/);
   });
