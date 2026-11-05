@@ -355,7 +355,7 @@ const SaleListCard = ({ sale }: SaleListCardProps) => {
             {showWhatsapp ? (
               <button
                 type="button"
-                className={cn("sale-btn sale-icon-btn", !hasPaymentLink && "is-disabled")}
+                className={cn("sale-btn sale-icon-btn sale-wa", !hasPaymentLink && "is-disabled")}
                 aria-disabled={!hasPaymentLink}
                 aria-label={t("sales.actions.whatsapp")}
                 title={hasPaymentLink ? t("sales.actions.whatsappReady") : t("sales.actions.whatsappMissing")}

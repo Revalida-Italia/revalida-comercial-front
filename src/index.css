@@ -363,6 +363,9 @@ html {
 }
 .sale-btn:hover { background: rgba(36, 56, 79, 0.04); }
 .sale-btn.is-disabled { cursor: not-allowed; opacity: 0.55; }
+.sale-wa.is-disabled { opacity: 1; }
+.sale-acts-sec .sale-btn:not(.sale-danger) { color: #4a5b70; }
+.sale-acts-sec .sale-btn:not(.sale-danger):hover { color: #24384f; }
 .sale-btn-pay {
   background: rgba(47, 86, 121, 0.08);
   color: #2f5679;
@@ -422,6 +425,8 @@ html {
   .sale-split { width: auto; display: inline-flex; }
   .sale-split .sale-btn-pay { flex: none; }
   .sale-acts-sec { display: contents; }
+  .sale-acts-sec .sale-btn:not(.sale-wa):not(.sale-danger),
+  .sale-acts-sec .sale-btn:not(.sale-wa):not(.sale-danger):hover { color: #2f5679; }
   .sale-btn,
   .sale-caret { height: 30px; }
   .sale-acts-sec .sale-btn { width: auto; height: 30px; }
