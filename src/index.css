@@ -172,6 +172,27 @@ html {
 }
 
 .sale-card-id { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.sale-card-id:has(.sale-lead) {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+  grid-template-areas:
+    "tile name badge"
+    "tile client client"
+    "tile seller date";
+  column-gap: 8px;
+  row-gap: 2px;
+  align-items: center;
+}
+.sale-lead,
+.sale-card-id:has(.sale-lead) .sale-id-body,
+.sale-card-id:has(.sale-lead) .sale-meta,
+.sale-status-col { display: contents; }
+.sale-card-id:has(.sale-lead) .sale-tile { grid-area: tile; margin-right: 2px; }
+.sale-card-id:has(.sale-lead) .sale-name { grid-area: name; align-self: start; margin-bottom: 1px; }
+.sale-card-id:has(.sale-lead) .sale-badge { grid-area: badge; justify-self: end; align-self: start; }
+.sale-card-id:has(.sale-lead) .client { grid-area: client; }
+.sale-card-id:has(.sale-lead) .seller { grid-area: seller; }
+.sale-card-id:has(.sale-lead) .date { grid-area: date; justify-self: end; }
 .sale-tile {
   width: 40px;
   height: 40px;
@@ -185,7 +206,6 @@ html {
   font-weight: 700;
 }
 .sale-id-body { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 3px; }
-.sale-row-name { display: flex; align-items: flex-start; gap: 8px; min-width: 0; }
 .sale-card h2 { font-family: inherit; }
 .sale-name {
   margin: 0;
@@ -237,7 +257,7 @@ html {
 }
 .sale-meta .client,
 .sale-meta .seller,
-.sale-meta .date {
+.sale-card .date {
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -250,15 +270,15 @@ html {
 .sale-meta .client { flex: 1 0 100%; max-width: 100%; }
 .sale-meta .client-name,
 .sale-meta .seller-name,
-.sale-meta .date-text {
+.sale-card .date-text {
   overflow: hidden;
   text-overflow: ellipsis;
   min-width: 0;
 }
 .sale-meta .client-extra { flex: none; }
 .sale-meta .seller { flex: 1 1 auto; min-width: 0; }
-.sale-meta .date { flex: 0 0 auto; }
-.sale-meta .date-text { overflow: visible; text-overflow: clip; }
+.sale-card .date { flex: 0 0 auto; }
+.sale-card .date-text { overflow: visible; text-overflow: clip; }
 
 .sale-card-nums {
   background: #f3f6f9;
@@ -406,11 +426,22 @@ html {
 .sale-sec-label { display: none; }
 
 @container sales (min-width: 560px) {
+  .sale-card-id:has(.sale-lead) {
+    grid-template-columns: 40px minmax(0, 180px) minmax(0, 1fr) auto;
+    grid-template-areas:
+      "tile name name badge"
+      "tile client seller date";
+    column-gap: 10px;
+    row-gap: 3px;
+  }
+  .sale-card-id:has(.sale-lead) .sale-tile { margin-right: 0; }
+  .sale-card-id:has(.sale-lead) .sale-name { align-self: end; margin-bottom: 0; }
+  .sale-card-id:has(.sale-lead) .date { justify-self: end; }
   .sale-meta { flex-wrap: nowrap; overflow: hidden; }
   .sale-meta .client { flex: 0 1 auto; max-width: 180px; min-width: 0; }
   .sale-meta .seller { flex: 1 1 auto; min-width: 0; }
-  .sale-meta .date { flex: 0 0 auto; }
-  .sale-meta .date-text { overflow: visible; text-overflow: clip; }
+  .sale-card .date { flex: 0 0 auto; }
+  .sale-card .date-text { overflow: visible; text-overflow: clip; }
   .sale-card-nums { grid-template-columns: minmax(0, 1.35fr) repeat(3, minmax(0, 1fr)); }
   .sale-cell { padding: 0 10px; overflow: visible; }
   .sale-cell:nth-child(even),
@@ -447,23 +478,68 @@ html {
 @container sales (min-width: 940px) {
   .sale-card {
     display: grid;
-    grid-template-columns: minmax(260px, 1.3fr) minmax(420px, 1.1fr) max-content;
-    grid-template-areas: "id nums acts";
+    grid-template-columns: minmax(0, 1fr) 112px minmax(420px, 1fr) 235px;
     align-items: center;
     column-gap: 8px;
     row-gap: 0;
     padding: 10px 12px;
   }
-  .sale-card-id { grid-area: id; }
+  .sale-card > .sale-card-id { grid-column: 1 / 3; grid-row: 1; }
+  .sale-card-id:has(.sale-lead) { display: contents; }
+  .sale-lead {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+    grid-column: 1;
+    grid-row: 1;
+  }
+  .sale-card-id:has(.sale-lead) .sale-lead .sale-id-body {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+  .sale-card-id:has(.sale-lead) .sale-lead .sale-meta {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+    overflow: hidden;
+  }
+  .sale-lead .sale-name { margin-bottom: 0; }
+  .sale-status-col {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    justify-content: center;
+    gap: 4px;
+    grid-column: 2;
+    grid-row: 1;
+    width: 112px;
+    min-width: 112px;
+  }
   .sale-card-nums {
-    grid-area: nums;
+    grid-column: 3;
+    grid-row: 1;
     min-width: 0;
     overflow: hidden;
     padding: 6px 0;
-    grid-template-columns: minmax(0, 1.25fr) repeat(3, minmax(0, 1fr));
+    grid-template-columns: minmax(0, 150fr) repeat(3, minmax(0, 118fr));
   }
-  .sale-card-acts { grid-area: acts; justify-self: end; gap: 2px; }
-  .sale-cell { padding: 4px 10px; }
+  .sale-card-acts {
+    grid-column: 4;
+    grid-row: 1;
+    justify-self: stretch;
+    justify-content: flex-end;
+    gap: 2px;
+    width: 235px;
+    min-width: 235px;
+    max-width: 235px;
+  }
+  .sale-cell { align-items: flex-start; justify-content: center; padding: 4px 10px; text-align: left; }
   .sale-val,
   .sale-val-lg,
   .sale-comm { font-size: 13px; }
@@ -475,4 +551,26 @@ html {
   .sale-caret { height: 30px; }
   .sale-btn-pay { padding: 0 8px; }
   .sale-acts-sec .sale-icon-btn { width: 28px; height: 30px; padding: 0; }
+  .sale-card-id:has(.sale-lead) .sale-status-col .sale-badge {
+    margin-top: 0;
+    align-self: flex-end;
+  }
+}
+
+/*
+ * Wide one-row. Same tracks on every card:
+ * minmax(260px, 1fr) | 112px status | panel | 235px actions (link split + 5 icons).
+ * Panel tracks keep the 150:118 ratio. 150+118×3 does not fit beside the
+ * 260px product floor here, so the tracks are 143 / 108 / 108 / 108.
+ */
+@container sales (min-width: 1130px) {
+  .sale-card {
+    grid-template-columns: minmax(260px, 1fr) 112px 467px 235px;
+  }
+  .sale-card-nums {
+    width: 467px;
+    max-width: 467px;
+    grid-template-columns: 143px 108px 108px 108px;
+  }
+  .sale-cell { padding: 4px 8px; }
 }

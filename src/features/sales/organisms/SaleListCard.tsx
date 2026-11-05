@@ -209,38 +209,40 @@ const SaleListCard = ({ sale }: SaleListCardProps) => {
         className={cn("sale-card", isArchived && "is-archived")}
       >
         <div className="sale-card-id">
-          <div className="sale-tile" aria-hidden="true">
-            {initials ?? <GraduationCap className="h-[18px] w-[18px]" />}
-          </div>
-          <div className="sale-id-body">
-            <div className="sale-row-name">
+          <div className="sale-lead">
+            <div className="sale-tile" aria-hidden="true">
+              {initials ?? <GraduationCap className="h-[18px] w-[18px]" />}
+            </div>
+            <div className="sale-id-body">
               <h2 id={nameId} title={productName} className="sale-name">
                 {productName}
               </h2>
-              {hideStatus ? null : (
-                <span className={cn("sale-badge", `is-${isArchived ? "neutral" : statusKind(sale.status)}`)}>
-                  <i aria-hidden="true" />
-                  {statusLabel}
+              <div className="sale-meta">
+                <span className="client" title={clientTitle}>
+                  <Users className="sale-meta-icon" aria-hidden="true" />
+                  <span className="client-name">{names[0] ?? clientTitle}</span>
+                  {extraClients > 0 ? (
+                    <span className="client-extra">{t("sales.card.clientsExtra", { count: extraClients })}</span>
+                  ) : null}
                 </span>
-              )}
+                <span className="seller" title={sellerName}>
+                  <UserRound className="sale-meta-icon" aria-hidden="true" />
+                  <span className="seller-name">{sellerName}</span>
+                </span>
+              </div>
             </div>
-            <div className="sale-meta">
-              <span className="client" title={clientTitle}>
-                <Users className="sale-meta-icon" aria-hidden="true" />
-                <span className="client-name">{names[0] ?? clientTitle}</span>
-                {extraClients > 0 ? (
-                  <span className="client-extra">{t("sales.card.clientsExtra", { count: extraClients })}</span>
-                ) : null}
+          </div>
+          <div className="sale-status-col">
+            {hideStatus ? null : (
+              <span className={cn("sale-badge", `is-${isArchived ? "neutral" : statusKind(sale.status)}`)}>
+                <i aria-hidden="true" />
+                {statusLabel}
               </span>
-              <span className="seller" title={sellerName}>
-                <UserRound className="sale-meta-icon" aria-hidden="true" />
-                <span className="seller-name">{sellerName}</span>
-              </span>
-              <span className="date" title={soldOn}>
-                <Calendar className="sale-meta-icon" aria-hidden="true" />
-                <span className="date-text">{soldOn}</span>
-              </span>
-            </div>
+            )}
+            <span className="date" title={soldOn}>
+              <Calendar className="sale-meta-icon" aria-hidden="true" />
+              <span className="date-text">{soldOn}</span>
+            </span>
           </div>
         </div>
 
