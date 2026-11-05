@@ -94,8 +94,8 @@ describe("dashboard sale card cancelled subscription", () => {
 
     expect(screen.queryByText("Pendente")).not.toBeInTheDocument();
     expect(screen.queryByText("PENDING")).not.toBeInTheDocument();
-    expect(screen.getByText("4 de 4 assinaturas pagas")).toBeInTheDocument();
-    expect(screen.queryByText("4 de 12 assinaturas pagas")).not.toBeInTheDocument();
+    expect(screen.getByText("4 de 4")).toBeInTheDocument();
+    expect(screen.queryByText("4 de 12")).not.toBeInTheDocument();
     expect(screen.queryByText(/8 parcela/)).not.toBeInTheDocument();
     expect(screen.getByText("Assinatura cancelada")).toBeInTheDocument();
     expect(screen.queryByText("Assinatura quitada")).not.toBeInTheDocument();

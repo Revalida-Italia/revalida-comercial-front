@@ -57,15 +57,14 @@ describe("sale list client names and actions", () => {
     clearSession();
   });
 
-  it("shows every client name on the card, with the full line on the title and the count in the cell", () => {
+  it("shows the first client and a +N count, with every name on the title", () => {
     renderCard(sale(["Maria", "João", "Ana"]));
 
     const line = screen.getByTitle("Maria, João, Ana");
     expect(line).toHaveTextContent("Maria");
     expect(line).toHaveTextContent("+2");
     expect(line).not.toHaveTextContent("João");
-    expect(screen.getByText("Clientes")).toBeInTheDocument();
-    expect(screen.getByText("3")).toBeInTheDocument();
+    expect(screen.queryByText("Clientes")).not.toBeInTheDocument();
   });
 
   it("shows a single client name in the header line", () => {

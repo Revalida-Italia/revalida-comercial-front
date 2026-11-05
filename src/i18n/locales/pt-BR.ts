@@ -50,6 +50,8 @@ export const ptBR = {
         one: "{paid} de {total} assinatura paga",
         other: "{paid} de {total} assinaturas pagas",
       },
+      clientsExtra: "+{count}",
+      paidShort: "{paid} de {total}",
       pending: {
         one: "{count} pendente",
         other: "{count} pendentes",
@@ -86,6 +88,7 @@ export const ptBR = {
       more: "Mais ações",
       edit: "Editar",
       archive: "Arquivar",
+      unarchive: "Desarquivar",
       remove: "Excluir",
       archived: "Arquivada",
       removeBlocked: "Venda com registros pagos — use Arquivar",

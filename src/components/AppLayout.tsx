@@ -16,11 +16,11 @@ const AppLayout = () => {
 
   return (
     <div className="flex h-[100dvh] overflow-hidden bg-background">
-      <div className="hidden h-full md:flex">
+      <div className="hidden h-full lg:flex">
         <AppSidebar />
       </div>
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        <div className="flex items-center border-b border-border/60 px-3 py-2 md:hidden">
+        <div className="flex items-center border-b border-border/60 px-3 py-2 lg:hidden">
           <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
             <SheetTrigger asChild>
               <Button
