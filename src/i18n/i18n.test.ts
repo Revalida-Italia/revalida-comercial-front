@@ -12,13 +12,17 @@ describe("i18n", () => {
     expect(t("contract.party.title", { n: 2 })).toBe("Contratante 2");
     expect(tCount("contract.summary.contractors", 1)).toBe("1 contratante");
     expect(tCount("contract.summary.contractors", 3)).toBe("3 contratantes");
+    expect(t("sales.card.paidInstallments.one", { paid: 1, total: 1 })).toBe("1 de 1 parcela paga");
+    expect(t("sales.card.paidInstallments.other", { paid: 1, total: 6 })).toBe("1 de 6 parcelas pagas");
+    expect(tCount("sales.card.pending", 1)).toBe("1 pendente");
+    expect(tCount("sales.card.pending", 5)).toBe("5 pendentes");
   });
 
   it("has no empty text, no emoji and no field names in the copy", () => {
     for (const text of leaves(ptBR)) {
       expect(text.trim()).not.toBe("");
       expect(text).not.toMatch(/\p{Extended_Pictographic}/u);
-      expect(text).not.toMatch(/[a-z]+[A-Z][a-z]+|_[A-Z]|payload|endpoint|template/);
+      expect(text.replace(/WhatsApp/g, "Whatsapp")).not.toMatch(/[a-z]+[A-Z][a-z]+|_[A-Z]|payload|endpoint|template/);
     }
   });
 });

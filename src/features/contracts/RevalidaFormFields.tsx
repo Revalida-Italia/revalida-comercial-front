@@ -491,7 +491,7 @@ export function ObservationsSection({
 }) {
   const [open, setOpen] = useState(value.trim() !== "");
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const title = t(included ? "contract.sections.notesIncluded" : "contract.sections.notes");
+  const title = t("contract.sections.notes");
 
   return (
     <section aria-labelledby="contract-notes-title">

@@ -182,7 +182,7 @@ const AppSidebar = () => {
   return (
     <aside
       className={cn(
-        "sticky top-0 flex h-[100dvh] w-64 shrink-0 flex-col overflow-hidden gradient-primary",
+        "flex h-full w-64 shrink-0 flex-col overflow-hidden gradient-primary",
         isAdmin && "gradient-primary-admin ring-1",
         isFixedCostsManager && "gradient-primary-costs-manager ring-1 ring-emerald-400/20",
       )}
@@ -253,8 +253,9 @@ const AppSidebar = () => {
               onClick={() => setIsEditingName(true)}
               className="rounded-full bg-sidebar-primary/15 p-2 text-sidebar-primary transition-colors hover:bg-sidebar-primary/25"
               title="Editar nome"
+              aria-label="Editar nome"
             >
-              <PenLine className="h-4 w-4" />
+              <PenLine className="h-4 w-4" aria-hidden="true" />
             </button>
           )}
           {isEditingName && (

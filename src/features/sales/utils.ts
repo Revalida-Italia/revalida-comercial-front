@@ -1,16 +1,25 @@
-import { SALE_STATUS_OPTIONS } from "@/features/new-sale/constants";
 import type { SalePayment, SaleRecord } from "@/services/commercialApi";
+import { t, type MessageKey } from "@/i18n";
 import { toNumberOrZero } from "@/shared/utils/number";
 import { getPaymentGrossValue, toPaymentGrossValueContext } from "@/shared/utils/payment";
 import { isCancelledStatus } from "@/features/sales/utils/commissionStatus";
 
-const SALE_STATUS_LABELS = Object.fromEntries(
-  SALE_STATUS_OPTIONS.map((option) => [option.value, option.label]),
-) as Record<string, string>;
+const SALE_STATUS_KEYS: Record<string, MessageKey> = {
+  ACTIVE: "sales.status.active",
+  PENDING: "sales.status.pending",
+  PAID: "sales.status.paid",
+  PAGA: "sales.status.paid",
+  CONCLUDED: "sales.status.concluded",
+  CANCELLED: "sales.status.cancelled",
+  CANCELED: "sales.status.cancelled",
+  ARCHIVED: "sales.status.archived",
+  OVERDUE: "sales.status.overdue",
+};
 
 export function saleStatusLabel(status?: string | null): string {
-  const normalized = String(status ?? "").toUpperCase();
-  return SALE_STATUS_LABELS[normalized] ?? (status?.trim() || "—");
+  const normalized = String(status ?? "").trim().toUpperCase();
+  const key = SALE_STATUS_KEYS[normalized];
+  return key ? t(key) : t("sales.status.unknown");
 }
 
 export type SalePaymentsProgress = {
@@ -181,18 +190,22 @@ export const getSaleCommissionValue = (sale: SaleRecord): number => {
 };
 
 export const getPrimaryClientName = (sale: SaleRecord): string =>
-  sale.clients?.[0]?.nameCiphertext?.trim() || "Cliente";
+  sale.clients?.[0]?.nameCiphertext?.trim() || t("sales.card.clientFallback");
 
 export const getPrimaryClientPhone = (sale: SaleRecord): string =>
   sale.clients?.[0]?.telefone?.trim() || "";
 
-export const getSaleCustomerNames = (sale: SaleRecord): string => {
-  const names = (sale.clients ?? [])
+export function saleClientNames(sale: Pick<SaleRecord, "clients">): string[] {
+  return (sale.clients ?? [])
     .map((client) => client.nameCiphertext?.trim())
     .filter((name): name is string => Boolean(name));
+}
+
+export const getSaleCustomerNames = (sale: SaleRecord): string => {
+  const names = saleClientNames(sale);
 
   if (names.length === 0) {
-    return "Cliente não informado";
+    return t("sales.card.unknownClient");
   }
 
   if (names.length === 1) {
@@ -203,7 +216,7 @@ export const getSaleCustomerNames = (sale: SaleRecord): string => {
 };
 
 export const getSaleProductName = (sale: SaleRecord): string =>
-  sale.items?.[0]?.product?.name ?? "Produto não informado";
+  sale.items?.[0]?.product?.name ?? t("sales.card.unknownProduct");
 
 export const SELF_SERVICE_SELLER_LABEL = "Self-service";
 
@@ -249,14 +262,14 @@ export const getSaleSellerInfo = (sale: SaleRecord): string => {
   }
 
   if (!sale.seller) {
-    return "Vendedor não informado";
+    return t("sales.card.sellerUnknown");
   }
 
   if (sale.seller.name) {
-    return `${sale.seller.name} (${sale.seller.email || "sem email"})`;
+    return `${sale.seller.name} (${sale.seller.email || t("sales.card.noEmail")})`;
   }
 
-  return sale.seller.email || "Vendedor não informado";
+  return sale.seller.email || t("sales.card.sellerUnknown");
 };
 
 export const saleHasPaidRecords = (sale: SaleRecord): boolean => {
