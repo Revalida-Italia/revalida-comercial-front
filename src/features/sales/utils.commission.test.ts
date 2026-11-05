@@ -122,6 +122,12 @@ describe("cancelled Hotmart subscription", () => {
     expect(saleStatusLabel("PENDING")).toBe("Pendente");
     expect(saleStatusLabel("CONCLUDED")).toBe("Concluída");
     expect(saleStatusLabel("ARCHIVED")).toBe("Arquivada");
+    expect(saleStatusLabel("ACTIVE")).toBe("Ativa");
+    expect(saleStatusLabel("PAID")).toBe("Paga");
+    expect(saleStatusLabel("CANCELLED")).toBe("Cancelada");
+    expect(saleStatusLabel("active")).toBe("Ativa");
+    expect(saleStatusLabel("NOT_A_STATUS")).toBe("—");
+    expect(saleStatusLabel("ACTIVE")).not.toBe("ACTIVE");
     expect(formatPaymentChargeLabel({ gateway: "HOTMART", billingType: null })).toBeNull();
     expect(formatPaymentChargeLabel({ gateway: "HOTMART", billingType: "UNDEFINED" })).toBeNull();
     expect(formatPaymentChargeLabel({ gateway: "HOTMART", billingType: "CREDIT_CARD" })).toBe("Cobrança: Cartão");

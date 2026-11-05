@@ -94,18 +94,16 @@ describe("dashboard sale card cancelled subscription", () => {
 
     expect(screen.queryByText("Pendente")).not.toBeInTheDocument();
     expect(screen.queryByText("PENDING")).not.toBeInTheDocument();
-    expect(screen.getByText("4/4 assin. pagas")).toBeInTheDocument();
-    expect(screen.queryByText("4/12 assin. pagas")).not.toBeInTheDocument();
+    expect(screen.getByText("4 de 4 assinaturas pagas")).toBeInTheDocument();
+    expect(screen.queryByText("4 de 12 assinaturas pagas")).not.toBeInTheDocument();
     expect(screen.queryByText(/8 parcela/)).not.toBeInTheDocument();
     expect(screen.getByText("Assinatura cancelada")).toBeInTheDocument();
     expect(screen.queryByText("Assinatura quitada")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Marcar como pago" })).not.toBeInTheDocument();
 
-    const commission = screen.getByText((_, element) => {
-      const normalized = (element?.textContent ?? "").replace(/[\u00a0\u202f]/g, " ");
-      return element?.classList.contains("text-primary") === true && normalized.includes("R$ 40,00");
-    });
-    expect((commission.textContent ?? "").replace(/[\u00a0\u202f]/g, " ")).not.toContain("120,00");
+    expect(screen.getByText("Comissão")).toBeInTheDocument();
+    expect(screen.getByText(/40,00/)).toBeInTheDocument();
+    expect(screen.queryByText(/120,00/)).not.toBeInTheDocument();
   });
 
   it("hides the pending badge and payment links when the subscription is cancelled", () => {
