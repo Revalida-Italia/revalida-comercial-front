@@ -497,9 +497,11 @@ html {
   .sale-card-id:has(.sale-lead) .sale-lead .sale-id-body {
     display: flex;
     flex-direction: column;
+    align-items: stretch;
     gap: 3px;
     min-width: 0;
     flex: 1 1 auto;
+    text-align: left;
   }
   .sale-card-id:has(.sale-lead) .sale-lead .sale-meta {
     display: flex;
@@ -509,7 +511,13 @@ html {
     min-width: 0;
     overflow: hidden;
   }
-  .sale-lead .sale-name { margin-bottom: 0; }
+  .sale-card-id:has(.sale-lead) .sale-lead .sale-name {
+    align-self: stretch;
+    justify-self: start;
+    text-align: left;
+    width: 100%;
+    margin-bottom: 0;
+  }
   .sale-status-col {
     display: flex;
     flex-direction: column;
@@ -533,7 +541,7 @@ html {
     grid-column: 4;
     grid-row: 1;
     justify-self: stretch;
-    justify-content: flex-end;
+    justify-content: flex-start;
     gap: 2px;
     width: 235px;
     min-width: 235px;
