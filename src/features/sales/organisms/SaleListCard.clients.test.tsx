@@ -70,6 +70,8 @@ describe("sale list client names and actions", () => {
     const line = screen.getByTitle("Maria");
     expect(line).toHaveTextContent("Maria");
     expect(line).not.toHaveTextContent("+");
+    expect(line.className).toContain("sale-client-name");
+    expect(line.className).not.toContain("truncate");
   });
 
   it("keeps Editar, Arquivar and Excluir on the card, with the delete confirmation", async () => {

@@ -1,7 +1,10 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { SaleContract } from "@/services/contractsApi";
+import type { SaleRecord } from "@/services/commercialApi";
+import SaleDetailPreview from "@/features/sales/organisms/SaleDetailPreview";
 import SignedContractActions from "./SignedContractActions";
 
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
@@ -91,5 +94,46 @@ describe("SignedContractActions", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Criar acesso" }));
     expect(await screen.findByText("Não foi possível criar o acesso de fail@revalida.com.")).toBeInTheDocument();
     expect(container.textContent).not.toMatch(/core timeout/);
+  });
+
+  it("opens a module sale and still creates access", async () => {
+    vi.mocked(createPortalStudents).mockResolvedValue({
+      contractId: "ct_1",
+      results: [{ signerId: "s1", email: "ana@revalida.com", name: "Ana Souza", status: "created", coreUserId: "usr_1" }],
+      summary: { created: 1, alreadyExists: 0, failed: 0 },
+    });
+    const sale = {
+      id: "4ca850af-1b34-406d-9c3f-55e42357de6c",
+      sellerId: "seller-1",
+      currency: "BRL",
+      status: "PENDING",
+      contractValue: 1000,
+      createdAt: "2026-08-20T12:00:00.000Z",
+      updatedAt: "2026-08-20T12:00:00.000Z",
+      soldAt: "2026-08-20",
+      seller: { name: "Ana Vendedora" },
+      items: [{
+        id: "i1",
+        saleId: "4ca850af-1b34-406d-9c3f-55e42357de6c",
+        kind: "module",
+        moduleId: "mod-1",
+        moduleName: "Clínica médica",
+        startsAt: "2026-08-20",
+        endsAt: "2027-08-20",
+      }],
+    } as SaleRecord;
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <MemoryRouter>
+          <SaleDetailPreview sale={sale} readOnly />
+          <SignedContractActions contract={signedContract()} />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+    expect(screen.getByText("Clínica médica")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Criar acesso dos alunos" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Criar acesso" }));
+    await waitFor(() => expect(createPortalStudents).toHaveBeenCalledWith("ct_1"));
   });
 });

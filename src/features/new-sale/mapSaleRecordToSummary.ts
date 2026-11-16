@@ -7,7 +7,8 @@ import { getSaleCommissionValue } from "@/features/sales/utils";
 import { mapSaleToForm } from "./mapSaleToForm";
 import type { ConfiguredSalePayment, FilledSaleCustomer, SaleSummaryItem } from "./types";
 import { buildCourseSummary, type CourseSummaryModel } from "./courses/copy";
-import { draftFromItems, readCourseItems } from "./courses/model";
+import { draftFromItems, readCourseItems, servicesFromRecord } from "./courses/model";
+import type { TeachingCatalog } from "./courses/types";
 
 export type SaleSummaryFromRecordProps = {
   filledCustomers: FilledSaleCustomer[];
@@ -47,8 +48,8 @@ export function saleSummaryPropsFromRecord(sale: SaleRecord): SaleSummaryFromRec
   const courseItems = readCourseItems(items);
   const courseSummary = courseItems.length > 0
     ? buildCourseSummary(
-      draftFromItems(courseItems, courseItems[0]?.startsAt || ""),
-      [],
+      { ...draftFromItems(courseItems, courseItems[0]?.startsAt || ""), services: servicesFromRecord(sale) },
+      { modules: [], courses: [] } satisfies TeachingCatalog,
       (sale.clients ?? []).map((client) => client.nameCiphertext || ""),
     )
     : undefined;

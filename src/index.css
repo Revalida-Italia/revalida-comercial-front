@@ -179,6 +179,7 @@ html {
 }
 .sale-card-acts .sale-action { height: 44px; }
 .sale-money { white-space: nowrap; }
+.sale-client-name { overflow-wrap: break-word; white-space: normal; }
 .sale-zone-label { display: block; }
 .contract-form { container-type: inline-size; container-name: contract; }
 .contract-fields { display: grid; gap: 1rem; min-width: 0; grid-template-columns: minmax(0, 1fr); }
@@ -208,7 +209,8 @@ html {
   .sale-zone-payments p { white-space: nowrap; }
   .sale-zone { min-width: 0; overflow: hidden; padding: 0 10px; }
   .sale-zone-seller,
-  .sale-zone-seller p { overflow-wrap: break-word; white-space: normal; }
+  .sale-zone-seller p,
+  .sale-client-name { overflow-wrap: break-word; white-space: normal; }
   .sale-zone-client { padding-left: 0; }
   .sale-zone-label { display: none; }
   .sale-zone-status { justify-self: start; }
@@ -224,6 +226,11 @@ html {
     grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) 112px 220px;
   }
   .sale-card { height: 72px; }
+  .sale-client-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
   .sale-zone { padding: 0 14px; }
   .sale-zone-client { padding-left: 0; }
   .sale-list-head > span { padding-left: 14px; }

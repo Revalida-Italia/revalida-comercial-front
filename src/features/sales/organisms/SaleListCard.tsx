@@ -221,7 +221,7 @@ const SaleListCard = ({ sale }: SaleListCardProps) => {
         )}
       >
         <div className="sale-zone sale-zone-client min-w-0">
-          <h2 id={nameId} title={clientTitle} className="truncate text-[15px] font-semibold leading-snug">
+          <h2 id={nameId} title={clientTitle} className="sale-client-name text-[15px] font-semibold leading-snug">
             {names[0] ?? clientTitle}
           </h2>
           {names.slice(1).length > 0 ? <p className="truncate text-[13px] text-muted-foreground">{names.slice(1).join(", ")}</p> : null}
