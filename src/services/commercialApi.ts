@@ -303,13 +303,10 @@ export interface CreateSaleInput {
   clients: CreateSaleClient[];
   items: CreateSaleItem[];
   payments: CreateSalePayment[];
-  /** Additional services. Omitted means all Não. */
-  services?: {
-    translationIncluded: boolean;
-    apostilleIncluded: boolean;
-    postalExpensesIncluded: boolean;
-    decreeIncluded: boolean;
-  };
+  translationIncluded?: boolean;
+  apostilleIncluded?: boolean;
+  postalExpensesIncluded?: boolean;
+  decreeIncluded?: boolean;
 }
 
 export type SaleStatus = "PENDING" | "CONCLUDED" | "ARCHIVED";
@@ -353,13 +350,10 @@ export interface UpdateSaleInput {
   clients?: UpdateSaleClient[];
   items?: UpdateSaleItem[];
   payments?: UpdateSalePayment[];
-  /** Omitted on a legacy sale. On a course sale, omitted leaves the saved values. */
-  services?: {
-    translationIncluded: boolean;
-    apostilleIncluded: boolean;
-    postalExpensesIncluded: boolean;
-    decreeIncluded: boolean;
-  };
+  translationIncluded?: boolean;
+  apostilleIncluded?: boolean;
+  postalExpensesIncluded?: boolean;
+  decreeIncluded?: boolean;
 }
 
 interface ListWrapper<T> {
