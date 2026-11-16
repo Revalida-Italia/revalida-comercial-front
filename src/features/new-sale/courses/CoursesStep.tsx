@@ -286,15 +286,23 @@ export function CoursesStep({ catalog, loading, error, onRetry, draft, onChange,
                   ref={(el) => { if (el) nodes.current.set(key, el); else nodes.current.delete(key); }}
                   onFocus={() => setActiveKey(key)}
                   onKeyDown={(event) => onTreeKey(event, { key, course: match.course })}
-                  className="flex min-h-[52px] items-center gap-2 rounded-sm py-1.5 pr-1 outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2F5679]"
+                  onClick={(event) => {
+                    if ((event.target as HTMLElement).closest("[data-row-ignore]")) return;
+                    onChange(toggleCourse(draft, match.course));
+                  }}
+                  className="flex min-h-[52px] cursor-pointer items-center gap-2 rounded-sm py-1.5 pr-1 outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2F5679]"
                 >
                   <button
                     type="button"
                     tabIndex={-1}
-                    className="grid h-11 w-11 shrink-0 place-items-center text-[#5D6F83]"
+                    data-row-ignore=""
+                    className="grid h-11 w-11 shrink-0 cursor-pointer place-items-center text-[#5D6F83]"
                     aria-label={t("sale.courses.toggle", { curso: match.course.name })}
                     aria-expanded={isOpen}
-                    onClick={() => setOpen(match.course.id, !isOpen)}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setOpen(match.course.id, !isOpen);
+                    }}
                   >
                     <ChevronRight className={cn("h-4 w-4 transition-transform", isOpen && "rotate-90")} />
                   </button>
@@ -304,7 +312,11 @@ export function CoursesStep({ catalog, loading, error, onRetry, draft, onChange,
                     aria-checked={checked}
                     aria-label={match.course.name}
                     tabIndex={-1}
-                    onClick={() => onChange(toggleCourse(draft, match.course))}
+                    data-row-ignore=""
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onChange(toggleCourse(draft, match.course));
+                    }}
                     className="grid h-11 w-11 shrink-0 place-items-center"
                   >
                     <Box state={state} />
@@ -346,7 +358,11 @@ export function CoursesStep({ catalog, loading, error, onRetry, draft, onChange,
                           ref={(el) => { if (el) nodes.current.set(modNode, el); else nodes.current.delete(modNode); }}
                           onFocus={() => setActiveKey(modNode)}
                           onKeyDown={(event) => onTreeKey(event, { key: modNode, course: match.course, moduleId: mod.id })}
-                          className="flex min-h-11 items-center gap-2 rounded-sm py-1 pr-1 outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2F5679]"
+                          onClick={(event) => {
+                            if ((event.target as HTMLElement).closest("[data-row-ignore]")) return;
+                            onChange(toggleModule(draft, match.course, mod.id));
+                          }}
+                          className="flex min-h-11 cursor-pointer items-center gap-2 rounded-sm py-1 pr-1 outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2F5679]"
                         >
                           <button
                             type="button"
@@ -354,7 +370,11 @@ export function CoursesStep({ catalog, loading, error, onRetry, draft, onChange,
                             aria-checked={on}
                             aria-label={mod.name}
                             tabIndex={-1}
-                            onClick={() => onChange(toggleModule(draft, match.course, mod.id))}
+                            data-row-ignore=""
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              onChange(toggleModule(draft, match.course, mod.id));
+                            }}
                             className="grid h-11 w-11 shrink-0 place-items-center"
                           >
                             <Box state={on ? "all" : "none"} />
