@@ -28,7 +28,7 @@ import { listCourseCatalog } from "./courses/catalogApi";
 import { buildCourseSummary } from "./courses/copy";
 import { todayIso } from "./courses/dates";
 import { CoursesStep } from "./courses/CoursesStep";
-import { continueState, emptyDraft, toCourseSaleItems, toSaleServices } from "./courses/model";
+import { continueState, emptyDraft, toCourseSaleItems } from "./courses/model";
 
 type PaymentValueLike = {
   amount: string | number;
@@ -329,7 +329,10 @@ const NewSaleFeature = () => {
           ...(c.email ? { email: c.email } : {}),
         })),
         items: courseItems,
-        services: toSaleServices(courseDraft.services),
+        translationIncluded: courseDraft.services.translation,
+        apostilleIncluded: courseDraft.services.apostille,
+        postalExpensesIncluded: courseDraft.services.postal,
+        decreeIncluded: courseDraft.services.decree,
         payments: configuredPayments.map((payment) => ({
           gateway: payment.gateway,
           type: payment.paymentType,

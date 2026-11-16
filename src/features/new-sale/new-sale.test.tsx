@@ -156,7 +156,7 @@ describe("new sale", () => {
     expect(createSale).toHaveBeenCalledTimes(1);
   });
 
-  it("sends Tradução juramentada as Sim inside services", async () => {
+  it("sends Tradução juramentada as Sim on the sale itself", async () => {
     setProfile({ sub: "seller-1", email: "s@example.com", name: "Seller", role: "SELLER", roles: ["SELLER"] });
     renderWizard();
 
@@ -164,12 +164,10 @@ describe("new sale", () => {
 
     await waitFor(() => expect(createSale).toHaveBeenCalled());
     const body = vi.mocked(createSale).mock.calls[0][0];
-    expect(body.services).toEqual({
-      translationIncluded: true,
-      apostilleIncluded: false,
-      postalExpensesIncluded: false,
-      decreeIncluded: false,
-    });
-    expect(body).not.toHaveProperty("translationIncluded");
+    expect(body.translationIncluded).toBe(true);
+    expect(body.apostilleIncluded).toBe(false);
+    expect(body.postalExpensesIncluded).toBe(false);
+    expect(body.decreeIncluded).toBe(false);
+    expect(body).not.toHaveProperty("services");
   });
 });

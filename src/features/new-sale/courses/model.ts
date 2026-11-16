@@ -190,16 +190,6 @@ export function servicesFromRecord(sale: ServiceFlagSource): SaleServices {
   };
 }
 
-/** Body of `services` on POST/PATCH /sales. Names match the back. */
-export function toSaleServices(services: SaleServices) {
-  return {
-    translationIncluded: services.translation === true,
-    apostilleIncluded: services.apostille === true,
-    postalExpensesIncluded: services.postal === true,
-    decreeIncluded: services.decree === true,
-  };
-}
-
 export function moduleById(catalog: TeachingCatalog, moduleId: string): CatalogModule | undefined {
   return asCatalog(catalog).modules.find((item) => item.id === moduleId);
 }

@@ -39,7 +39,7 @@ import { buildCourseSummary } from "./courses/copy";
 import { todayIso } from "./courses/dates";
 import { CoursesStep } from "./courses/CoursesStep";
 import { LegacyProductsStep } from "./courses/LegacyProductsStep";
-import { continueState, draftFromItems, emptyDraft, isLegacySale, readCourseItems, toCourseSaleItems, toSaleServices } from "./courses/model";
+import { continueState, draftFromItems, emptyDraft, isLegacySale, readCourseItems, toCourseSaleItems } from "./courses/model";
 
 type PaymentValueLike = {
   amount: string | number;
@@ -389,7 +389,12 @@ const EditSaleFeature = () => {
           ...(c.email ? { email: c.email } : {}),
         })),
         items: legacy ? legacyItems : courseItems,
-        ...(!legacy ? { services: toSaleServices(courseDraft.services) } : {}),
+        ...(!legacy ? {
+          translationIncluded: courseDraft.services.translation,
+          apostilleIncluded: courseDraft.services.apostille,
+          postalExpensesIncluded: courseDraft.services.postal,
+          decreeIncluded: courseDraft.services.decree,
+        } : {}),
         payments: payments
           .filter((payment) => Number(payment.amount) > 0 && payment.gateway && payment.paymentType)
           .map((payment) => {

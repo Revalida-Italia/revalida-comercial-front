@@ -18,7 +18,6 @@ import {
   readCourseItems,
   servicesFromRecord,
   toCourseSaleItems,
-  toSaleServices,
   toggleCourse,
   toggleModule,
 } from "./model";
@@ -193,7 +192,7 @@ describe("catalog and contract lines", () => {
     ]);
   });
 
-  it("lists a saved module when the catalog array is missing and nests service flags", () => {
+  it("lists a saved module when the catalog array is missing", () => {
     const draft = draftFromItems([{
       kind: "module",
       moduleId: "mod-1",
@@ -204,13 +203,7 @@ describe("catalog and contract lines", () => {
       endsAt: "2027-08-20",
     }], "2026-08-20");
     expect(listItems(draft, [] as never).map((item) => item.name)).toEqual(["Clínica médica"]);
-    expect(toSaleServices({ translation: true, apostille: false, postal: false, decree: false })).toEqual({
-      translationIncluded: true,
-      apostilleIncluded: false,
-      postalExpensesIncluded: false,
-      decreeIncluded: false,
-    });
-    expect(servicesFromRecord({ services: { translationIncluded: true } }).translation).toBe(true);
+    expect(servicesFromRecord({ translationIncluded: true }).translation).toBe(true);
   });
 
   it("writes one clause line per item", () => {
