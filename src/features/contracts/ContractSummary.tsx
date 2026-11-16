@@ -128,7 +128,7 @@ export default function ContractSummary(props: ContractSummaryProps) {
                 <li key={issue.id}>
                   <button
                     type="button"
-                    className="text-left text-foreground underline decoration-border underline-offset-4 hover:decoration-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    className="text-left text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     onClick={() => focusField(issue.fieldId)}
                   >
                     {issue.summary}

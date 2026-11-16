@@ -136,7 +136,7 @@ describe("validateRevalidaForm", () => {
     const issues = validateRevalidaForm(s, catalog, { phases: [] });
     expect(issues.map((i) => i.summary)).toEqual([
       "Escolha pelo menos um produto ou serviço.",
-      "Falta: fim da vigência",
+      "Falta: fim do acesso",
       "Cadastre o pagamento da venda para gerar o contrato.",
       "Falta: cidade da assinatura",
     ]);

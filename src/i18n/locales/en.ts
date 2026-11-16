@@ -132,6 +132,8 @@ export const en = {
       pick: "Choose courses in sale",
     },
     term: { ...ptBR.contract.term, coversAll: "Covers all items" },
+    summary: { ...ptBR.contract.summary, termMissing: "Access end not set" },
+    missing: { ...ptBR.contract.missing, termEnd: "Missing: access end" },
     doc: {
       wholeCourse: "{curso}: whole course.",
       module: "{curso} — module {modulo}.",

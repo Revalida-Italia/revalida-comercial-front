@@ -316,7 +316,7 @@ describe("Gerar contrato page", () => {
     fireEvent.click(reason);
     expect(document.activeElement).toBe(byId("contract-party-0-email"));
     expect(screen.getByRole("button", { name: "Escolha pelo menos um produto ou serviço." })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Falta: fim da vigência" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Falta: fim do acesso" })).toBeInTheDocument();
     // not shown as an error before the user touches anything
     expect(byId("contract-party-0-email")).not.toHaveAttribute("aria-invalid");
   });

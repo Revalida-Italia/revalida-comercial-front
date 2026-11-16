@@ -131,6 +131,8 @@ export const es = {
       pick: "Elegir cursos en la venta",
     },
     term: { ...ptBR.contract.term, coversAll: "Cubre todos los elementos" },
+    summary: { ...ptBR.contract.summary, termMissing: "Fin del acceso no definido" },
+    missing: { ...ptBR.contract.missing, termEnd: "Falta: fin del acceso" },
     doc: {
       wholeCourse: "{curso}: curso completo.",
       module: "{curso} — módulo {modulo}.",
