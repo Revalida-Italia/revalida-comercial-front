@@ -1,4 +1,5 @@
 import type { SaleItem } from "@/services/commercialApi";
+import type { CreateSaleItem } from "@/services/commercialApi";
 import type {
   CatalogCourse,
   CourseDraft,
@@ -50,9 +51,25 @@ export function isCourseSaleItem(item: Pick<SaleItem, "kind" | "courseId" | "pro
 }
 
 /** A sale that still stores generic products, and none of the course items. */
-export function isLegacySale(items: Array<Pick<SaleItem, "kind" | "courseId" | "productId">> | undefined): boolean {
+export function isLegacySale(
+  items: Array<Pick<SaleItem, "kind" | "courseId" | "productId">> | undefined,
+  accessMode?: string | null,
+): boolean {
+  if (accessMode === "courses") return false;
+  if (accessMode === "legacy") return true;
   const list = items ?? [];
   return list.length > 0 && list.every((item) => Boolean(item.productId) && !isCourseSaleItem(item));
+}
+
+/** Display name of a saved line. The sale response freezes `courseName` and `moduleName`. */
+export function frozenItemTitle(item: {
+  kind?: string | null;
+  courseName?: string | null;
+  moduleName?: string | null;
+  name?: string | null;
+}): string {
+  if (item.kind === "module") return item.moduleName?.trim() || item.name?.trim() || item.courseName?.trim() || "";
+  return item.courseName?.trim() || item.name?.trim() || "";
 }
 
 export function readCourseItems(items: SaleItem[] | undefined): CourseSaleItem[] {
@@ -60,9 +77,10 @@ export function readCourseItems(items: SaleItem[] | undefined): CourseSaleItem[]
   for (const item of items ?? []) {
     if (!isCourseSaleItem(item) || !item.courseId) continue;
     const kind: "course" | "module" = item.kind === "module" || (item.kind !== "course" && item.moduleId) ? "module" : "course";
-    const courseName = item.courseName?.trim() || item.name?.trim() || "";
-    const name = item.name?.trim() || courseName;
-    if (!name || (kind === "module" && !item.moduleId)) continue;
+    const courseName = item.courseName?.trim() || (kind === "course" ? item.name?.trim() : "") || "";
+    const moduleName = kind === "module" ? (item.moduleName?.trim() || item.name?.trim() || "") : null;
+    const name = kind === "module" ? moduleName || "" : courseName;
+    if (!name || !courseName || (kind === "module" && !item.moduleId)) continue;
     out.push({
       kind,
       courseId: item.courseId,
@@ -71,6 +89,7 @@ export function readCourseItems(items: SaleItem[] | undefined): CourseSaleItem[]
       endsAt: (item.endsAt ?? "").slice(0, 10),
       name,
       courseName,
+      moduleName,
     });
   }
   return out;
@@ -300,15 +319,14 @@ export function copyFirstDates(draft: CourseDraft, catalog: CatalogCourse[]): Co
   return { ...draft, perItem };
 }
 
-export function toCourseSaleItems(draft: CourseDraft, catalog: CatalogCourse[]): CourseSaleItem[] {
+/** Body of POST/PATCH /sales. The server freezes the names; they are not sent. */
+export function toCourseSaleItems(draft: CourseDraft, catalog: CatalogCourse[]): CreateSaleItem[] {
   return listItems(draft, catalog).map((row) => ({
     kind: row.kind,
     courseId: row.courseId,
-    ...(row.moduleId ? { moduleId: row.moduleId } : {}),
+    ...(row.kind === "module" && row.moduleId ? { moduleId: row.moduleId } : {}),
     startsAt: row.startsAt,
     endsAt: row.endsAt,
-    name: row.name,
-    courseName: row.courseName,
   }));
 }
 

@@ -146,7 +146,7 @@ export function createInitialRevalidaState(prefill: RevalidaContractPayload): Re
   const products = {} as Record<RevalidaProductCode, ProductState>;
   for (const code of PRODUCT_ORDER) products[code] = emptyProductState();
   for (const sel of prefill.products ?? []) {
-    if (!("code" in sel) || sel.included === false || !PRODUCT_ORDER.includes(sel.code)) continue;
+    if (sel.included === false || !PRODUCT_ORDER.includes(sel.code)) continue;
     products[sel.code] = {
       selected: true,
       releaseDate: sel.releaseDate ?? "",
@@ -507,7 +507,17 @@ export function buildRevalidaPayload(
       ...withoutPayment(prefill),
       parties,
       decreeIncluded: state.decreeOn,
-      products: courseItems,
+      accessMode: "courses",
+      products: [],
+      courseItems: courseItems.map((item) => ({
+        kind: item.kind,
+        courseId: item.courseId,
+        moduleId: item.kind === "module" ? (item.moduleId ?? null) : null,
+        courseName: item.courseName,
+        moduleName: item.kind === "module" ? (item.moduleName ?? null) : null,
+        startsAt: item.startsAt,
+        endsAt: item.endsAt,
+      })),
       expenses: { ...state.extras },
       contractStartDate: state.termStart || null,
       contractEndDate: state.termEnd || null,
@@ -580,7 +590,7 @@ export function buildRevalidaSummary(
   const included: string[] = [];
   if (state.decreeOn) included.push(t("contract.summary.decree"));
   if (courseItems && courseItems.length > 0) {
-    for (const item of courseItems) included.push(item.name);
+    for (const item of courseItems) included.push(item.kind === "module" ? (item.moduleName || item.courseName) : item.courseName);
   }
   if (!courseItems?.length) for (const code of PRODUCT_ORDER) {
     const p = state.products[code];

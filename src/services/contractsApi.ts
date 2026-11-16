@@ -81,18 +81,16 @@ export interface RevalidaProductSelection {
   endDate?: string | null;
 }
 
-/** Course or module frozen on the sale, sent in place of the fixed product codes. */
+/** Course line copied from the sale. Names are the ones frozen at sale time. */
 export interface CourseContractItem {
   kind: "course" | "module";
   courseId: string;
-  moduleId?: string;
-  name: string;
+  moduleId?: string | null;
   courseName: string;
+  moduleName?: string | null;
   startsAt: string;
   endsAt: string;
 }
-
-export type ContractIncludedLine = RevalidaProductSelection | CourseContractItem;
 
 /** One installment line of the sale. A card installment line ("12 x R$ 1.000") has `installments` > 1. */
 export interface ContractPaymentPhase {
@@ -124,7 +122,10 @@ export interface RevalidaContractPayload {
   parties: RevalidaContractParty[];
   /** Adds Annex A to the contract. */
   decreeIncluded: boolean;
-  products?: ContractIncludedLine[];
+  /** `courses` replaces the fixed product list with `courseItems`. Absent stays the legacy form. */
+  accessMode?: "legacy" | "courses";
+  products?: RevalidaProductSelection[];
+  courseItems?: CourseContractItem[];
   expenses: {
     translationsIncluded: boolean;
     apostillesIncluded: boolean;

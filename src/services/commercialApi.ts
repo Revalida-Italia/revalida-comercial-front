@@ -43,9 +43,11 @@ export interface SaleItem {
   moduleId?: string | null;
   startsAt?: string | null;
   endsAt?: string | null;
-  /** Frozen when the sale is saved. */
-  name?: string | null;
+  /** Frozen on the sale. A module line uses both; a whole course leaves `moduleName` empty. */
   courseName?: string | null;
+  moduleName?: string | null;
+  /** Older payloads. The sale response uses `courseName` and `moduleName`. */
+  name?: string | null;
   createdAt: string;
   updatedAt: string;
   product?: {
@@ -164,6 +166,8 @@ export interface SaleRecord {
   exchangeRateDate?: string | null;
   exchangeRateSource?: string | null;
   status: string;
+  /** `legacy` keeps generic products. `courses` is a sale of published courses. */
+  accessMode?: "legacy" | "courses" | null;
   soldAt?: string | null;
   asaasSubscriptionId?: string | null;
   hotmartCheckoutLink?: string | null;
@@ -242,8 +246,6 @@ export type CreateSaleItem =
     moduleId?: string;
     startsAt: string;
     endsAt: string;
-    name: string;
-    courseName: string;
   };
 
 export type BillingType = "PIX" | "BOLETO" | "CREDIT_CARD" | "UNDEFINED";

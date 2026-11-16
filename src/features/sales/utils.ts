@@ -218,8 +218,11 @@ export const getSaleCustomerNames = (sale: SaleRecord): string => {
 export const getSaleProductName = (sale: SaleRecord): string => {
   const item = sale.items?.[0];
   if (!item) return t("sales.card.unknownProduct");
-  if (item.kind === "course" || item.kind === "module" || item.courseId) {
-    return item.name?.trim() || item.courseName?.trim() || t("sales.card.unknownProduct");
+  if (item.kind === "module") {
+    return item.moduleName?.trim() || item.name?.trim() || item.courseName?.trim() || t("sales.card.unknownProduct");
+  }
+  if (item.kind === "course" || item.courseId) {
+    return item.courseName?.trim() || item.name?.trim() || t("sales.card.unknownProduct");
   }
   return item.product?.name ?? t("sales.card.unknownProduct");
 };

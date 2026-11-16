@@ -89,7 +89,10 @@ describe("access dates", () => {
     expect(continueState(same, catalog).message).toBe("end");
     const perItem = applyMode(same, "item", catalog);
     expect(listItems(perItem, catalog)[0].endsAt).toBe("");
-    expect(toCourseSaleItems(perItem, catalog)[0].endsAt).toBe("");
+    const sent = toCourseSaleItems(perItem, catalog)[0];
+    expect(sent).toMatchObject({ kind: "course", endsAt: "" });
+    expect(sent).not.toHaveProperty("name");
+    expect(sent).not.toHaveProperty("courseName");
   });
 
   it("blocks an end that is not after the start until the field is corrected", () => {
@@ -151,9 +154,14 @@ describe("legacy and saved sales", () => {
       ["module", "2027-03-01"],
     ]);
     const sent = toCourseSaleItems(next, catalog);
-    expect(sent[0]).toMatchObject({ kind: "course", name: "Curso Start" });
-    expect(sent[1]).toMatchObject({ kind: "module", moduleId: "pedia", name: "Pediatria" });
-    expect(sent.some((item) => "productId" in item)).toBe(false);
+    expect(sent[0]).toEqual({ kind: "course", courseId: "start", startsAt: "2026-08-20", endsAt: "2027-08-20" });
+    expect(sent[1]).toEqual({
+      kind: "module",
+      courseId: "prep",
+      moduleId: "pedia",
+      startsAt: "2026-09-01",
+      endsAt: "2027-03-01",
+    });
   });
 
   it("reads course rows and ignores a generic product", () => {
@@ -164,11 +172,34 @@ describe("legacy and saved sales", () => {
     expect(items).toEqual([
       expect.objectContaining({ kind: "module", courseId: "prep", moduleId: "pedia", name: "Pediatria" }),
     ]);
+    expect(readCourseItems([{
+      id: "c",
+      saleId: "s",
+      kind: "module",
+      courseId: "prep",
+      moduleId: "pedia",
+      courseName: "Preparação",
+      moduleName: "Pediatria",
+      startsAt: "2026-09-01",
+      endsAt: "2027-03-01",
+      createdAt: "",
+      updatedAt: "",
+    } as SaleItem])).toEqual([
+      expect.objectContaining({ name: "Pediatria", courseName: "Preparação" }),
+    ]);
+    expect(isLegacySale([], "legacy")).toBe(true);
+    expect(isLegacySale([{ kind: "course", courseId: "start" }], "courses")).toBe(false);
   });
 });
 
 describe("catalog and contract lines", () => {
   it("normalizes a nested list and a flat list without a second request shape", () => {
+    expect(normalizeCatalog({
+      success: true,
+      data: { courses: [{ id: "start", name: "Curso Start", thumbnailUrl: null, modules: [{ id: "docs", name: "Documentação", thumbnailUrl: null }] }] },
+    })).toEqual([
+      { id: "start", name: "Curso Start", thumbnailUrl: null, modules: [{ id: "docs", name: "Documentação", thumbnailUrl: null }] },
+    ]);
     expect(normalizeCatalog({
       courses: [{ id: "start", name: "Curso Start", thumbnailUrl: null, modules: [{ id: "docs", name: "Documentação" }] }],
     })).toEqual([

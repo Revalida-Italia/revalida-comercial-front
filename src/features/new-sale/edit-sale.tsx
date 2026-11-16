@@ -84,7 +84,7 @@ const EditSaleFeature = () => {
     enabled: Boolean(id),
   });
 
-  const legacy = isLegacySale(saleQuery.data?.items);
+  const legacy = isLegacySale(saleQuery.data?.items, saleQuery.data?.accessMode);
 
   const catalogQuery = useQuery({
     queryKey: ["sales", "course-catalog"],
@@ -134,7 +134,7 @@ const EditSaleFeature = () => {
 
     const form = mapSaleToForm(saleQuery.data);
     setCustomers(form.customers);
-    if (!isLegacySale(saleQuery.data.items)) {
+    if (!isLegacySale(saleQuery.data.items, saleQuery.data.accessMode)) {
       setCourseDraft(draftFromItems(readCourseItems(saleQuery.data.items), form.soldAt || todayIso()));
     }
     setPayments(form.payments.length > 0 ? form.payments : [{ ...EMPTY_PAYMENT }]);

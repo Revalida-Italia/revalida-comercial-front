@@ -906,9 +906,10 @@ describe("Gerar contrato page", () => {
     vi.mocked(getSaleById).mockResolvedValue({
       id: "s1",
       clients: [{ id: "c1", nameCiphertext: "Billy Willy" }],
+      accessMode: "courses",
       items: [
-        { id: "i1", saleId: "s1", kind: "course", courseId: "start", name: "Curso Start", courseName: "Curso Start", startsAt: "2026-08-20", endsAt: "2027-08-20" },
-        { id: "i2", saleId: "s1", kind: "module", courseId: "prep", moduleId: "pedia", name: "Pediatria", courseName: "Preparação", startsAt: "2026-09-01", endsAt: "2027-03-01" },
+        { id: "i1", saleId: "s1", kind: "course", courseId: "start", courseName: "Curso Start", moduleName: null, startsAt: "2026-08-20", endsAt: "2027-08-20" },
+        { id: "i2", saleId: "s1", kind: "module", courseId: "prep", moduleId: "pedia", courseName: "Preparação", moduleName: "Pediatria", startsAt: "2026-09-01", endsAt: "2027-03-01" },
       ],
     } as never);
     await ready();

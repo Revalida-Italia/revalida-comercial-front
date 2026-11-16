@@ -359,7 +359,7 @@ export default function RevalidaFormFields({ state, update, catalog, form, cours
                 {courseItems.map((item) => (
                   <tr key={`${item.kind}-${item.courseId}-${item.moduleId ?? ""}`} className="border-t border-border/60 align-top">
                     <td className="py-3 pr-2">
-                      <p className="font-semibold">{item.name}</p>
+                      <p className="font-semibold">{item.kind === "module" ? (item.moduleName || item.courseName) : item.courseName}</p>
                       <p className="text-[12.5px] text-muted-foreground">
                         {item.kind === "course"
                           ? t("sale.courses.wholeCourse")

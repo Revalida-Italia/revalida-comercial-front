@@ -23,8 +23,10 @@ export type CourseSaleItem = {
   moduleId?: string;
   startsAt: string;
   endsAt: string;
+  /** Line title: course name, or the module name when kind is module. */
   name: string;
   courseName: string;
+  moduleName?: string | null;
 };
 
 export type DateMode = "same" | "item";
