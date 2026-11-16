@@ -14,7 +14,7 @@ export function Thumb({ src, size }: Props) {
   const icon = size === "course" ? "h-4 w-4" : "h-3.5 w-3.5";
   if (!src || failed) {
     return (
-      <span aria-hidden="true" className={cn("grid shrink-0 place-items-center rounded-md bg-[#EAEFF4] text-[#7C8A9A]", box)}>
+      <span aria-hidden="true" className={cn("grid shrink-0 place-items-center rounded-[0.375rem] bg-[#EAEFF4] text-[#7C8A9A]", box)}>
         <BookOpen className={icon} />
       </span>
     );
@@ -26,7 +26,7 @@ export function Thumb({ src, size }: Props) {
       loading="lazy"
       decoding="async"
       onError={() => setFailed(true)}
-      className={cn("shrink-0 rounded-md object-cover", box)}
+      className={cn("shrink-0 rounded-[0.375rem] object-cover", box)}
     />
   );
 }

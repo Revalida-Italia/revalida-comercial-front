@@ -231,7 +231,7 @@ export function CoursesStep({ catalog, loading, error, onRetry, draft, onChange,
           {Array.from({ length: 4 }, (_, index) => (
             <div key={index} className="flex min-h-[52px] items-center gap-3">
               <span className="h-[18px] w-[18px] rounded bg-[#EAEFF4]" />
-              <span className="h-9 w-14 rounded-md bg-[#EAEFF4]" />
+              <span className="h-9 w-14 rounded-[0.375rem] bg-[#EAEFF4]" />
               <span className="flex-1 space-y-2">
                 <span className="block h-3 w-1/2 rounded bg-[#EAEFF4]" />
                 <span className="block h-2.5 w-1/4 rounded bg-[#EAEFF4]" />
