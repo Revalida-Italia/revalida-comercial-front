@@ -3,6 +3,8 @@ import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it } from "vitest";
 import type { SaleRecord } from "@/services/commercialApi";
+import { draftFromItems, readCourseItems, servicesFromRecord } from "@/features/new-sale/courses/model";
+import { buildCourseSummary } from "@/features/new-sale/courses/copy";
 import SaleDetailPreview from "./SaleDetailPreview";
 import SaleListCard from "./SaleListCard";
 
@@ -51,6 +53,29 @@ describe("legacy sale without list fields", () => {
       </MemoryRouter>,
     );
 
+    expect(screen.getByText("Clínica médica")).toBeInTheDocument();
+  });
+
+  it("shows Tradução juramentada as included when the sale saved it as Sim", () => {
+    const sale = {
+      ...legacySale(),
+      translationIncluded: true,
+      items: [{ id: "i1", saleId: "legacy", kind: "module", moduleId: "mod-1", moduleName: "Clínica médica", startsAt: "2026-08-20", endsAt: "2027-08-20" }],
+    } as SaleRecord;
+    const items = readCourseItems(sale.items);
+    const summary = buildCourseSummary(
+      { ...draftFromItems(items, items[0]?.startsAt || ""), services: servicesFromRecord(sale) },
+      { modules: [], courses: [] },
+      [],
+    );
+
+    expect(summary.notIncluded).not.toContain("Tradução juramentada");
+    expect(summary.notIncluded).toContain("Apostila de Haia");
+    render(
+      <MemoryRouter>
+        <SaleDetailPreview sale={sale} readOnly />
+      </MemoryRouter>,
+    );
     expect(screen.getByText("Clínica médica")).toBeInTheDocument();
   });
 });

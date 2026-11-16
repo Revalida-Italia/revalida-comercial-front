@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { setProfile } from "@/lib/session";
@@ -61,12 +61,16 @@ function clickNext() {
   fireEvent.click(buttons[0]);
 }
 
-async function fillAndConfirm() {
+async function fillAndConfirm(options?: { translation?: boolean }) {
   fireEvent.change(screen.getByPlaceholderText("Nome completo"), { target: { value: "Maria Souza" } });
   fireEvent.change(screen.getByPlaceholderText("+55 (34) 99999-9999"), { target: { value: "11988880000" } });
   fireEvent.click(screen.getByRole("button", { name: "Próximo" }));
 
   fireEvent.click(await screen.findByRole("checkbox", { name: "Curso Start" }));
+  if (options?.translation) {
+    const group = screen.getByRole("radiogroup", { name: "Tradução juramentada" });
+    fireEvent.click(within(group).getByRole("radio", { name: "Sim" }));
+  }
   const end = screen.getByLabelText("Fim");
   fireEvent.change(end, { target: { value: "20/08/2030" } });
   fireEvent.blur(end);
@@ -150,5 +154,22 @@ describe("new sale", () => {
     expect(screen.getByPlaceholderText("Nome completo")).toHaveValue("");
     expect(toast.success).toHaveBeenCalledWith("Venda criada com sucesso.");
     expect(createSale).toHaveBeenCalledTimes(1);
+  });
+
+  it("sends Tradução juramentada as Sim inside services", async () => {
+    setProfile({ sub: "seller-1", email: "s@example.com", name: "Seller", role: "SELLER", roles: ["SELLER"] });
+    renderWizard();
+
+    await fillAndConfirm({ translation: true });
+
+    await waitFor(() => expect(createSale).toHaveBeenCalled());
+    const body = vi.mocked(createSale).mock.calls[0][0];
+    expect(body.services).toEqual({
+      translationIncluded: true,
+      apostilleIncluded: false,
+      postalExpensesIncluded: false,
+      decreeIncluded: false,
+    });
+    expect(body).not.toHaveProperty("translationIncluded");
   });
 });

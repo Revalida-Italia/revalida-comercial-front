@@ -172,6 +172,13 @@ export interface SaleRecord {
   apostilleIncluded?: boolean | null;
   postalExpensesIncluded?: boolean | null;
   decreeIncluded?: boolean | null;
+  /** Some responses nest the four flags. Columns on the sale are the usual shape. */
+  services?: {
+    translationIncluded?: boolean | null;
+    apostilleIncluded?: boolean | null;
+    postalExpensesIncluded?: boolean | null;
+    decreeIncluded?: boolean | null;
+  } | null;
   soldAt?: string | null;
   asaasSubscriptionId?: string | null;
   hotmartCheckoutLink?: string | null;
@@ -296,10 +303,13 @@ export interface CreateSaleInput {
   clients: CreateSaleClient[];
   items: CreateSaleItem[];
   payments: CreateSalePayment[];
-  translationIncluded?: boolean;
-  apostilleIncluded?: boolean;
-  postalExpensesIncluded?: boolean;
-  decreeIncluded?: boolean;
+  /** Additional services. Omitted means all Não. */
+  services?: {
+    translationIncluded: boolean;
+    apostilleIncluded: boolean;
+    postalExpensesIncluded: boolean;
+    decreeIncluded: boolean;
+  };
 }
 
 export type SaleStatus = "PENDING" | "CONCLUDED" | "ARCHIVED";
@@ -343,10 +353,13 @@ export interface UpdateSaleInput {
   clients?: UpdateSaleClient[];
   items?: UpdateSaleItem[];
   payments?: UpdateSalePayment[];
-  translationIncluded?: boolean;
-  apostilleIncluded?: boolean;
-  postalExpensesIncluded?: boolean;
-  decreeIncluded?: boolean;
+  /** Omitted on a legacy sale. On a course sale, omitted leaves the saved values. */
+  services?: {
+    translationIncluded: boolean;
+    apostilleIncluded: boolean;
+    postalExpensesIncluded: boolean;
+    decreeIncluded: boolean;
+  };
 }
 
 interface ListWrapper<T> {
@@ -474,6 +487,13 @@ function normalizeSalePayment(payment: SalePayment): SalePayment {
   };
 }
 
+function serviceFlag(
+  sale: SaleRecord,
+  key: "translationIncluded" | "apostilleIncluded" | "postalExpensesIncluded" | "decreeIncluded",
+): boolean {
+  return sale.services?.[key] === true || sale[key] === true;
+}
+
 function normalizeSaleRecord(sale: SaleRecord): SaleRecord {
   const payments = (Array.isArray(sale.payments) ? sale.payments : []).map(normalizeSalePayment);
   const commissionsFromPayments = payments
@@ -485,10 +505,10 @@ function normalizeSaleRecord(sale: SaleRecord): SaleRecord {
     clients: Array.isArray(sale.clients) ? sale.clients : [],
     items: Array.isArray(sale.items) ? sale.items : [],
     payments,
-    translationIncluded: sale.translationIncluded === true,
-    apostilleIncluded: sale.apostilleIncluded === true,
-    postalExpensesIncluded: sale.postalExpensesIncluded === true,
-    decreeIncluded: sale.decreeIncluded === true,
+    translationIncluded: serviceFlag(sale, "translationIncluded"),
+    apostilleIncluded: serviceFlag(sale, "apostilleIncluded"),
+    postalExpensesIncluded: serviceFlag(sale, "postalExpensesIncluded"),
+    decreeIncluded: serviceFlag(sale, "decreeIncluded"),
     commissions: Array.isArray(sale.commissions) && sale.commissions.length > 0
       ? sale.commissions
       : commissionsFromPayments,

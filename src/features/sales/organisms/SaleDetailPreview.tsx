@@ -9,7 +9,7 @@ import { isCancelledStatus, type CommissionPayView } from "@/features/sales/util
 import { getSaleCommissionValue, saleAllowsStripeCheckoutLink } from "../utils";
 import SaleSummary from "@/features/new-sale/organisms/SaleSummary";
 import { buildCourseSummary } from "@/features/new-sale/courses/copy";
-import { draftFromItems, readCourseItems } from "@/features/new-sale/courses/model";
+import { draftFromItems, readCourseItems, servicesFromRecord } from "@/features/new-sale/courses/model";
 import type { TeachingCatalog } from "@/features/new-sale/courses/types";
 
 const EMPTY_CATALOG: TeachingCatalog = { modules: [], courses: [] };
@@ -66,7 +66,11 @@ const SaleDetailPreview = ({
 
   const courseItems = readCourseItems(items);
   const courseSummary = courseItems.length > 0
-    ? buildCourseSummary(draftFromItems(courseItems, courseItems[0]?.startsAt || ""), EMPTY_CATALOG, clients.map((client) => client.nameCiphertext || ""))
+    ? buildCourseSummary(
+      { ...draftFromItems(courseItems, courseItems[0]?.startsAt || ""), services: servicesFromRecord(sale) },
+      EMPTY_CATALOG,
+      clients.map((client) => client.nameCiphertext || ""),
+    )
     : undefined;
   const saleItems = courseSummary
     ? []

@@ -178,8 +178,8 @@ export function CoursesStep({ catalog, loading, error, onRetry, draft, onChange,
         <div role="radiogroup" aria-label={t("sale.courses.filterAll")} className="flex shrink-0 rounded-md bg-[#EAEFF4] p-[3px]">
           {([
             ["all", t("sale.courses.filterAll")],
-            ["modules", `${t("sale.courses.groupModules")} · ${catalog.modules.length}`],
-            ["courses", `${t("sale.courses.groupCourses")} · ${catalog.courses.length}`],
+            ["modules", `${t("sale.courses.groupModules")} · ${(catalog.modules ?? []).length}`],
+            ["courses", `${t("sale.courses.groupCourses")} · ${(catalog.courses ?? []).length}`],
           ] as const).map(([value, label]) => (
             <button
               key={value}

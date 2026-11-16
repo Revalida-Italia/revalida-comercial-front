@@ -153,12 +153,59 @@ function datesFor(draft: CourseDraft, key: string): ItemDates {
   return draft.perItem[key] ?? { startsAt: draft.saleDate, endsAt: "" };
 }
 
+/** A missing catalog, or a bare array, is an empty catalog. Never read `.modules` off it. */
+export function asCatalog(catalog: unknown): TeachingCatalog {
+  if (!catalog || typeof catalog !== "object" || Array.isArray(catalog)) {
+    return { modules: [], courses: [] };
+  }
+  const record = catalog as Partial<TeachingCatalog>;
+  return {
+    modules: Array.isArray(record.modules) ? record.modules : [],
+    courses: Array.isArray(record.courses) ? record.courses : [],
+  };
+}
+
+type ServiceFlagSource = {
+  translationIncluded?: boolean | null;
+  apostilleIncluded?: boolean | null;
+  postalExpensesIncluded?: boolean | null;
+  decreeIncluded?: boolean | null;
+  services?: {
+    translationIncluded?: boolean | null;
+    apostilleIncluded?: boolean | null;
+    postalExpensesIncluded?: boolean | null;
+    decreeIncluded?: boolean | null;
+  } | null;
+};
+
+/** Saved sale flags, whether the API returns them nested or on the sale itself. */
+export function servicesFromRecord(sale: ServiceFlagSource): SaleServices {
+  const nested = sale.services ?? {};
+  const on = (key: keyof NonNullable<ServiceFlagSource["services"]>) => nested[key] === true || sale[key] === true;
+  return {
+    translation: on("translationIncluded"),
+    apostille: on("apostilleIncluded"),
+    postal: on("postalExpensesIncluded"),
+    decree: on("decreeIncluded"),
+  };
+}
+
+/** Body of `services` on POST/PATCH /sales. Names match the back. */
+export function toSaleServices(services: SaleServices) {
+  return {
+    translationIncluded: services.translation === true,
+    apostilleIncluded: services.apostille === true,
+    postalExpensesIncluded: services.postal === true,
+    decreeIncluded: services.decree === true,
+  };
+}
+
 export function moduleById(catalog: TeachingCatalog, moduleId: string): CatalogModule | undefined {
-  return (catalog.modules ?? []).find((item) => item.id === moduleId);
+  return asCatalog(catalog).modules.find((item) => item.id === moduleId);
 }
 
 export function courseById(catalog: TeachingCatalog, courseId: string): CatalogCourse | undefined {
-  return (catalog.courses ?? []).find((item) => item.id === courseId);
+  return asCatalog(catalog).courses.find((item) => item.id === courseId);
 }
 
 export function courseNamesOf(catalog: TeachingCatalog, module: CatalogModule): string[] {
@@ -169,7 +216,7 @@ export function courseNamesOf(catalog: TeachingCatalog, module: CatalogModule): 
 
 /** Modules currently selected that contain this course, in catalog order. */
 export function lockingModules(catalog: TeachingCatalog, draft: CourseDraft, courseId: string): CatalogModule[] {
-  return (catalog.modules ?? []).filter((item) => draft.modules.includes(item.id) && (item.courseIds ?? []).includes(courseId));
+  return asCatalog(catalog).modules.filter((item) => draft.modules.includes(item.id) && (item.courseIds ?? []).includes(courseId));
 }
 
 export function isCourseLocked(catalog: TeachingCatalog, draft: CourseDraft, courseId: string): boolean {
@@ -389,8 +436,9 @@ export type CatalogView = {
 
 /** Local filter. A search hits a module name, a course name, and the courses inside a module. */
 export function filterCatalog(catalog: TeachingCatalog, query: string): CatalogView {
-  const modulesAll = catalog.modules ?? [];
-  const coursesAll = catalog.courses ?? [];
+  const safe = asCatalog(catalog);
+  const modulesAll = safe.modules;
+  const coursesAll = safe.courses;
   const q = query.trim().toLowerCase();
   if (!q) return { modules: modulesAll, courses: coursesAll };
   const courseHit = new Set(

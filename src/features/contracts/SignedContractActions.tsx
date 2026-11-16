@@ -38,9 +38,11 @@ export default function SignedContractActions({ contract, onChanged }: Props) {
   const createStudentsMutation = useMutation({
     mutationFn: () => createPortalStudents(contract.id),
     onSuccess: (payload) => {
-      const failed = payload.results.filter((result) => result.status === "failed");
+      const failed = (payload.results ?? []).filter((result) => result.status === "failed");
       setFailures(failed);
-      const ok = payload.summary.created + payload.summary.alreadyExists;
+      const created = payload.summary?.created ?? 0;
+      const already = payload.summary?.alreadyExists ?? 0;
+      const ok = created + already;
       if (failed.length > 0) {
         toast.error(
           failed.length === 1
