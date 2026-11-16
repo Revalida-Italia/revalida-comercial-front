@@ -76,7 +76,7 @@ const NewSaleFeature = () => {
     staleTime: 5 * 60_000,
   });
 
-  const catalog = useMemo(() => catalogQuery.data ?? [], [catalogQuery.data]);
+  const catalog = useMemo(() => catalogQuery.data ?? { modules: [], courses: [] }, [catalogQuery.data]);
   const courseItems = useMemo(() => toCourseSaleItems(courseDraft, catalog), [courseDraft, catalog]);
   const courseGate = useMemo(() => continueState(courseDraft, catalog), [courseDraft, catalog]);
 
@@ -329,6 +329,10 @@ const NewSaleFeature = () => {
           ...(c.email ? { email: c.email } : {}),
         })),
         items: courseItems,
+        translationIncluded: courseDraft.services.translation,
+        apostilleIncluded: courseDraft.services.apostille,
+        postalExpensesIncluded: courseDraft.services.postal,
+        decreeIncluded: courseDraft.services.decree,
         payments: configuredPayments.map((payment) => ({
           gateway: payment.gateway,
           type: payment.paymentType,
@@ -396,7 +400,7 @@ const NewSaleFeature = () => {
     },
   });
 
-  const stepLabels = ["Clientes", t("sale.steps.courses"), "Pagamentos", "Resumo"];
+  const stepLabels = ["Clientes", t("sale.steps.coursesServices"), "Pagamentos", "Resumo"];
 
   return (
     <div className={cn("space-y-6", step === 2 && "max-md:pb-24")}>

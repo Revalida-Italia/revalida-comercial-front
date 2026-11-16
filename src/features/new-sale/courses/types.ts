@@ -1,29 +1,40 @@
-/** A published course from the teaching catalog. */
-export type CatalogModule = {
-  id: string;
-  name: string;
-  thumbnailUrl: string | null;
-};
-
+/** A published course. It can belong to more than one module. */
 export type CatalogCourse = {
   id: string;
   name: string;
   thumbnailUrl: string | null;
+};
+
+/** A teaching module. It groups courses; it is not a chapter inside one course. */
+export type CatalogModule = {
+  id: string;
+  name: string;
+  thumbnailUrl: string | null;
+  courseIds: string[];
+};
+
+export type TeachingCatalog = {
   modules: CatalogModule[];
+  courses: CatalogCourse[];
+};
+
+export type SaleServices = {
+  translation: boolean;
+  apostille: boolean;
+  postal: boolean;
+  decree: boolean;
 };
 
 /**
- * What a new sale stores. `name` and `courseName` are frozen when the sale is saved,
- * so a later rename does not change the contract.
- * A whole course is one item (`kind: "course"`), not the list of modules that exist today.
+ * What a new sale stores. Names are frozen when the sale is saved.
+ * A module is one item (`kind: "module"`), not a copy of the courses it holds today.
  */
 export type CourseSaleItem = {
   kind: "course" | "module";
-  courseId: string;
+  courseId?: string;
   moduleId?: string;
   startsAt: string;
   endsAt: string;
-  /** Line title: course name, or the module name when kind is module. */
   name: string;
   courseName: string;
   moduleName?: string | null;
@@ -36,21 +47,20 @@ export type ItemDates = {
   endsAt: string;
 };
 
-/** `"all"` means the whole course, including modules published after the sale. */
-export type CourseSelection = "all" | string[];
-
 export type CourseDraft = {
   /** Date of the sale. New rows start here. The end is never filled in. */
   saleDate: string;
   mode: DateMode;
-  selection: Record<string, CourseSelection>;
+  /** Selected teaching modules. Their courses are included and are not separate items. */
+  modules: string[];
+  /** Courses chosen on their own, not through a selected module. */
+  courses: string[];
+  services: SaleServices;
   sharedStart: string;
   sharedEnd: string;
   perItem: Record<string, ItemDates>;
-  /** Frozen labels for items the catalog no longer lists. */
-  labels: Record<string, { name: string; courseName: string }>;
+  labels: Record<string, { name: string; courseName?: string }>;
   touched: Record<string, true>;
-  /** Set while a date is being typed, so a message waits until the field is left. */
   editing: Record<string, true>;
   attempted: boolean;
 };

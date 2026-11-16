@@ -1,41 +1,54 @@
-import type { SaleItem } from "@/services/commercialApi";
-import type { CreateSaleItem } from "@/services/commercialApi";
+import type { CreateSaleItem, SaleItem } from "@/services/commercialApi";
 import type {
   CatalogCourse,
+  CatalogModule,
   CourseDraft,
   CourseSaleItem,
-  CourseSelection,
   DateMode,
   ItemDates,
+  SaleServices,
+  TeachingCatalog,
 } from "./types";
 
 export type ListedItem = {
   key: string;
   kind: "course" | "module";
-  courseId: string;
+  courseId?: string;
   moduleId?: string;
   name: string;
   courseName: string;
-  moduleCount: number;
+  courseCount: number;
+  courseNames: string[];
   startsAt: string;
   endsAt: string;
 };
 
 export type BlockReason = "empty" | "end" | "invalid";
 
+export type CatalogFilter = "all" | "modules" | "courses";
+
+export const emptyServices = (): SaleServices => ({
+  translation: false,
+  apostille: false,
+  postal: false,
+  decree: false,
+});
+
 export function courseKey(courseId: string): string {
   return `course:${courseId}`;
 }
 
-export function moduleKey(courseId: string, moduleId: string): string {
-  return `module:${courseId}:${moduleId}`;
+export function moduleKey(moduleId: string): string {
+  return `module:${moduleId}`;
 }
 
 export function emptyDraft(saleDate: string): CourseDraft {
   return {
     saleDate,
     mode: "same",
-    selection: {},
+    modules: [],
+    courses: [],
+    services: emptyServices(),
     sharedStart: saleDate,
     sharedEnd: "",
     perItem: {},
@@ -46,13 +59,13 @@ export function emptyDraft(saleDate: string): CourseDraft {
   };
 }
 
-export function isCourseSaleItem(item: Pick<SaleItem, "kind" | "courseId" | "productId">): boolean {
-  return item.kind === "course" || item.kind === "module" || Boolean(item.courseId);
+export function isCourseSaleItem(item: Pick<SaleItem, "kind" | "courseId" | "moduleId" | "productId">): boolean {
+  return item.kind === "course" || item.kind === "module" || Boolean(item.courseId) || Boolean(item.moduleId);
 }
 
 /** A sale that still stores generic products, and none of the course items. */
 export function isLegacySale(
-  items: Array<Pick<SaleItem, "kind" | "courseId" | "productId">> | undefined,
+  items: Array<Pick<SaleItem, "kind" | "courseId" | "moduleId" | "productId">> | undefined,
   accessMode?: string | null,
 ): boolean {
   if (accessMode === "courses") return false;
@@ -61,7 +74,6 @@ export function isLegacySale(
   return list.length > 0 && list.every((item) => Boolean(item.productId) && !isCourseSaleItem(item));
 }
 
-/** Display name of a saved line. The sale response freezes `courseName` and `moduleName`. */
 export function frozenItemTitle(item: {
   kind?: string | null;
   courseName?: string | null;
@@ -75,20 +87,26 @@ export function frozenItemTitle(item: {
 export function readCourseItems(items: SaleItem[] | undefined): CourseSaleItem[] {
   const out: CourseSaleItem[] = [];
   for (const item of items ?? []) {
-    if (!isCourseSaleItem(item) || !item.courseId) continue;
-    const kind: "course" | "module" = item.kind === "module" || (item.kind !== "course" && item.moduleId) ? "module" : "course";
+    if (!isCourseSaleItem(item)) continue;
+    const kind: "course" | "module" = item.kind === "module" || (item.kind !== "course" && item.moduleId && !item.courseId)
+      ? "module"
+      : item.kind === "module"
+        ? "module"
+        : "course";
+    if (kind === "module" && !item.moduleId) continue;
+    if (kind === "course" && !item.courseId) continue;
     const courseName = item.courseName?.trim() || (kind === "course" ? item.name?.trim() : "") || "";
     const moduleName = kind === "module" ? (item.moduleName?.trim() || item.name?.trim() || "") : null;
     const name = kind === "module" ? moduleName || "" : courseName;
-    if (!name || !courseName || (kind === "module" && !item.moduleId)) continue;
+    if (!name) continue;
     out.push({
       kind,
-      courseId: item.courseId,
+      ...(item.courseId ? { courseId: item.courseId } : {}),
       ...(kind === "module" && item.moduleId ? { moduleId: item.moduleId } : {}),
       startsAt: (item.startsAt ?? "").slice(0, 10),
       endsAt: (item.endsAt ?? "").slice(0, 10),
       name,
-      courseName,
+      courseName: courseName || name,
       moduleName,
     });
   }
@@ -97,31 +115,31 @@ export function readCourseItems(items: SaleItem[] | undefined): CourseSaleItem[]
 
 export function draftFromItems(items: CourseSaleItem[], saleDate: string): CourseDraft {
   const draft = emptyDraft(saleDate || items[0]?.startsAt || "");
-  const selection: CourseDraft["selection"] = {};
+  const modules: string[] = [];
+  const courses: string[] = [];
   const perItem: CourseDraft["perItem"] = {};
   const labels: CourseDraft["labels"] = {};
 
   for (const item of items) {
-    const key = item.kind === "module" && item.moduleId
-      ? moduleKey(item.courseId, item.moduleId)
-      : courseKey(item.courseId);
-    if (item.kind === "course") {
-      selection[item.courseId] = "all";
-    } else if (item.moduleId && selection[item.courseId] !== "all") {
-      const current = selection[item.courseId];
-      const ids = current && current !== "all" ? current : [];
-      if (!ids.includes(item.moduleId)) selection[item.courseId] = [...ids, item.moduleId];
+    if (item.kind === "module" && item.moduleId) {
+      if (!modules.includes(item.moduleId)) modules.push(item.moduleId);
+      const key = moduleKey(item.moduleId);
+      perItem[key] = { startsAt: item.startsAt, endsAt: item.endsAt };
+      labels[key] = { name: item.name };
+    } else if (item.courseId) {
+      if (!courses.includes(item.courseId)) courses.push(item.courseId);
+      const key = courseKey(item.courseId);
+      perItem[key] = { startsAt: item.startsAt, endsAt: item.endsAt };
+      labels[key] = { name: item.name, courseName: item.courseName };
     }
-    perItem[key] = { startsAt: item.startsAt, endsAt: item.endsAt };
-    labels[key] = { name: item.name, courseName: item.courseName };
-    labels[courseKey(item.courseId)] = { name: item.courseName, courseName: item.courseName };
   }
 
   const dates = Object.values(perItem);
   const shared = dates.length > 0 && dates.every((row) => row.startsAt === dates[0].startsAt && row.endsAt === dates[0].endsAt);
   return {
     ...draft,
-    selection,
+    modules,
+    courses,
     perItem,
     labels,
     mode: shared || dates.length <= 1 ? "same" : "item",
@@ -135,86 +153,27 @@ function datesFor(draft: CourseDraft, key: string): ItemDates {
   return draft.perItem[key] ?? { startsAt: draft.saleDate, endsAt: "" };
 }
 
-function courseById(catalog: CatalogCourse[], courseId: string): CatalogCourse | undefined {
-  return catalog.find((course) => course.id === courseId);
+export function moduleById(catalog: TeachingCatalog, moduleId: string): CatalogModule | undefined {
+  return catalog.modules.find((item) => item.id === moduleId);
 }
 
-export function courseState(course: CatalogCourse, selection: CourseSelection | undefined): "all" | "partial" | "none" {
-  if (!selection) return "none";
-  if (selection === "all") return "all";
-  if (selection.length === 0) return "none";
-  if (course.modules.length > 0 && course.modules.every((mod) => selection.includes(mod.id))) return "all";
-  return "partial";
+export function courseById(catalog: TeachingCatalog, courseId: string): CatalogCourse | undefined {
+  return catalog.courses.find((item) => item.id === courseId);
 }
 
-export function listItems(draft: CourseDraft, catalog: CatalogCourse[]): ListedItem[] {
-  const rows: ListedItem[] = [];
-  const seen = new Set<string>();
+export function courseNamesOf(catalog: TeachingCatalog, module: CatalogModule): string[] {
+  return module.courseIds
+    .map((id) => courseById(catalog, id)?.name)
+    .filter((name): name is string => Boolean(name));
+}
 
-  const pushCourse = (courseId: string, courseName: string, moduleCount: number) => {
-    const key = courseKey(courseId);
-    seen.add(courseId);
-    const dates = datesFor(draft, key);
-    rows.push({
-      key,
-      kind: "course",
-      courseId,
-      name: courseName,
-      courseName,
-      moduleCount,
-      ...dates,
-    });
-  };
+/** Modules currently selected that contain this course, in catalog order. */
+export function lockingModules(catalog: TeachingCatalog, draft: CourseDraft, courseId: string): CatalogModule[] {
+  return catalog.modules.filter((item) => draft.modules.includes(item.id) && item.courseIds.includes(courseId));
+}
 
-  const pushModule = (courseId: string, moduleId: string, name: string, courseName: string, moduleCount: number) => {
-    const key = moduleKey(courseId, moduleId);
-    const dates = datesFor(draft, key);
-    rows.push({
-      key,
-      kind: "module",
-      courseId,
-      moduleId,
-      name,
-      courseName,
-      moduleCount,
-      ...dates,
-    });
-  };
-
-  for (const course of catalog) {
-    const selection = draft.selection[course.id];
-    const state = courseState(course, selection);
-    if (state === "none") continue;
-    seen.add(course.id);
-    if (state === "all") {
-      pushCourse(course.id, course.name, course.modules.length);
-      continue;
-    }
-    const ids = selection === "all" ? [] : selection ?? [];
-    for (const moduleId of ids) {
-      const mod = course.modules.find((item) => item.id === moduleId);
-      const saved = draft.labels[moduleKey(course.id, moduleId)];
-      if (!mod && !saved) continue;
-      pushModule(course.id, moduleId, mod?.name || saved?.name || "", course.name, course.modules.length);
-    }
-  }
-
-  for (const [courseId, selection] of Object.entries(draft.selection)) {
-    if (seen.has(courseId)) continue;
-    const savedCourse = draft.labels[courseKey(courseId)];
-    const courseName = savedCourse?.name || savedCourse?.courseName || "";
-    if (selection === "all") {
-      if (courseName) pushCourse(courseId, courseName, 0);
-      continue;
-    }
-    for (const moduleId of selection) {
-      const saved = draft.labels[moduleKey(courseId, moduleId)];
-      if (!saved) continue;
-      pushModule(courseId, moduleId, saved.name, saved.courseName || courseName, 0);
-    }
-  }
-
-  return rows;
+export function isCourseLocked(catalog: TeachingCatalog, draft: CourseDraft, courseId: string): boolean {
+  return lockingModules(catalog, draft, courseId).length > 0;
 }
 
 function withNewRow(draft: CourseDraft, key: string): CourseDraft {
@@ -225,35 +184,78 @@ function withNewRow(draft: CourseDraft, key: string): CourseDraft {
   };
 }
 
-export function toggleCourse(draft: CourseDraft, course: CatalogCourse): CourseDraft {
-  const state = courseState(course, draft.selection[course.id]);
-  const selection = { ...draft.selection };
-  if (state === "all") {
-    delete selection[course.id];
-    return { ...draft, selection };
+export function toggleModule(draft: CourseDraft, module: CatalogModule): CourseDraft {
+  if (draft.modules.includes(module.id)) {
+    return { ...draft, modules: draft.modules.filter((id) => id !== module.id) };
   }
-  selection[course.id] = "all";
-  return withNewRow({ ...draft, selection }, courseKey(course.id));
+  const covered = new Set(module.courseIds);
+  return withNewRow({
+    ...draft,
+    modules: [...draft.modules, module.id],
+    courses: draft.courses.filter((id) => !covered.has(id)),
+  }, moduleKey(module.id));
 }
 
-export function toggleModule(draft: CourseDraft, course: CatalogCourse, moduleId: string): CourseDraft {
-  const current = draft.selection[course.id];
-  let ids: string[];
-  if (current === "all") ids = course.modules.map((mod) => mod.id);
-  else ids = [...(current ?? [])];
+export function toggleCourse(draft: CourseDraft, catalog: TeachingCatalog, course: CatalogCourse): CourseDraft {
+  if (isCourseLocked(catalog, draft, course.id)) return draft;
+  if (draft.courses.includes(course.id)) {
+    return { ...draft, courses: draft.courses.filter((id) => id !== course.id) };
+  }
+  return withNewRow({ ...draft, courses: [...draft.courses, course.id] }, courseKey(course.id));
+}
 
-  if (ids.includes(moduleId)) ids = ids.filter((id) => id !== moduleId);
-  else ids = [...ids, moduleId];
+export function setService(draft: CourseDraft, key: keyof SaleServices, value: boolean): CourseDraft {
+  return { ...draft, services: { ...draft.services, [key]: value } };
+}
 
-  const selection = { ...draft.selection };
-  if (ids.length === 0) delete selection[course.id];
-  else if (course.modules.length > 0 && course.modules.every((mod) => ids.includes(mod.id))) selection[course.id] = "all";
-  else selection[course.id] = ids;
+export function listItems(draft: CourseDraft, catalog: TeachingCatalog): ListedItem[] {
+  const rows: ListedItem[] = [];
+  const seenModules = new Set<string>();
 
-  const next = { ...draft, selection };
-  const key = selection[course.id] === "all" ? courseKey(course.id) : moduleKey(course.id, moduleId);
-  if (!ids.includes(moduleId) && selection[course.id] !== "all") return next;
-  return withNewRow(next, key);
+  const pushModule = (moduleId: string, name: string, courseNames: string[]) => {
+    const key = moduleKey(moduleId);
+    seenModules.add(moduleId);
+    rows.push({
+      key,
+      kind: "module",
+      moduleId,
+      name,
+      courseName: name,
+      courseCount: courseNames.length,
+      courseNames,
+      ...datesFor(draft, key),
+    });
+  };
+
+  const pushCourse = (courseId: string, name: string) => {
+    const key = courseKey(courseId);
+    rows.push({
+      key,
+      kind: "course",
+      courseId,
+      name,
+      courseName: name,
+      courseCount: 0,
+      courseNames: [],
+      ...datesFor(draft, key),
+    });
+  };
+
+  for (const moduleId of draft.modules) {
+    const mod = moduleById(catalog, moduleId);
+    const saved = draft.labels[moduleKey(moduleId)];
+    if (!mod && !saved) continue;
+    pushModule(moduleId, mod?.name || saved?.name || "", mod ? courseNamesOf(catalog, mod) : []);
+  }
+  for (const courseId of draft.courses) {
+    if (isCourseLocked(catalog, draft, courseId)) continue;
+    const course = courseById(catalog, courseId);
+    const saved = draft.labels[courseKey(courseId)];
+    const name = course?.name || saved?.name || "";
+    if (!name) continue;
+    pushCourse(courseId, name);
+  }
+  return rows;
 }
 
 export function touchField(draft: CourseDraft, field: string): CourseDraft {
@@ -284,21 +286,19 @@ export function setItemDate(draft: CourseDraft, key: string, field: keyof ItemDa
   return { ...draft, perItem: { ...draft.perItem, [key]: { ...current, [field]: value } } };
 }
 
-export function datesDiverge(draft: CourseDraft, catalog: CatalogCourse[]): boolean {
+export function datesDiverge(draft: CourseDraft, catalog: TeachingCatalog): boolean {
   if (draft.mode !== "item") return false;
   const rows = listItems(draft, catalog);
   if (rows.length <= 1) return false;
   return rows.some((row) => row.startsAt !== rows[0].startsAt || row.endsAt !== rows[0].endsAt);
 }
 
-export function applyMode(draft: CourseDraft, mode: DateMode, catalog: CatalogCourse[]): CourseDraft {
+export function applyMode(draft: CourseDraft, mode: DateMode, catalog: TeachingCatalog): CourseDraft {
   if (mode === draft.mode) return draft;
   if (mode === "item") {
     const rows = listItems(draft, catalog);
     const perItem = { ...draft.perItem };
-    for (const row of rows) {
-      perItem[row.key] = { startsAt: draft.sharedStart, endsAt: draft.sharedEnd };
-    }
+    for (const row of rows) perItem[row.key] = { startsAt: draft.sharedStart, endsAt: draft.sharedEnd };
     return { ...draft, mode: "item", perItem };
   }
   const rows = listItems(draft, catalog);
@@ -310,7 +310,7 @@ export function applyMode(draft: CourseDraft, mode: DateMode, catalog: CatalogCo
   };
 }
 
-export function copyFirstDates(draft: CourseDraft, catalog: CatalogCourse[]): CourseDraft {
+export function copyFirstDates(draft: CourseDraft, catalog: TeachingCatalog): CourseDraft {
   const rows = listItems(draft, catalog);
   if (rows.length === 0) return draft;
   const first = { startsAt: rows[0].startsAt, endsAt: rows[0].endsAt };
@@ -319,18 +319,27 @@ export function copyFirstDates(draft: CourseDraft, catalog: CatalogCourse[]): Co
   return { ...draft, perItem };
 }
 
-/** Body of POST/PATCH /sales. The server freezes the names; they are not sent. */
-export function toCourseSaleItems(draft: CourseDraft, catalog: CatalogCourse[]): CreateSaleItem[] {
-  return listItems(draft, catalog).map((row) => ({
-    kind: row.kind,
-    courseId: row.courseId,
-    ...(row.kind === "module" && row.moduleId ? { moduleId: row.moduleId } : {}),
-    startsAt: row.startsAt,
-    endsAt: row.endsAt,
-  }));
+/** Body of POST/PATCH /sales. Names are not sent. A covered course is not its own item. */
+export function toCourseSaleItems(draft: CourseDraft, catalog: TeachingCatalog): CreateSaleItem[] {
+  return listItems(draft, catalog).map((row) => {
+    if (row.kind === "module" && row.moduleId) {
+      return {
+        kind: "module" as const,
+        moduleId: row.moduleId,
+        startsAt: row.startsAt,
+        endsAt: row.endsAt,
+      };
+    }
+    return {
+      kind: "course" as const,
+      courseId: row.courseId ?? "",
+      startsAt: row.startsAt,
+      endsAt: row.endsAt,
+    };
+  });
 }
 
-export function blockReason(draft: CourseDraft, catalog: CatalogCourse[]): BlockReason | null {
+export function blockReason(draft: CourseDraft, catalog: TeachingCatalog): BlockReason | null {
   const rows = listItems(draft, catalog);
   if (rows.length === 0) return "empty";
   const invalid = rows.some((row) => row.startsAt && row.endsAt && row.endsAt <= row.startsAt);
@@ -354,7 +363,7 @@ export function showFieldIssue(draft: CourseDraft, field: string): boolean {
   return draft.attempted || Boolean(draft.touched[field]);
 }
 
-export function continueState(draft: CourseDraft, catalog: CatalogCourse[]): {
+export function continueState(draft: CourseDraft, catalog: TeachingCatalog): {
   ok: boolean;
   tone: "neutral" | "error";
   message: string | null;
@@ -367,56 +376,28 @@ export function continueState(draft: CourseDraft, catalog: CatalogCourse[]): {
     const missing = !row.startsAt || !row.endsAt;
     return { bad, missing, visible: bad && showFieldIssue(draft, field) };
   });
-  if (checked.some((row) => row.visible)) {
-    return { ok: false, tone: "error", message: "invalid" };
-  }
+  if (checked.some((row) => row.visible)) return { ok: false, tone: "error", message: "invalid" };
   if (checked.some((row) => row.missing)) return { ok: false, tone: "neutral", message: "end" };
   if (checked.some((row) => row.bad)) return { ok: false, tone: "neutral", message: null };
   return { ok: true, tone: "neutral", message: null };
 }
 
-export type CatalogMatch = {
-  course: CatalogCourse;
-  modules: CatalogCourse["modules"];
-  open: boolean;
+export type CatalogView = {
+  modules: CatalogModule[];
+  courses: CatalogCourse[];
 };
 
-/** Local filter. A course opens when one of its modules matches. */
-export function filterCatalog(catalog: CatalogCourse[], query: string): CatalogMatch[] {
+/** Local filter. A search hits a module name, a course name, and the courses inside a module. */
+export function filterCatalog(catalog: TeachingCatalog, query: string): CatalogView {
   const q = query.trim().toLowerCase();
-  if (!q) return catalog.map((course) => ({ course, modules: course.modules, open: false }));
-  const matches: CatalogMatch[] = [];
-  for (const course of catalog) {
-    const nameHit = course.name.toLowerCase().includes(q);
-    const modules = course.modules.filter((mod) => mod.name.toLowerCase().includes(q));
-    if (!nameHit && modules.length === 0) continue;
-    const moduleHit = modules.length > 0;
-    matches.push({
-      course,
-      modules: moduleHit ? modules : course.modules,
-      open: moduleHit || nameHit,
-    });
-  }
-  return matches;
-}
-
-export type PreviewGroup = {
-  courseId: string;
-  title: string;
-  whole: boolean;
-  modules: string[];
-};
-
-export function previewGroups(rows: ListedItem[]): PreviewGroup[] {
-  const groups: PreviewGroup[] = [];
-  for (const row of rows) {
-    let group = groups.find((item) => item.courseId === row.courseId);
-    if (!group) {
-      group = { courseId: row.courseId, title: row.courseName, whole: false, modules: [] };
-      groups.push(group);
-    }
-    if (row.kind === "course") group.whole = true;
-    else group.modules.push(row.name);
-  }
-  return groups;
+  if (!q) return { modules: catalog.modules, courses: catalog.courses };
+  const courseHit = new Set(
+    catalog.courses.filter((course) => course.name.toLowerCase().includes(q)).map((course) => course.id),
+  );
+  const modules = catalog.modules.filter((mod) => {
+    if (mod.name.toLowerCase().includes(q)) return true;
+    return mod.courseIds.some((id) => courseHit.has(id) || courseById(catalog, id)?.name.toLowerCase().includes(q));
+  });
+  const courses = catalog.courses.filter((course) => courseHit.has(course.id));
+  return { modules, courses };
 }

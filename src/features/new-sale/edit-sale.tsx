@@ -135,7 +135,16 @@ const EditSaleFeature = () => {
     const form = mapSaleToForm(saleQuery.data);
     setCustomers(form.customers);
     if (!isLegacySale(saleQuery.data.items, saleQuery.data.accessMode)) {
-      setCourseDraft(draftFromItems(readCourseItems(saleQuery.data.items), form.soldAt || todayIso()));
+      const next = draftFromItems(readCourseItems(saleQuery.data.items), form.soldAt || todayIso());
+      setCourseDraft({
+        ...next,
+        services: {
+          translation: saleQuery.data.translationIncluded === true,
+          apostille: saleQuery.data.apostilleIncluded === true,
+          postal: saleQuery.data.postalExpensesIncluded === true,
+          decree: saleQuery.data.decreeIncluded === true,
+        },
+      });
     }
     setPayments(form.payments.length > 0 ? form.payments : [{ ...EMPTY_PAYMENT }]);
     setStatus(form.status);
@@ -167,7 +176,7 @@ const EditSaleFeature = () => {
     return 0;
   }, [profile, saleQuery.data]);
 
-  const catalog = useMemo(() => catalogQuery.data ?? [], [catalogQuery.data]);
+  const catalog = useMemo(() => catalogQuery.data ?? { modules: [], courses: [] }, [catalogQuery.data]);
   const courseItems = useMemo(() => toCourseSaleItems(courseDraft, catalog), [courseDraft, catalog]);
   const courseGate = useMemo(() => continueState(courseDraft, catalog), [courseDraft, catalog]);
   const legacyItems = useMemo(
@@ -380,6 +389,12 @@ const EditSaleFeature = () => {
           ...(c.email ? { email: c.email } : {}),
         })),
         items: legacy ? legacyItems : courseItems,
+        ...(!legacy ? {
+          translationIncluded: courseDraft.services.translation,
+          apostilleIncluded: courseDraft.services.apostille,
+          postalExpensesIncluded: courseDraft.services.postal,
+          decreeIncluded: courseDraft.services.decree,
+        } : {}),
         payments: payments
           .filter((payment) => Number(payment.amount) > 0 && payment.gateway && payment.paymentType)
           .map((payment) => {
@@ -433,7 +448,7 @@ const EditSaleFeature = () => {
     );
   }
 
-  const stepLabels = ["Clientes", legacy ? "Produto" : t("sale.steps.courses"), "Pagamentos", "Resumo"];
+  const stepLabels = ["Clientes", legacy ? "Produto" : t("sale.steps.coursesServices"), "Pagamentos", "Resumo"];
 
   return (
     <div className={cn("space-y-6", step === 2 && !legacy && "max-md:pb-24")}>

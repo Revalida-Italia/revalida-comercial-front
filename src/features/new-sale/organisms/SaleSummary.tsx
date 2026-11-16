@@ -217,6 +217,9 @@ const SaleSummary = ({
                     </tbody>
                   </table>
                 )}
+                {courseSummary.notIncluded ? (
+                  <p className="mt-3 text-[13px] text-muted-foreground">{courseSummary.notIncluded}</p>
+                ) : null}
                 {courseSummary.summaryNote ? (
                   <p className="mt-3 text-[13px] text-muted-foreground">{courseSummary.summaryNote}</p>
                 ) : null}

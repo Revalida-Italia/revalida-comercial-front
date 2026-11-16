@@ -168,6 +168,10 @@ export interface SaleRecord {
   status: string;
   /** `legacy` keeps generic products. `courses` is a sale of published courses. */
   accessMode?: "legacy" | "courses" | null;
+  translationIncluded?: boolean | null;
+  apostilleIncluded?: boolean | null;
+  postalExpensesIncluded?: boolean | null;
+  decreeIncluded?: boolean | null;
   soldAt?: string | null;
   asaasSubscriptionId?: string | null;
   hotmartCheckoutLink?: string | null;
@@ -241,9 +245,16 @@ export type CreateSaleItem =
     notes?: string;
   }
   | {
-    kind: "course" | "module";
+    kind: "course";
     courseId: string;
-    moduleId?: string;
+    startsAt: string;
+    endsAt: string;
+  }
+  | {
+    kind: "module";
+    moduleId: string;
+    /** Set when this API still stores the module under one course. */
+    courseId?: string;
     startsAt: string;
     endsAt: string;
   };
@@ -285,6 +296,10 @@ export interface CreateSaleInput {
   clients: CreateSaleClient[];
   items: CreateSaleItem[];
   payments: CreateSalePayment[];
+  translationIncluded?: boolean;
+  apostilleIncluded?: boolean;
+  postalExpensesIncluded?: boolean;
+  decreeIncluded?: boolean;
 }
 
 export type SaleStatus = "PENDING" | "CONCLUDED" | "ARCHIVED";
@@ -328,6 +343,10 @@ export interface UpdateSaleInput {
   clients?: UpdateSaleClient[];
   items?: UpdateSaleItem[];
   payments?: UpdateSalePayment[];
+  translationIncluded?: boolean;
+  apostilleIncluded?: boolean;
+  postalExpensesIncluded?: boolean;
+  decreeIncluded?: boolean;
 }
 
 interface ListWrapper<T> {

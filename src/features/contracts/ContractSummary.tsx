@@ -29,6 +29,8 @@ export interface ContractSummaryProps {
   stickyBar: boolean;
   /** The surrounding column already scrolls, so this panel should not. */
   contained?: boolean;
+  modelName?: string;
+  onChangeModel?: () => void;
   onGenerate: () => void;
 }
 
@@ -81,7 +83,7 @@ export function GenerateButton({
 }
 
 export default function ContractSummary(props: ContractSummaryProps) {
-  const { issues, banner, generating, stickyBar, contained = false, onGenerate } = props;
+  const { issues, banner, generating, stickyBar, onGenerate } = props;
 
   const body = (
     <>
@@ -141,15 +143,24 @@ export default function ContractSummary(props: ContractSummaryProps) {
   return (
     <aside
       aria-label={t("contract.summary.title")}
-      className={cn(
-        "rounded-lg bg-card p-6 shadow-[0_4px_24px_rgba(15,40,60,0.07)]",
-        contained && "flex h-fit max-h-[min(32rem,calc(100dvh-18rem))] min-h-0 flex-col",
-        !contained && "h-fit lg:max-h-[calc(100dvh-6.5rem)] lg:overflow-y-auto",
-      )}
+      className="overflow-visible rounded-lg bg-card p-6 shadow-[0_4px_24px_rgba(15,40,60,0.07)]"
     >
-      {contained ? <div className="min-h-0 overflow-y-auto">{body}</div> : body}
+      {props.modelName ? (
+        <div className="mb-4 flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">{t("contract.page.modelLabel")}</p>
+            <p className="font-semibold">{props.modelName}</p>
+          </div>
+          {props.onChangeModel ? (
+            <button type="button" onClick={props.onChangeModel} className="shrink-0 text-sm font-semibold text-primary underline-offset-4 hover:underline">
+              {t("contract.page.switchModel")}
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+      {body}
       {!stickyBar && (
-        <div className={cn(contained && "shrink-0 bg-card pt-4")}>
+        <div className="pt-4">
           <GenerateButton issues={issues} generating={generating} onGenerate={onGenerate} />
         </div>
       )}
@@ -162,14 +173,17 @@ export function GenerateBar({
   issues,
   generating,
   onGenerate,
+  modelName,
 }: {
   issues: FormIssue[];
   generating: boolean;
   onGenerate: () => void;
+  modelName?: string;
 }) {
   const first = issues[0];
   return (
-    <div className="sticky bottom-0 z-10 -mx-3 mt-6 border-t border-border bg-background/95 px-3 py-3 backdrop-blur md:-mx-5 md:px-5">
+    <div className="sticky bottom-0 z-10 -mx-3 mt-6 border-t border-border bg-background/95 px-3 py-3 md:-mx-5 md:px-5">
+      {modelName ? <p className="mb-1 text-[13px] font-semibold text-foreground">{modelName}</p> : null}
       {first && (
         <p className="mb-2 text-[13px] text-muted-foreground">
           {issues.length > 1

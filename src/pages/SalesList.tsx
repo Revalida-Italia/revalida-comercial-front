@@ -2,7 +2,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import DisplayCurrencySelect from "@/components/DisplayCurrencySelect";
-import SaleListCard from "@/features/sales/organisms/SaleListCard";
+import SaleListCard, { SalesListHeader } from "@/features/sales/organisms/SaleListCard";
 import SalesFiltersCard from "@/features/sales/organisms/SalesFiltersCard";
 import SalesSummaryCards from "@/features/sales/organisms/SalesSummaryCards";
 import { canViewGlobalSalesExtras } from "@/lib/session";
@@ -121,9 +121,12 @@ const SalesList = () => {
           ) : sales.length === 0 ? (
             <p className="text-sm text-muted-foreground">Nenhuma venda encontrada.</p>
           ) : (
-            sales.map((sale) => (
-              <SaleListCard key={sale.id} sale={sale} />
-            ))
+            <div className="sale-list">
+              <SalesListHeader />
+              {sales.map((sale) => (
+                <SaleListCard key={sale.id} sale={sale} />
+              ))}
+            </div>
           )}
         </CardContent>
       </Card>

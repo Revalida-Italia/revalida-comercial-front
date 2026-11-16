@@ -15,13 +15,14 @@ vi.mock("@/services/contractsApi", async () => {
     ...actual,
     prefillContract: vi.fn(),
     listRevalidaProducts: vi.fn(),
+    listContractModels: vi.fn(),
     generateContract: vi.fn(),
     sendContractForSignature: vi.fn(),
   };
 });
 
 const { getSaleById } = await import("@/services/commercialApi");
-const { prefillContract, listRevalidaProducts, generateContract, sendContractForSignature } = await import("@/services/contractsApi");
+const { prefillContract, listRevalidaProducts, listContractModels, generateContract, sendContractForSignature } = await import("@/services/contractsApi");
 const { toast } = await import("sonner");
 
 const catalog = [
@@ -93,10 +94,12 @@ function generateButton() {
   return screen.getByRole("button", { name: "Gerar contrato" });
 }
 
-/** Gerar contrato opens the dialog. The choice is what actually registers. */
+/** Gerar contrato confirms the model, then the signature choice registers it. */
 async function confirmRegister(choice: "Sim" | "Não" = "Não") {
   fireEvent.click(generateButton());
-  const dialog = await screen.findByRole("alertdialog");
+  const model = await screen.findByRole("alertdialog", { name: "Gerar contrato?" });
+  fireEvent.click(within(model).getByRole("button", { name: "Gerar contrato" }));
+  const dialog = await screen.findByRole("alertdialog", { name: "Enviar para assinatura?" });
   expect(generateContract).not.toHaveBeenCalled();
   await act(async () => {
     fireEvent.click(within(dialog).getByRole("button", { name: choice }));
@@ -134,8 +137,7 @@ function mockSchoolPrefill(referenceCity: string) {
 
 async function openSchoolForm() {
   await ready();
-  fireEvent.keyDown(screen.getByRole("button", { name: /Trocar modelo/ }), { key: "Enter" });
-  fireEvent.click(await screen.findByRole("menuitem", { name: "Escola de Italiano" }));
+  fireEvent.click(screen.getAllByRole("button", { name: /Trocar modelo/ })[0]);
   await screen.findByRole("heading", { name: /Estudantes/ });
 }
 
@@ -201,6 +203,10 @@ beforeEach(() => {
   } as never);
   vi.mocked(prefillContract).mockResolvedValue(makePrefill() as never);
   vi.mocked(listRevalidaProducts).mockResolvedValue(catalog as never);
+  vi.mocked(listContractModels).mockResolvedValue([
+    { productType: "PROGRAMA_REVALIDA_ITALIA", templateId: "REVALIDA_v1.0", name: "Contrato Revalida Itália", language: "pt", version: "1.0" },
+    { productType: "ESCOLA_DE_ITALIANO", templateId: "SCUOLA_IT_v1.0", name: "Contratto DNN Italian School", language: "it", version: "1.0" },
+  ]);
 });
 
 describe("Gerar contrato page", () => {
@@ -462,8 +468,7 @@ describe("Gerar contrato page", () => {
           }
         : makePrefill()) as never);
     await ready();
-    fireEvent.keyDown(screen.getByRole("button", { name: /Trocar modelo/ }), { key: "Enter" });
-    fireEvent.click(await screen.findByRole("menuitem", { name: "Escola de Italiano" }));
+    fireEvent.click(screen.getAllByRole("button", { name: /Trocar modelo/ })[0]);
     await screen.findByRole("heading", { name: /Estudantes/ });
     const students = screen.getByRole("region", { name: /Estudantes/ });
     expect(within(students).getAllByText(/^(Nome completo|Nacionalidade|CPF|E-mail|Telefone)$/).map((label) => label.textContent)).toEqual([
@@ -700,12 +705,9 @@ describe("Gerar contrato page", () => {
     fillEverything();
     fireEvent.click(generateButton());
     const dialog = await screen.findByRole("alertdialog");
-    expect(within(dialog).getByRole("heading", { name: "Enviar para assinatura?" })).toBeInTheDocument();
-    expect(dialog).toHaveTextContent(
-      "Gerar contrato com Sim envia para assinatura; com Não, o contrato só é gerado.",
-    );
-    expect(within(dialog).getByRole("button", { name: "Sim" })).toBeInTheDocument();
-    expect(within(dialog).getByRole("button", { name: "Não" })).toBeInTheDocument();
+    expect(within(dialog).getByRole("heading", { name: "Gerar contrato?" })).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "Gerar contrato" })).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "Trocar modelo" })).toBeInTheDocument();
     expect(dialog.textContent).not.toMatch(/Registrar|DocuSign|envelope|payload|\bAPI\b/i);
     expect(dialog.textContent).not.toMatch(/\p{Extended_Pictographic}/u);
     fireEvent.keyDown(document.body, { key: "Escape", code: "Escape" });
@@ -771,7 +773,9 @@ describe("Gerar contrato page", () => {
     await ready();
     fillEverything();
     fireEvent.click(generateButton());
-    const dialog = await screen.findByRole("alertdialog");
+    const model = await screen.findByRole("alertdialog", { name: "Gerar contrato?" });
+    fireEvent.click(within(model).getByRole("button", { name: "Gerar contrato" }));
+    const dialog = await screen.findByRole("alertdialog", { name: "Enviar para assinatura?" });
     const yes = within(dialog).getByRole("button", { name: "Sim" });
     await act(async () => {
       fireEvent.click(yes);
@@ -797,18 +801,18 @@ describe("Gerar contrato page", () => {
     expect(screen.getAllByRole("radiogroup", { name: "Profissão" })).toHaveLength(1);
   });
 
-  it("shows the saved sale above the form when the window is narrow", async () => {
+  it("shows the saved sale after the form when the window is narrow", async () => {
     await ready();
     const sale = screen.getByRole("region", { name: "Dados da venda" });
     const form = screen.getByRole("heading", { name: /Contratantes/ });
     expect(sale.closest("[data-layout]")).toHaveAttribute("data-layout", "stack");
-    expect(screen.getByRole("button", { name: "Dados da venda" }).compareDocumentPosition(form) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(form.compareDocumentPosition(sale) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(within(sale).getByText("Billy Willy")).toBeInTheDocument();
     expect(screen.getByRole("complementary", { name: "Resumo" }).closest("[data-layout='rail']")).toBeNull();
     await waitFor(() => expect(getSaleById).toHaveBeenCalledTimes(1));
   });
 
-  it("keeps the summary and the generate action above the sale preview on a wide window", async () => {
+  it("keeps the summary beside the form and the sale in its own column on a wide window", async () => {
     setViewport(1440);
     await ready();
     const sale = screen.getByRole("region", { name: "Dados da venda" });
@@ -816,19 +820,18 @@ describe("Gerar contrato page", () => {
     expect(sale.closest("[data-layout]")).toHaveAttribute("data-layout", "rail");
     const column = summary.closest(".sticky");
     expect(column).toHaveClass("sticky");
-    expect(column?.className).not.toMatch(/overflow-y-auto/);
-    expect(column?.contains(sale)).toBe(true);
+    expect(column?.className).not.toMatch(/overflow-y-auto|max-h-/);
+    expect(column?.contains(sale)).toBe(false);
     expect(summary.compareDocumentPosition(sale) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(within(summary).getByRole("button", { name: "Gerar contrato" })).toBeDisabled();
     expect(within(sale).getByText("Billy Willy")).toBeInTheDocument();
   });
 
   it("does not squeeze the document field into the summary column at a laptop width", async () => {
+    setViewport(1024);
     await ready();
     const layout = screen.getByRole("heading", { name: /Contratantes/ }).closest("[data-layout='stack']");
-    const columns = layout?.querySelector(":scope > .grid");
-    expect(columns?.className).toContain("xl:grid-cols-[minmax(0,720px)_320px]");
-    expect(columns?.className).not.toMatch(/lg:grid-cols/);
+    expect(layout?.className).toContain("md:grid-cols-[minmax(0,1fr)_320px]");
     expect(byId("contract-party-0-document").closest(".grid")?.className).toContain("min-w-0");
   });
 
