@@ -435,7 +435,7 @@ function ModuleRow({
   onRowKey: (event: React.KeyboardEvent, toggle: () => void) => void;
 }) {
   const on = draft.modules.includes(module.id);
-  const names = module.courseIds.map((id) => catalog.courses.find((course) => course.id === id)?.name).filter((name): name is string => Boolean(name));
+  const names = (module.courseIds ?? []).map((id) => (catalog.courses ?? []).find((course) => course.id === id)?.name).filter((name): name is string => Boolean(name));
   const line = t(names.length === 1 ? "sale.courses.moduleCourses.one" : "sale.courses.moduleCourses.other", { n: names.length, nomes: names.join(", ") });
   const toggle = () => onChange(toggleModule(draft, module));
   return (

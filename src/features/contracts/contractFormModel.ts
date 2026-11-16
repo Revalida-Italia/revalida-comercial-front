@@ -154,7 +154,7 @@ export function createInitialRevalidaState(prefill: RevalidaContractPayload): Re
     };
   }
   return {
-    parties: prefill.parties.map((party) => {
+    parties: (prefill.parties ?? []).map((party) => {
       const profession = party.profession?.trim() || DEFAULT_PROFESSION;
       return {
         key: newPartyKey(),
@@ -283,7 +283,7 @@ export function schoolFormFromPrefill<
 >(prefill: T): Omit<T, "referenceCity" | "includeNotesInContract"> & { referenceCity: string; includeNotesInContract: boolean } {
   return {
     ...prefill,
-    students: prefill.students.map((student) => ({
+    students: (prefill.students ?? []).map((student) => ({
       ...student,
       phone: formatPhone(student.phone ?? ""),
       cpf: formatCpf(student.cpf ?? ""),
@@ -459,7 +459,7 @@ export function buildSchoolPayload(payload: SchoolContractPayload): SchoolGenera
   const sent = withoutPayment(payload);
   return {
     ...sent,
-    students: payload.students.map((student) => {
+    students: (payload.students ?? []).map((student) => {
       const next: SchoolStudent = {
         fullName: student.fullName.trim(),
         nationality: student.nationality.trim(),
@@ -489,7 +489,7 @@ export function buildRevalidaPayload(
   courseItems?: CourseContractItem[],
 ): BuiltPayload {
   if (courseItems && courseItems.length > 0) {
-    const prefillParties = new Map(prefill.parties.map((party) => [party.id, party]));
+    const prefillParties = new Map((prefill.parties ?? []).map((party) => [party.id, party]));
     const parties = state.parties.map((party) => {
       const original = party.id ? prefillParties.get(party.id) : undefined;
       return {
@@ -542,7 +542,7 @@ export function buildRevalidaPayload(
     });
   }
 
-  const prefillParties = new Map(prefill.parties.map((party) => [party.id, party]));
+  const prefillParties = new Map((prefill.parties ?? []).map((party) => [party.id, party]));
   const parties = state.parties.map((party) => {
     const original = party.id ? prefillParties.get(party.id) : undefined;
     return {
@@ -675,7 +675,7 @@ export function validateSchoolForm(
 
 export function buildSchoolSummaryRows(payload: SchoolContractPayload): Array<{ label: string; value: string }> {
   const rows: Array<{ label: string; value: string }> = [];
-  const names = payload.students.map((s) => s.fullName.trim()).filter(Boolean);
+  const names = (payload.students ?? []).map((s) => s.fullName.trim()).filter(Boolean);
   if (names.length > 0) {
     rows.push({
       label: t("contract.summary.student"),

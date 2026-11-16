@@ -58,6 +58,7 @@ export default function SaleDetailsCard({ saleId }: { saleId: string }) {
   }
 
   const sale = saleQuery.data;
+  const clients = sale.clients ?? [];
   const payments = sale.payments ?? [];
   const paid = payments.filter((payment) => String(payment.status).toUpperCase() === "PAID").length;
   const amount = Number(payments[0]?.amount ?? sale.contractValue ?? 0);
@@ -73,7 +74,7 @@ export default function SaleDetailsCard({ saleId }: { saleId: string }) {
         {t("contract.page.salePreview")}
       </h2>
 
-      {sale.clients.map((client) => (
+      {clients.map((client) => (
         <Block key={client.id} title={t("sales.card.clientFallback")}>
           <p className="font-semibold">{client.nameCiphertext}</p>
           {clientText(client, "document") ? <p className="text-sm text-muted-foreground">{clientText(client, "document")}</p> : null}

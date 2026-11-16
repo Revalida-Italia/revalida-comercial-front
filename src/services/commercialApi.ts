@@ -485,6 +485,10 @@ function normalizeSaleRecord(sale: SaleRecord): SaleRecord {
     clients: Array.isArray(sale.clients) ? sale.clients : [],
     items: Array.isArray(sale.items) ? sale.items : [],
     payments,
+    translationIncluded: sale.translationIncluded === true,
+    apostilleIncluded: sale.apostilleIncluded === true,
+    postalExpensesIncluded: sale.postalExpensesIncluded === true,
+    decreeIncluded: sale.decreeIncluded === true,
     commissions: Array.isArray(sale.commissions) && sale.commissions.length > 0
       ? sale.commissions
       : commissionsFromPayments,
@@ -750,7 +754,7 @@ function mergePaymentLinkIntoSale(
 ): SaleRecord {
   return {
     ...sale,
-    payments: sale.payments.map((item) => (
+    payments: (sale.payments ?? []).map((item) => (
       item.id === paymentId
         ? {
           ...item,
@@ -773,7 +777,7 @@ export async function createAsaasPaymentLinkForSale(
   input: AsaasPaymentLinkInput,
 ): Promise<CreateAsaasPaymentLinkResult> {
   const sale = await getSaleById(saleId);
-  const payment = sale.payments.find((item) => item.id === paymentId);
+  const payment = (sale.payments ?? []).find((item) => item.id === paymentId);
 
   if (!payment) {
     throw new Error("Pagamento não encontrado.");
