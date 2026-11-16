@@ -29,7 +29,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import ProductAutonomyFields from "./ProductAutonomyFields";
-import { buildProductUpdateInput, hotmartCheckoutUrlError } from "./productPayload";
+import { buildProductUpdateInput } from "./productPayload";
 
 const AdminProductsFeature = () => {
   const navigate = useNavigate();
@@ -38,11 +38,8 @@ const AdminProductsFeature = () => {
   const [editName, setEditName] = useState("");
   const [editDescription, setEditDescription] = useState("");
   const [editHotmartProductId, setEditHotmartProductId] = useState("");
-  const [editHotmartCheckoutUrl, setEditHotmartCheckoutUrl] = useState("");
   const [editHotmartOfferCode, setEditHotmartOfferCode] = useState("");
   const [editIsAutonomy, setEditIsAutonomy] = useState(false);
-  const [checkoutUrlSubmitted, setCheckoutUrlSubmitted] = useState(false);
-  const checkoutUrlError = checkoutUrlSubmitted ? hotmartCheckoutUrlError(editHotmartCheckoutUrl) : null;
   const [deletingProduct, setDeletingProduct] = useState<Product | null>(null);
 
   const productsQuery = useQuery({
@@ -85,10 +82,8 @@ const AdminProductsFeature = () => {
     setEditName(product.name ?? "");
     setEditDescription(product.description ?? "");
     setEditHotmartProductId(product.hotmartProductId ?? "");
-    setEditHotmartCheckoutUrl(product.hotmartCheckoutUrl ?? "");
     setEditHotmartOfferCode(product.hotmartOfferCode ?? "");
     setEditIsAutonomy(Boolean(product.isAutonomy));
-    setCheckoutUrlSubmitted(false);
   };
 
   const handleEditSubmit = () => {
@@ -101,18 +96,10 @@ const AdminProductsFeature = () => {
       return;
     }
 
-    setCheckoutUrlSubmitted(true);
-    const urlError = hotmartCheckoutUrlError(editHotmartCheckoutUrl);
-    if (urlError) {
-      toast.error(urlError);
-      return;
-    }
-
     const payload: UpdateProductInput = buildProductUpdateInput(editingProduct, {
       name: editName,
       description: editDescription,
       hotmartProductId: editHotmartProductId,
-      hotmartCheckoutUrl: editHotmartCheckoutUrl,
       hotmartOfferCode: editHotmartOfferCode,
       isAutonomy: editIsAutonomy,
     });
@@ -168,16 +155,13 @@ const AdminProductsFeature = () => {
                       <h3 className="truncate font-semibold text-foreground">{product.name}</h3>
                     </div>
                     <p className="text-sm text-muted-foreground">{product.description || "Sem descricao cadastrada."}</p>
-                    {(product.isAutonomy || product.hotmartProductId || product.hotmartCheckoutUrl || product.hotmartOfferCode) && (
+                    {(product.isAutonomy || product.hotmartProductId || product.hotmartOfferCode) && (
                       <div className="flex flex-wrap items-center gap-2 pt-1">
                         {product.isAutonomy && (
                           <Badge variant="outline" className="h-5 px-1.5 text-[10px]">Autonomy</Badge>
                         )}
                         {product.hotmartProductId && (
                           <span className="text-xs text-muted-foreground">Hotmart {product.hotmartProductId}</span>
-                        )}
-                        {product.hotmartCheckoutUrl && (
-                          <ProductCheckoutUrl url={product.hotmartCheckoutUrl} />
                         )}
                         {product.hotmartOfferCode && (
                           <span className="text-xs text-muted-foreground">Oferta {product.hotmartOfferCode}</span>
@@ -246,13 +230,10 @@ const AdminProductsFeature = () => {
             <ProductAutonomyFields
               idPrefix="edit-product"
               hotmartProductId={editHotmartProductId}
-              hotmartCheckoutUrl={editHotmartCheckoutUrl}
-              hotmartCheckoutUrlError={checkoutUrlError}
               hotmartOfferCode={editHotmartOfferCode}
               isAutonomy={editIsAutonomy}
               disabled={updateProductMutation.isPending}
               onHotmartProductIdChange={setEditHotmartProductId}
-              onHotmartCheckoutUrlChange={setEditHotmartCheckoutUrl}
               onHotmartOfferCodeChange={setEditHotmartOfferCode}
               onIsAutonomyChange={setEditIsAutonomy}
             />
@@ -295,35 +276,5 @@ const AdminProductsFeature = () => {
     </>
   );
 };
-
-function ProductCheckoutUrl({ url }: { url: string }) {
-  const trimmed = url.trim();
-  let safeHref: string | null = null;
-
-  try {
-    const parsed = new URL(trimmed);
-    if (parsed.protocol === "http:" || parsed.protocol === "https:") {
-      safeHref = parsed.href;
-    }
-  } catch {
-    safeHref = null;
-  }
-
-  if (!safeHref) {
-    return <span className="min-w-0 basis-full break-all text-xs text-muted-foreground">{trimmed}</span>;
-  }
-
-  return (
-    <a
-      href={safeHref}
-      target="_blank"
-      rel="noopener noreferrer"
-      title={safeHref}
-      className="min-w-0 basis-full break-all text-xs text-primary underline-offset-2 hover:underline"
-    >
-      {trimmed}
-    </a>
-  );
-}
 
 export default AdminProductsFeature;

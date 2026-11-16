@@ -139,3 +139,71 @@ html {
     background: linear-gradient(135deg, hsl(195 80% 35%), hsl(38 92% 55%));
   }
 }
+
+/* Sales list: layout follows the list width, not the window. */
+.sale-list {
+  container-name: sales;
+  container-type: inline-size;
+}
+.sale-card {
+  display: grid;
+  gap: 14px;
+  grid-template-areas: "head" "clients" "meta" "nums" "acts";
+  min-width: 0;
+}
+.sale-card-head { grid-area: head; min-width: 0; }
+.sale-card-clients { grid-area: clients; min-width: 0; }
+.sale-card-meta { grid-area: meta; min-width: 0; }
+.sale-card-nums {
+  grid-area: nums;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 16px;
+  min-width: 0;
+}
+.sale-card-acts {
+  grid-area: acts;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: nowrap;
+  min-width: 0;
+  overflow: visible;
+}
+.sale-wide-label { display: none; }
+.sale-compact {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  justify-content: center;
+}
+.sale-link-short { display: none; }
+.sale-pay-value { white-space: normal; overflow: visible; line-height: 1.25; }
+@container sales (min-width: 620px) {
+  .sale-card-nums { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+@container sales (min-width: 1320px) {
+  .sale-card {
+    grid-template-columns: minmax(220px, 1fr) minmax(320px, 520px) max-content;
+    column-gap: 20px;
+    grid-template-areas: "head nums acts" "clients clients clients" "meta meta meta";
+    align-items: center;
+  }
+  .sale-card-nums { grid-template-columns: 5.5rem minmax(10.5rem, 1.7fr) minmax(6.5rem, 1fr) minmax(8.75rem, 1.2fr); }
+  .sale-card-acts { justify-content: flex-end; overflow: visible; }
+  .sale-wide-label { display: inline; }
+  .sale-compact { width: auto; height: 36px; padding: 0 10px; }
+}
+@media (max-width: 767px) {
+  .sale-card-acts { flex-wrap: nowrap; gap: 2px; overflow: visible; }
+  .sale-card-acts .sale-action { height: 44px; flex-shrink: 1; }
+  .sale-card-acts .sale-compact { width: 44px; min-width: 40px; padding: 0; }
+  .sale-card-acts .sale-split { flex-shrink: 1; min-width: 0; }
+  .sale-link-long { display: none; }
+  .sale-link-short { display: inline; }
+}
+@container sales (max-width: 400px) {
+  .sale-card-acts { gap: 2px; }
+  .sale-card-acts .sale-compact { width: 40px; min-width: 40px; height: 40px; }
+  .sale-card-acts .sale-action { height: 40px; padding-left: 6px; padding-right: 6px; }
+}

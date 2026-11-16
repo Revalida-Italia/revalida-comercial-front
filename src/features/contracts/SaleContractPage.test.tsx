@@ -103,6 +103,42 @@ async function confirmRegister(choice: "Sim" | "Não" = "Não") {
   });
 }
 
+function schoolPrefill(referenceCity: string) {
+  return {
+    productType: "ESCOLA_DE_ITALIANO",
+    students: [
+      {
+        id: "c1",
+        clientId: "c1",
+        fullName: "Billy Willy",
+        nationality: "brasiliana",
+        cpf: "39053344705",
+        email: "billy@example.com",
+        phone: "+55 (11) 98888-0000",
+      },
+    ],
+    course: { durationMonths: 4, startDate: "2027-01-11" },
+    referenceCity,
+    currency: "EUR",
+    totalAmount: 2400,
+    phases: [] as never[],
+    contractVersion: "1.0",
+    notes: null,
+  };
+}
+
+function mockSchoolPrefill(referenceCity: string) {
+  vi.mocked(prefillContract).mockImplementation((async (_saleId: string, productType: string) =>
+    productType === "ESCOLA_DE_ITALIANO" ? schoolPrefill(referenceCity) : makePrefill()) as never);
+}
+
+async function openSchoolForm() {
+  await ready();
+  fireEvent.keyDown(screen.getByRole("button", { name: /Trocar modelo/ }), { key: "Enter" });
+  fireEvent.click(await screen.findByRole("menuitem", { name: "Escola de Italiano" }));
+  await screen.findByRole("heading", { name: /Estudantes/ });
+}
+
 /** Everything the form asks for, in the order a seller would do it. */
 function fillEverything() {
   type("contract-party-0-email", "billy@example.com");
@@ -172,12 +208,82 @@ describe("Gerar contrato page", () => {
     await ready();
     expect(screen.getByRole("heading", { name: "Gerar contrato", level: 1 })).toBeInTheDocument();
     expect(await screen.findByText("Billy Willy e mais 1")).toBeInTheDocument();
-    for (const title of ["Contratantes", "O que está incluso", "Vigência do contrato", "Pagamento", "Assinaturas", "Observações internas \\(não vão no contrato\\)"]) {
+    for (const title of ["Contratantes", "O que está incluso", "Vigência do contrato", "Pagamento", "Assinaturas", "Observações$"]) {
       expect(screen.getByRole("heading", { name: new RegExp(title) })).toBeInTheDocument();
     }
     expect(screen.getByRole("link", { name: /Venda/ })).toHaveAttribute("href", "/vendas/s1");
     expect(screen.queryByText(/Testemunha/)).toBeNull();
     expect(document.getElementById("contract-witness-0-fullName")).toBeNull();
+  });
+
+  it("keeps observations out of the contract until the seller confirms", async () => {
+    await ready();
+    const toggle = screen.getByRole("switch", { name: "Incluir no contrato" });
+    expect(toggle).toHaveAttribute("aria-checked", "false");
+    expect(screen.getByRole("heading", { name: /Observações$/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Adicionar observação interna" })).toBeInTheDocument();
+
+    fireEvent.click(toggle);
+    const dialog = await screen.findByRole("alertdialog");
+    expect(within(dialog).getByRole("heading", { name: "Colocar as observações no contrato?" })).toBeInTheDocument();
+    expect(dialog).toHaveTextContent("As observações passam a fazer parte do contrato.");
+    expect(dialog.textContent).not.toMatch(/payload|\bAPI\b|PDF|DocuSign/i);
+    expect(dialog.textContent).not.toMatch(/\p{Extended_Pictographic}/u);
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cancelar" }));
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
+    expect(toggle).toHaveAttribute("aria-checked", "false");
+    expect(screen.getByRole("heading", { name: /Observações$/ })).toBeInTheDocument();
+
+    fireEvent.click(toggle);
+    fireEvent.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Confirmar" }));
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
+    expect(toggle).toHaveAttribute("aria-checked", "true");
+    expect(screen.getByRole("heading", { name: /Observações$/ })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: /não vão no contrato/ })).toBeNull();
+    expect(screen.getByRole("button", { name: "Adicionar observação" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Adicionar observação interna" })).toBeNull();
+
+    fireEvent.click(toggle);
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    expect(toggle).toHaveAttribute("aria-checked", "false");
+    expect(screen.getByRole("heading", { name: /Observações$/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Adicionar observação interna" })).toBeInTheDocument();
+  });
+
+  it("sends the notes and includeNotesInContract after the seller confirms", async () => {
+    vi.mocked(generateContract).mockResolvedValue({ id: "ct_notes" } as never);
+    await ready();
+    fillEverything();
+    fireEvent.click(screen.getByRole("button", { name: "Adicionar observação interna" }));
+    type("contract-notes", "Entregar em mãos");
+    fireEvent.click(screen.getByRole("switch", { name: "Incluir no contrato" }));
+    fireEvent.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Confirmar" }));
+    await confirmRegister();
+    await waitFor(() => expect(generateContract).toHaveBeenCalledTimes(1));
+    const payload = vi.mocked(generateContract).mock.calls[0][1] as { notes: string | null; includeNotesInContract: boolean };
+    expect(payload.notes).toBe("Entregar em mãos");
+    expect(payload.includeNotesInContract).toBe(true);
+  });
+
+  it("keeps sending the notes and leaves the flag off when the toggle stays off", async () => {
+    vi.mocked(generateContract).mockResolvedValue({ id: "ct_notes_off" } as never);
+    await ready();
+    fillEverything();
+    fireEvent.click(screen.getByRole("button", { name: "Adicionar observação interna" }));
+    type("contract-notes", "Ligação antes");
+    await confirmRegister();
+    await waitFor(() => expect(generateContract).toHaveBeenCalledTimes(1));
+    const payload = vi.mocked(generateContract).mock.calls[0][1] as { notes: string | null; includeNotesInContract: boolean };
+    expect(payload.notes).toBe("Ligação antes");
+    expect(payload.includeNotesInContract).toBe(false);
+  });
+
+  it("restores the toggle when prefill says the notes go in the contract", async () => {
+    vi.mocked(prefillContract).mockResolvedValue(makePrefill({ includeNotesInContract: true, notes: "Já incluso" }) as never);
+    await ready();
+    expect(screen.getByRole("switch", { name: "Incluir no contrato" })).toHaveAttribute("aria-checked", "true");
+    expect(screen.getByRole("heading", { name: /Observações$/ })).toBeInTheDocument();
+    expect(byId("contract-notes").value).toBe("Já incluso");
   });
 
   it("shows each product with the description from the catalog, read only, and Não as the default for extras", async () => {
@@ -194,6 +300,7 @@ describe("Gerar contrato page", () => {
 
   it("disables Gerar contrato and lists the reasons, clickable", async () => {
     await ready();
+    expect(generateButton()).toBeDisabled();
     expect(generateButton()).toHaveAttribute("aria-disabled", "true");
     const reason = screen.getByRole("button", { name: "Falta: e-mail de Billy Willy" });
     fireEvent.click(reason);
@@ -204,14 +311,24 @@ describe("Gerar contrato page", () => {
     expect(byId("contract-party-0-email")).not.toHaveAttribute("aria-invalid");
   });
 
-  it("clicking the blocked button shows the errors inline and focuses the first one, with no toast", async () => {
+  it("does not submit Gerar contrato from a click or the keyboard while the form is invalid", async () => {
     await ready();
-    fireEvent.click(generateButton());
+    const button = generateButton();
+    expect(button).toBeDisabled();
+    expect(button.className).toContain("opacity-50");
+    expect(button.className).toContain("cursor-not-allowed");
+    fireEvent.click(button);
+    fireEvent.keyDown(button, { key: "Enter" });
+    fireEvent.keyUp(button, { key: "Enter" });
+    fireEvent.keyDown(button, { key: " " });
+    fireEvent.keyUp(button, { key: " " });
     expect(generateContract).not.toHaveBeenCalled();
     expect(screen.queryByRole("alertdialog")).toBeNull();
     expect(toast.error).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "Falta: e-mail de Billy Willy" })).toBeInTheDocument();
+    expect(byId("contract-party-0-email")).not.toHaveAttribute("aria-invalid");
+    fireEvent.blur(byId("contract-party-0-email"));
     expect(byId("contract-party-0-email")).toHaveAttribute("aria-invalid", "true");
-    expect(document.activeElement).toBe(byId("contract-party-0-email"));
     expect(screen.getAllByText("Obrigatório").length).toBeGreaterThan(0);
   });
 
@@ -235,6 +352,7 @@ describe("Gerar contrato page", () => {
     await ready();
     expect(screen.getByRole("link", { name: "Ir para a venda" })).toHaveAttribute("href", "/vendas/s1");
     expect(screen.getAllByText("Cadastre o pagamento da venda para gerar o contrato.").length).toBeGreaterThan(0);
+    expect(generateButton()).toBeDisabled();
     expect(generateButton()).toHaveAttribute("aria-disabled", "true");
   });
 
@@ -323,8 +441,9 @@ describe("Gerar contrato page", () => {
       birthDate: "1990-05-10",
       birthPlace: "São Paulo",
       nationality: "brasiliana",
-      passport: null,
+      passport: "AB123",
       fullAddress: "Rua A, 1",
+      cpf: "39053344705",
       email: "billy@example.com",
       phone: "+55 (11) 98888-0000",
     };
@@ -346,6 +465,25 @@ describe("Gerar contrato page", () => {
     fireEvent.keyDown(screen.getByRole("button", { name: /Trocar modelo/ }), { key: "Enter" });
     fireEvent.click(await screen.findByRole("menuitem", { name: "Escola de Italiano" }));
     await screen.findByRole("heading", { name: /Estudantes/ });
+    const students = screen.getByRole("region", { name: /Estudantes/ });
+    expect(within(students).getAllByText(/^(Nome completo|Nacionalidade|CPF|E-mail|Telefone)$/).map((label) => label.textContent)).toEqual([
+      "Nome completo",
+      "Nacionalidade",
+      "CPF",
+      "E-mail",
+      "Telefone",
+    ]);
+    expect(byId("contract-school-0-cpf").value).toBe("390.533.447-05");
+    for (const gone of ["Data de nascimento", "Local de nascimento", "Endereço completo", "Passaporte"]) {
+      expect(screen.queryByText(gone)).toBeNull();
+    }
+    const included = screen.getByRole("region", { name: /O que está incluso/ });
+    expect(within(included).getAllByRole("listitem").map((item) => item.textContent)).toEqual([
+      "Curso Start",
+      "Italiano Quattromani",
+      "Preparação para as provas de revalidação",
+      "Italiano Médico",
+    ]);
     const section = document.getElementById("contract-section-payment") as HTMLElement;
     await waitFor(() => expect(within(section).getAllByText(/^€\s*480,00$/)).toHaveLength(5));
     expect(section.textContent).toMatch(/Total\s*€\s*2\.400,00/);
@@ -357,10 +495,21 @@ describe("Gerar contrato page", () => {
     fireEvent.click(screen.getByRole("button", { name: "Adicionar estudante" }));
     expect(screen.getByRole("heading", { name: "Estudante 2" })).toBeInTheDocument();
     type("contract-school-1-fullName", "Ana Lima");
-    type("contract-school-1-birthDate", "02/03/1992");
-    type("contract-school-1-birthPlace", "Curitiba");
     type("contract-school-1-nationality", "brasiliana");
-    type("contract-school-1-fullAddress", "Rua B, 2");
+    type("contract-school-1-cpf", "52998224726");
+    expect(byId("contract-school-1-cpf").value).toBe("529.982.247-26");
+    const blocked = generateButton();
+    expect(blocked).toBeDisabled();
+    fireEvent.click(blocked);
+    fireEvent.keyDown(blocked, { key: "Enter" });
+    fireEvent.keyDown(blocked, { key: " " });
+    expect(generateContract).not.toHaveBeenCalled();
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    expect(screen.getByRole("button", { name: "Falta: CPF válido de Ana Lima" })).toBeInTheDocument();
+    fireEvent.blur(byId("contract-school-1-cpf"));
+    expect(screen.getByText("Digite um CPF válido.")).toBeInTheDocument();
+    type("contract-school-1-cpf", "52998224725");
+    expect(byId("contract-school-1-cpf").value).toBe("529.982.247-25");
     type("contract-school-1-email", "ana@example.com");
     type("contract-school-1-phone", "41977770000");
     type("contract-school-startDate", "11/01/2027");
@@ -368,6 +517,13 @@ describe("Gerar contrato page", () => {
     const resumo = screen.getByRole("complementary", { name: "Resumo" });
     expect(within(resumo).getByText("2 estudantes")).toBeInTheDocument();
     expect(within(resumo).getByText("4 meses a partir de 11/01/2027")).toBeInTheDocument();
+    const includedHeading = within(resumo).getByRole("heading", { name: "Incluso" });
+    expect(within(includedHeading.nextElementSibling as HTMLElement).getAllByRole("listitem").map((item) => item.textContent)).toEqual([
+      "Curso Start",
+      "Italiano Quattromani",
+      "Preparação para as provas de revalidação",
+      "Italiano Médico",
+    ]);
     await confirmRegister();
     await waitFor(() => expect(generateContract).toHaveBeenCalledTimes(1));
     const [, payload, productType] = vi.mocked(generateContract).mock.calls[0] as [string, Record<string, unknown>, string];
@@ -376,8 +532,27 @@ describe("Gerar contrato page", () => {
       course: { durationMonths: 4, startDate: "2027-01-11" },
       referenceCity: "Pordenone",
     });
-    expect((payload.students as Array<{ fullName: string }>).map((s) => s.fullName)).toEqual(["Billy Willy", "Ana Lima"]);
+    expect(payload.students).toEqual([
+      {
+        id: "c1",
+        clientId: "c1",
+        fullName: "Billy Willy",
+        nationality: "brasiliana",
+        cpf: "390.533.447-05",
+        email: "billy@example.com",
+        phone: "+55 (11) 98888-0000",
+      },
+      {
+        id: expect.any(String),
+        fullName: "Ana Lima",
+        nationality: "brasiliana",
+        cpf: "529.982.247-25",
+        email: "ana@example.com",
+        phone: "+55 (41) 97777-0000",
+      },
+    ]);
     for (const key of ["currency", "totalAmount", "phases"]) expect(payload).not.toHaveProperty(key);
+    expect(payload.includeNotesInContract).toBe(false);
   });
 
   it("shows a EUR sale in € with the amounts entered on the sale, with no conversion", async () => {
@@ -444,6 +619,7 @@ describe("Gerar contrato page", () => {
     vi.mocked(generateContract).mockResolvedValue({ id: "ct_new" } as never);
     await ready();
     fillEverything();
+    expect(generateButton()).toBeEnabled();
     expect(generateButton()).toHaveAttribute("aria-disabled", "false");
     await confirmRegister();
     await waitFor(() => expect(generateContract).toHaveBeenCalledTimes(1));
@@ -500,6 +676,7 @@ describe("Gerar contrato page", () => {
     await confirmRegister();
     expect(await screen.findByText("Não foi possível gerar o contrato. Tente novamente.")).toBeInTheDocument();
     expect(document.body.textContent).not.toMatch(/Sum of phases|totalAmount/);
+    expect(generateButton()).toBeEnabled();
     expect(generateButton()).toHaveAttribute("aria-disabled", "false");
   });
 
@@ -642,7 +819,7 @@ describe("Gerar contrato page", () => {
     expect(column?.className).not.toMatch(/overflow-y-auto/);
     expect(column?.contains(sale)).toBe(true);
     expect(summary.compareDocumentPosition(sale) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(within(summary).getByRole("button", { name: "Gerar contrato" })).toBeInTheDocument();
+    expect(within(summary).getByRole("button", { name: "Gerar contrato" })).toBeDisabled();
     expect(within(sale).getByText("Billy Willy")).toBeInTheDocument();
   });
 
@@ -660,5 +837,99 @@ describe("Gerar contrato page", () => {
     const text = document.body.textContent ?? "";
     expect(text).not.toMatch(/REVALIDA_v|SCUOLA_IT|Regime de responsabilidade|Partes|módulo|gatilho|DocuSign|Senha/i);
     expect(text).not.toMatch(/\p{Extended_Pictographic}/u);
+  });
+
+  it("starts a new Revalida form with the default city and lets the seller change it", async () => {
+    await ready();
+    expect(byId("contract-reference-city").value).toBe("Caxias do Sul, RS, Brasil");
+    type("contract-reference-city", "Bento Gonçalves");
+    expect(byId("contract-reference-city").value).toBe("Bento Gonçalves");
+  });
+
+  it("sends the default city when a new Revalida form is left unchanged", async () => {
+    vi.mocked(generateContract).mockResolvedValue({ id: "ct_city" } as never);
+    await ready();
+    type("contract-party-0-email", "billy@example.com");
+    type("contract-party-0-phone", "11988880000");
+    fireEvent.click(screen.getByRole("switch", { name: "Decreto" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Curso Start" }));
+    type("contract-product-START-release", "15/10/2026");
+    type("contract-product-START-duration", "12");
+    type("contract-term-end", "15/04/2028");
+    expect(byId("contract-reference-city").value).toBe("Caxias do Sul, RS, Brasil");
+    await confirmRegister();
+    await waitFor(() => expect(generateContract).toHaveBeenCalledTimes(1));
+    const payload = vi.mocked(generateContract).mock.calls[0][1] as { referenceCity: string };
+    expect(payload.referenceCity).toBe("Caxias do Sul, RS, Brasil");
+  });
+
+  it("keeps the city already saved on a Revalida sale", async () => {
+    vi.mocked(prefillContract).mockResolvedValue(makePrefill({ referenceCity: "São Paulo" }) as never);
+    await ready();
+    expect(byId("contract-reference-city").value).toBe("São Paulo");
+  });
+
+  it("restores the Escola toggle when prefill says the notes go in the contract", async () => {
+    vi.mocked(prefillContract).mockImplementation((async (_saleId: string, productType: string) =>
+      productType === "ESCOLA_DE_ITALIANO"
+        ? { ...schoolPrefill("Pordenone"), includeNotesInContract: true, notes: "Sala 2" }
+        : makePrefill()) as never);
+    await openSchoolForm();
+    expect(screen.getByRole("switch", { name: "Incluir no contrato" })).toHaveAttribute("aria-checked", "true");
+    expect(byId("contract-notes").value).toBe("Sala 2");
+  });
+
+  it("asks on the Escola form before including the observations", async () => {
+    mockSchoolPrefill("");
+    await openSchoolForm();
+    const toggle = screen.getByRole("switch", { name: "Incluir no contrato" });
+    expect(toggle).toHaveAttribute("aria-checked", "false");
+    expect(screen.getByRole("heading", { name: /Observações$/ })).toBeInTheDocument();
+    fireEvent.click(toggle);
+    fireEvent.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Confirmar" }));
+    await waitFor(() => expect(toggle).toHaveAttribute("aria-checked", "true"));
+    expect(screen.getByRole("heading", { name: /Observações$/ })).toBeInTheDocument();
+    fireEvent.click(toggle);
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    expect(toggle).toHaveAttribute("aria-checked", "false");
+  });
+
+  it("starts a new Escola form with the default city and lets the seller change it", async () => {
+    mockSchoolPrefill("");
+    await openSchoolForm();
+    expect(byId("contract-reference-city").value).toBe("Caxias do Sul, RS, Brasil");
+    type("contract-reference-city", "Bento Gonçalves");
+    expect(byId("contract-reference-city").value).toBe("Bento Gonçalves");
+  });
+
+  it("lists the courses from the sale and leaves the contract end blank", async () => {
+    vi.mocked(getSaleById).mockResolvedValue({
+      id: "s1",
+      clients: [{ id: "c1", nameCiphertext: "Billy Willy" }],
+      accessMode: "courses",
+      items: [
+        { id: "i1", saleId: "s1", kind: "course", courseId: "start", courseName: "Curso Start", moduleName: null, startsAt: "2026-08-20", endsAt: "2027-08-20" },
+        { id: "i2", saleId: "s1", kind: "module", courseId: "prep", moduleId: "pedia", courseName: "Preparação", moduleName: "Pediatria", startsAt: "2026-09-01", endsAt: "2027-03-01" },
+      ],
+    } as never);
+    await ready();
+    expect(screen.queryByRole("checkbox", { name: "Curso Start" })).toBeNull();
+    expect(screen.getByRole("link", { name: "Alterar na venda" })).toHaveAttribute("href", "/vendas/s1/editar?step=2");
+    expect(screen.getAllByText("Pediatria").length).toBeGreaterThan(0);
+    expect(screen.getByRole("switch", { name: "Decreto" })).toBeInTheDocument();
+    expect(byId("contract-term-start").value).toBe("20/08/2026");
+    expect(byId("contract-term-end").value).toBe("");
+    expect(screen.queryByText(/Sugerido/)).toBeNull();
+    type("contract-term-end", "01/01/2027");
+    type("contract-party-0-email", "billy@example.com");
+    type("contract-party-0-phone", "11988880000");
+    fireEvent.click(generateButton());
+    expect(document.body.textContent ?? "").toMatch(/fim da vigência|ou depois/);
+  });
+
+  it("keeps the city already saved on an Escola sale", async () => {
+    mockSchoolPrefill("Pordenone");
+    await openSchoolForm();
+    expect(byId("contract-reference-city").value).toBe("Pordenone");
   });
 });

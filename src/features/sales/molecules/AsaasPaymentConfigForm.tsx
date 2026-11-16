@@ -10,6 +10,7 @@ import {
   SUBSCRIPTION_CYCLE_OPTIONS,
 } from "@/features/new-sale/constants";
 import type { SalePaymentDraft } from "@/features/new-sale/types";
+import { t, tCount, type MessageKey } from "@/i18n";
 
 type AsaasPaymentConfigFormProps = {
   payment: SalePaymentDraft;
@@ -19,6 +20,45 @@ type AsaasPaymentConfigFormProps = {
   feeRate: number;
   onUpdatePayment: (field: keyof SalePaymentDraft, value: string) => void;
 };
+
+const PAYMENT_TYPE_KEYS: Record<string, MessageKey> = {
+  ENTRY: "sales.paymentLink.typeEntry",
+  INSTALLMENT: "sales.paymentLink.typeInstallment",
+  SUBSCRIPTION: "sales.paymentLink.typeSubscription",
+  FULL_PAYMENT: "sales.paymentLink.typeFull",
+};
+
+const BILLING_KEYS: Record<string, MessageKey> = {
+  PIX: "sales.paymentLink.billingPix",
+  BOLETO: "sales.paymentLink.billingBoleto",
+  CREDIT_CARD: "sales.paymentLink.billingCard",
+};
+
+const CYCLE_KEYS: Record<string, MessageKey> = {
+  WEEKLY: "sales.paymentLink.cycleWeekly",
+  BIWEEKLY: "sales.paymentLink.cycleBiweekly",
+  MONTHLY: "sales.paymentLink.cycleMonthly",
+  QUARTERLY: "sales.paymentLink.cycleQuarterly",
+  SEMIANNUALLY: "sales.paymentLink.cycleSemiannually",
+  YEARLY: "sales.paymentLink.cycleYearly",
+};
+
+function paymentTypeLabel(type: string): string {
+  const key = PAYMENT_TYPE_KEYS[type];
+  return key ? t(key) : (PAYMENT_TYPE_LABELS[type] ?? type);
+}
+
+function billingLabel(value: string): string {
+  const key = BILLING_KEYS[value];
+  if (key) return t(key);
+  return BILLING_TYPE_OPTIONS.find((item) => item.value === value)?.label ?? value;
+}
+
+function cycleLabel(value: string): string {
+  const key = CYCLE_KEYS[value];
+  if (key) return t(key);
+  return SUBSCRIPTION_CYCLE_OPTIONS.find((item) => item.value === value)?.label ?? value;
+}
 
 const AsaasPaymentConfigForm = ({
   payment,
@@ -41,35 +81,31 @@ const AsaasPaymentConfigForm = ({
       ? parsedAmount * installments
       : parsedAmount
     : 0;
+  const money = paymentValue.toLocaleString("pt-BR", { style: "currency", currency });
 
   const amountLabel = isSubscription
-    ? "Valor por mês"
+    ? t("sales.paymentLink.amountMonth")
     : isSplitOrSubscription
-      ? "Valor por parcela"
-      : "Valor total";
+      ? t("sales.paymentLink.amountInstallment")
+      : t("sales.paymentLink.amountTotal");
 
   return (
     <div className="space-y-4">
-      <div className="rounded-md border bg-muted/30 px-3 py-2">
-        <p className="text-xs text-muted-foreground">Gateway</p>
-        <p className="text-sm font-medium">ASAAS</p>
-      </div>
-
       <div className="grid gap-3 md:grid-cols-2">
         <div className="space-y-1.5 md:col-span-2">
-          <Label>Forma de pagamento *</Label>
+          <Label>{t("sales.paymentLink.method")} *</Label>
           <Select
             value={payment.paymentType}
             onValueChange={(value) => onUpdatePayment("paymentType", value)}
             disabled={gatewayFeesLoading || !asaasConfig}
           >
             <SelectTrigger>
-              <SelectValue placeholder={gatewayFeesLoading ? "Carregando..." : "Selecione"} />
+              <SelectValue placeholder={gatewayFeesLoading ? t("sales.paymentLink.loading") : t("sales.paymentLink.choose")} />
             </SelectTrigger>
             <SelectContent>
-              {(paymentOptions).map((option) => (
+              {paymentOptions.map((option) => (
                 <SelectItem key={option.paymentType} value={option.paymentType}>
-                  {PAYMENT_TYPE_LABELS[option.paymentType] ?? option.paymentType} - taxa {option.feeRate}%
+                  {t("sales.paymentLink.methodOption", { name: paymentTypeLabel(option.paymentType), rate: option.feeRate })}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -77,19 +113,19 @@ const AsaasPaymentConfigForm = ({
         </div>
 
         <div className="space-y-1.5">
-          <Label>Meio de cobrança *</Label>
+          <Label>{t("sales.paymentLink.billing")} *</Label>
           <Select
             value={payment.billingType}
             onValueChange={(value) => onUpdatePayment("billingType", value)}
             disabled={!payment.paymentType}
           >
             <SelectTrigger>
-              <SelectValue placeholder="PIX, boleto, cartão..." />
+              <SelectValue placeholder={t("sales.paymentLink.billingPlaceholder")} />
             </SelectTrigger>
             <SelectContent>
               {BILLING_TYPE_OPTIONS.map((option) => (
                 <SelectItem key={option.value} value={option.value}>
-                  {option.label}
+                  {billingLabel(option.value)}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -98,15 +134,15 @@ const AsaasPaymentConfigForm = ({
 
         {isSubscription && (
           <div className="space-y-1.5">
-            <Label>Ciclo da assinatura *</Label>
+            <Label>{t("sales.paymentLink.cycle")} *</Label>
             <Select value={payment.ciclo} onValueChange={(value) => onUpdatePayment("ciclo", value)}>
               <SelectTrigger>
-                <SelectValue placeholder="Selecione o ciclo" />
+                <SelectValue placeholder={t("sales.paymentLink.cyclePlaceholder")} />
               </SelectTrigger>
               <SelectContent>
                 {SUBSCRIPTION_CYCLE_OPTIONS.map((option) => (
                   <SelectItem key={option.value} value={option.value}>
-                    {option.label}
+                    {cycleLabel(option.value)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -123,13 +159,13 @@ const AsaasPaymentConfigForm = ({
             inputMode="decimal"
             value={payment.amount}
             onChange={(event) => onUpdatePayment("amount", event.target.value)}
-            placeholder="0,00"
+            placeholder={t("sales.paymentLink.amountPlaceholder")}
           />
         </div>
 
         {isSplitOrSubscription && (
           <div className="space-y-1.5">
-            <Label>{isSubscription ? "Meses *" : "Parcelas *"}</Label>
+            <Label>{isSubscription ? `${t("sales.paymentLink.months")} *` : `${t("sales.paymentLink.installments")} *`}</Label>
             <Input
               type="number"
               min="1"
@@ -144,7 +180,7 @@ const AsaasPaymentConfigForm = ({
         )}
 
         <div className="space-y-1.5">
-          <Label>{isSubscription ? "Início da cobrança *" : "Data de pagamento *"}</Label>
+          <Label>{isSubscription ? `${t("sales.paymentLink.chargeStart")} *` : `${t("sales.paymentLink.payDate")} *`}</Label>
           <DatePicker value={payment.dueDate} onChange={(value) => onUpdatePayment("dueDate", value)} />
         </div>
       </div>
@@ -153,38 +189,35 @@ const AsaasPaymentConfigForm = ({
         {amount > 0 ? (
           <div className="space-y-1">
             <p>
-              Taxa do gateway: <strong>{feeRate}%</strong>
+              {t("sales.paymentLink.fee")} <strong>{feeRate}%</strong>
             </p>
             <p>
-              Valor deste pagamento:{" "}
-              <strong>{paymentValue.toLocaleString("pt-BR", { style: "currency", currency })}</strong>
+              {t("sales.paymentLink.thisPayment")} <strong>{money}</strong>
             </p>
             <p>
-              Data de pagamento: <strong>{payment.dueDate || "Não definida"}</strong>
+              {t("sales.paymentLink.payDateLabel")} <strong>{payment.dueDate || t("sales.paymentLink.dateMissing")}</strong>
             </p>
             {isSplitOrSubscription && (
               <p>
-                {isSubscription ? "Meses" : "Parcelas"}: <strong>{installments}</strong>
+                {isSubscription ? t("sales.paymentLink.monthsLabel") : t("sales.paymentLink.installmentsLabel")}{" "}
+                <strong>{installments}</strong>
               </p>
             )}
             {!isSubscription && (
               <p>
-                Total enviado à API: <strong>{paymentValue.toLocaleString("pt-BR", { style: "currency", currency })}</strong>
-                {isSplitOrSubscription ? ` em ${installments} parcela(s)` : " à vista"}
+                {t("sales.paymentLink.linkTotal")} <strong>{money}</strong>
+                {" "}
+                {isSplitOrSubscription ? tCount("sales.paymentLink.inInstallments", installments) : t("sales.paymentLink.cash")}
               </p>
             )}
             {payment.billingType && (
               <p>
-                Meio de cobrança:{" "}
-                <strong>
-                  {BILLING_TYPE_OPTIONS.find((item) => item.value === payment.billingType)?.label
-                    ?? payment.billingType}
-                </strong>
+                {t("sales.paymentLink.billingLabel")} <strong>{billingLabel(payment.billingType)}</strong>
               </p>
             )}
           </div>
         ) : (
-          <p>Preencha o valor para visualizar os totais.</p>
+          <p>{t("sales.paymentLink.fillAmount")}</p>
         )}
       </div>
     </div>

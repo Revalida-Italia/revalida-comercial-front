@@ -5,6 +5,7 @@ import { Separator } from "@/components/ui/separator";
 import {
   Award,
   Banknote,
+  BookOpen,
   CircleCheck,
   Clock3,
   Copy,
@@ -14,6 +15,7 @@ import {
   Loader2,
   MinusCircle,
   Package,
+  Pencil,
   TrendingDown,
   TrendingUp,
   User,
@@ -30,6 +32,8 @@ import { formatInstallmentLabel, getPaymentGrossValue } from "@/shared/utils/pay
 import { formatPaymentChargeLabel } from "@/features/sales/utils/chargeLabel";
 import { isCancelledStatus, PAYMENT_REVERT_BLOCKED_MESSAGE } from "@/features/sales/utils/commissionStatus";
 import { formatDate } from "@/shared/utils/format";
+import { t } from "@/i18n";
+import type { CourseSummaryModel } from "@/features/new-sale/courses/copy";
 
 type PaymentValueLike = {
   amount: string | number;
@@ -60,6 +64,10 @@ type SaleSummaryProps = {
   onPayCommission?: (paymentId: string) => void;
   /** Saved-sale preview: dates in the locale format, and no prompt to fill payments. */
   variant?: "editor" | "record";
+  /** When set, the products block becomes the chosen courses. */
+  courseSummary?: CourseSummaryModel;
+  courseLayout?: "compact" | "table";
+  onEditStep?: (step: number) => void;
 };
 
 function getSubscriptionMonthLabel(
@@ -108,11 +116,28 @@ const SaleSummary = ({
   payingCommissionPaymentId = null,
   onPayCommission,
   variant = "editor",
+  courseSummary,
+  courseLayout = "compact",
+  onEditStep,
 }: SaleSummaryProps) => {
   const showDate = (value?: string) => {
     if (!value) return "";
     return variant === "record" ? formatDate(value) : value;
   };
+  const heading = (step: number, icon: React.ReactNode, label: string) => (
+    <div className="flex items-center justify-between gap-2">
+      <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        {icon}
+        {label}
+      </div>
+      {onEditStep ? (
+        <button type="button" onClick={() => onEditStep(step)} className="inline-flex h-8 items-center gap-1 text-[13px] font-semibold text-primary">
+          <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
+          {t("sales.actions.edit")}
+        </button>
+      ) : null}
+    </div>
+  );
   const money = (amount: number, paymentCurrency?: string) =>
     amount.toLocaleString("pt-BR", { style: "currency", currency: paymentCurrency || currency });
   const editStep = (step: number) => (saleId ? `/vendas/${saleId}/editar?step=${step}` : "");
@@ -137,10 +162,7 @@ const SaleSummary = ({
     <div className="space-y-4 text-sm">
       {wrapSection(1, "Editar clientes", (
         <div className="space-y-1.5">
-          <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            <User className="h-3.5 w-3.5" />
-            Clientes
-          </div>
+          {heading(1, <User className="h-3.5 w-3.5" />, "Clientes")}
           {filledCustomers.length === 0 ? (
             <p className="italic text-muted-foreground">Nenhum cliente adicionado</p>
           ) : (
@@ -160,13 +182,61 @@ const SaleSummary = ({
 
       <Separator />
 
-      {wrapSection(2, "Editar produtos", (
+      {wrapSection(2, courseSummary ? t("sales.actions.edit") : "Editar produtos", (
         <div className="space-y-1.5">
-          <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            <Package className="h-3.5 w-3.5" />
-            Produtos
-          </div>
-          {saleItems.length > 0 ? (
+          {heading(
+            2,
+            courseSummary ? <BookOpen className="h-3.5 w-3.5" /> : <Package className="h-3.5 w-3.5" />,
+            courseSummary ? (courseLayout === "table" ? t("sale.summary.coursesAccess") : t("sale.preview.courses")) : t("sale.preview.products"),
+          )}
+          {courseSummary ? (
+            courseLayout === "table" ? (
+              <div>
+                {courseSummary.rows.length === 0 ? (
+                  <p className="text-[13px] text-muted-foreground">{t("sale.preview.noCourses")}</p>
+                ) : (
+                  <table className="w-full border-collapse text-[13.5px]">
+                    <thead>
+                      <tr className="text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+                        <th className="pb-2 pr-2 font-semibold">{t("sale.summary.item")}</th>
+                        <th className="pb-2 pr-2 font-semibold">{t("sale.summary.period")}</th>
+                        <th className="hidden pb-2 font-semibold sm:table-cell">{t("sale.access.duration")}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {courseSummary.rows.map((row) => (
+                        <tr key={row.key} className="border-t border-border/60 align-top">
+                          <td className="py-3 pr-2">
+                            <p className="font-semibold">{row.title}</p>
+                            <p className="text-[12.5px] text-muted-foreground">{row.detail}</p>
+                          </td>
+                          <td className="whitespace-nowrap py-3 pr-2 tabular-nums">{row.period}</td>
+                          <td className="hidden whitespace-nowrap py-3 tabular-nums sm:table-cell">{row.duration}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+                {courseSummary.summaryNote ? (
+                  <p className="mt-3 text-[13px] text-muted-foreground">{courseSummary.summaryNote}</p>
+                ) : null}
+              </div>
+            ) : (
+              <div className="space-y-1.5">
+                {courseSummary.groups.length === 0 ? (
+                  <p className="text-[13px] text-muted-foreground">{t("sale.preview.noCourses")}</p>
+                ) : courseSummary.groups.map((group) => (
+                  <div key={group.courseId}>
+                    <p className="font-medium leading-tight">{group.title}</p>
+                    {group.detail ? <p className="text-xs text-muted-foreground">{group.detail}</p> : null}
+                  </div>
+                ))}
+                {courseSummary.groups.length > 0 ? (
+                  <p className={`text-xs ${courseSummary.tone === "error" ? "text-[#9A3F3F]" : "text-muted-foreground"}`}>{courseSummary.period}</p>
+                ) : null}
+              </div>
+            )
+          ) : saleItems.length > 0 ? (
             <ul className="space-y-1.5">
               {saleItems.map((item, index) => (
                 <li key={`${item.productName}-${item.releaseDate}-${index}`}>
@@ -185,10 +255,7 @@ const SaleSummary = ({
 
       {wrapSection(3, "Editar pagamentos", (
         <div className="space-y-1.5">
-          <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            <CreditCard className="h-3.5 w-3.5" />
-            Pagamentos
-          </div>
+          {heading(3, <CreditCard className="h-3.5 w-3.5" />, "Pagamentos")}
           {configuredPayments.length === 0 ? (
             <p className="italic text-muted-foreground">Nenhum pagamento configurado</p>
           ) : (

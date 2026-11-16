@@ -8,7 +8,6 @@ export interface Product {
   description?: string | null;
   isActive?: boolean;
   hotmartProductId?: string | null;
-  hotmartCheckoutUrl?: string | null;
   hotmartOfferCode?: string | null;
   isAutonomy?: boolean | null;
   createdAt?: string;
@@ -19,7 +18,6 @@ export interface CreateProductInput {
   name: string;
   description?: string;
   hotmartProductId?: string | null;
-  hotmartCheckoutUrl?: string | null;
   hotmartOfferCode?: string | null;
   isAutonomy?: boolean;
 }
@@ -28,7 +26,6 @@ export interface UpdateProductInput {
   name?: string;
   description?: string;
   hotmartProductId?: string | null;
-  hotmartCheckoutUrl?: string | null;
   hotmartOfferCode?: string | null;
   isAutonomy?: boolean;
 }

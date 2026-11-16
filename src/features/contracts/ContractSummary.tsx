@@ -62,10 +62,15 @@ export function GenerateButton({
     <Button
       type="button"
       size="lg"
-      className={cn("w-full", blocked && !generating && "cursor-not-allowed opacity-50", className)}
+      className={cn(
+        "w-full",
+        blocked && !generating && "cursor-not-allowed opacity-50 disabled:pointer-events-auto disabled:cursor-not-allowed",
+        className,
+      )}
+      disabled={blocked}
       aria-disabled={blocked || generating}
       onClick={() => {
-        if (generating) return;
+        if (blocked || generating) return;
         onGenerate();
       }}
     >

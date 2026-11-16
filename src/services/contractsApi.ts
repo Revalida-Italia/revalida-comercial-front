@@ -37,8 +37,10 @@ export interface SaleContract {
   docusignEnvelopeId?: string | null;
   docusignUpdatedAt?: string | null;
   signerEmail?: string | null;
-  /** Internal team note. Never printed on the contract. */
+  /** Internal team note. Printed at the end of the contract only when includeNotesInContract is true. */
   internalNotes?: string | null;
+  /** Absent means the notes stay off the contract. */
+  includeNotesInContract?: boolean | null;
   coreUserId?: string | null;
   signedContract?: {
     id: string;
@@ -79,6 +81,17 @@ export interface RevalidaProductSelection {
   endDate?: string | null;
 }
 
+/** Course line copied from the sale. Names are the ones frozen at sale time. */
+export interface CourseContractItem {
+  kind: "course" | "module";
+  courseId: string;
+  moduleId?: string | null;
+  courseName: string;
+  moduleName?: string | null;
+  startsAt: string;
+  endsAt: string;
+}
+
 /** One installment line of the sale. A card installment line ("12 x R$ 1.000") has `installments` > 1. */
 export interface ContractPaymentPhase {
   number: number;
@@ -109,7 +122,10 @@ export interface RevalidaContractPayload {
   parties: RevalidaContractParty[];
   /** Adds Annex A to the contract. */
   decreeIncluded: boolean;
+  /** `courses` replaces the fixed product list with `courseItems`. Absent stays the legacy form. */
+  accessMode?: "legacy" | "courses";
   products?: RevalidaProductSelection[];
+  courseItems?: CourseContractItem[];
   expenses: {
     translationsIncluded: boolean;
     apostillesIncluded: boolean;
@@ -127,18 +143,17 @@ export interface RevalidaContractPayload {
   referenceCity: string;
   contractVersion: string;
   notes?: string | null;
+  /** Absent means the notes stay off the contract. */
+  includeNotesInContract?: boolean | null;
 }
 
 export interface SchoolStudent {
   id?: string;
   clientId?: string | null;
   fullName: string;
-  /** YYYY-MM-DD */
-  birthDate: string;
-  birthPlace: string;
   nationality: string;
-  passport?: string | null;
-  fullAddress: string;
+  /** Masked 000.000.000-00, or null when the field is empty. */
+  cpf?: string | null;
   email: string;
   phone: string;
 }
@@ -157,6 +172,8 @@ export interface SchoolContractPayload {
   phases: ContractPaymentPhase[];
   contractVersion: string;
   notes?: string | null;
+  /** Absent means the notes stay off the contract. */
+  includeNotesInContract?: boolean | null;
 }
 
 export type ContractFormPayload = RevalidaContractPayload | SchoolContractPayload;
@@ -208,6 +225,14 @@ export async function sendContractForSignature(contractId: string): Promise<Sale
 export async function refreshContractSignatureStatus(contractId: string): Promise<SaleContract> {
   return apiRequest(CORE_API_URL, `/contracts/${contractId}/refresh-signature-status`, {
     method: "POST",
+  });
+}
+
+/** POST /contracts/:contractId/void — administrators. Optional reason. Returns the updated contract. */
+export async function voidContract(contractId: string, reason?: string): Promise<SaleContract> {
+  return apiRequest(CORE_API_URL, `/contracts/${contractId}/void`, {
+    method: "POST",
+    body: reason === undefined ? {} : { reason },
   });
 }
 

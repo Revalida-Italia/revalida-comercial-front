@@ -1,8 +1,10 @@
 import { t, tCount } from "@/i18n";
+import { formatCpf, isValidCpf } from "@/features/contracts/cpf";
 import { addMonthsIso, isoToDisplay } from "@/features/contracts/contractDates";
 import type {
   ContractPaymentPhase,
   ContractProductType,
+  CourseContractItem,
   RevalidaContractPayload,
   RevalidaGeneratePayload,
   RevalidaProduct,
@@ -50,6 +52,18 @@ export type ProfessionChoice = (typeof PROFESSIONS)[number]["id"] | "other";
 
 export const DEFAULT_PROFESSION = PROFESSIONS[0].value;
 
+/** City printed next to the signature date when the sale has none saved yet. */
+export const DEFAULT_CONTRACT_CITY = "Caxias do Sul, RS, Brasil";
+
+/**
+ * City from the sale's last contract, when the prefill sends one.
+ * Empty or missing becomes the default; a non-empty value is kept as sent.
+ */
+function contractCity(value: string | null | undefined): string {
+  if (value != null && value.trim() !== "") return value;
+  return DEFAULT_CONTRACT_CITY;
+}
+
 export function professionChoice(value: string): ProfessionChoice {
   return PROFESSIONS.find((option) => option.value === value)?.id ?? "other";
 }
@@ -84,6 +98,8 @@ export interface RevalidaFormState {
   termEnd: string;
   referenceCity: string;
   notes: string;
+  /** True only when prefill or the seller confirmed it. */
+  includeNotesInContract: boolean;
 }
 
 /** A thing the user still has to fix. `fieldId` is the DOM id that gets focus. */
@@ -161,8 +177,9 @@ export function createInitialRevalidaState(prefill: RevalidaContractPayload): Re
     },
     termStart: prefill.contractStartDate ?? "",
     termEnd: prefill.contractEndDate ?? "",
-    referenceCity: prefill.referenceCity ?? "",
+    referenceCity: contractCity(prefill.referenceCity),
     notes: prefill.notes ?? "",
+    includeNotesInContract: prefill.includeNotesInContract === true,
   };
 }
 
@@ -236,11 +253,43 @@ export function formatPhone(raw: string, previous = ""): string {
   return out;
 }
 
-/** School prefill with the students' phones in the same format as typed ones. */
-export function schoolFormFromPrefill<T extends { students: Array<{ phone?: string | null }> }>(prefill: T): T {
+const COMPLETE_BR_PHONE = /^\+55 \(\d{2}\) \d{4,5}-\d{4}$/;
+
+/**
+ * Phone shown on a saved sale. A complete Brazilian number, or a number that already
+ * carries another country code, uses the same mask as the contract form. Anything else
+ * is returned unchanged.
+ */
+export function displayPhone(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed || /[a-z]/i.test(trimmed)) return value;
+  const formatted = formatPhone(trimmed);
+  if (COMPLETE_BR_PHONE.test(formatted)) return formatted;
+  const otherCountry = trimmed.startsWith("+") && !/^\+5(5|$)/.test(trimmed) && /^[\d+\s()-]+$/.test(trimmed);
+  if (otherCountry) {
+    const digits = formatted.replace(/\D/g, "").length;
+    if (formatted.startsWith("+") && digits >= 8 && digits <= 15) return formatted;
+  }
+  return value;
+}
+
+/** School prefill: phones and CPF in the typed format, and the default city when none is saved. */
+export function schoolFormFromPrefill<
+  T extends {
+    students: Array<{ phone?: string | null; cpf?: string | null }>;
+    referenceCity?: string | null;
+    includeNotesInContract?: boolean | null;
+  },
+>(prefill: T): Omit<T, "referenceCity" | "includeNotesInContract"> & { referenceCity: string; includeNotesInContract: boolean } {
   return {
     ...prefill,
-    students: prefill.students.map((student) => ({ ...student, phone: formatPhone(student.phone ?? "") })),
+    students: prefill.students.map((student) => ({
+      ...student,
+      phone: formatPhone(student.phone ?? ""),
+      cpf: formatCpf(student.cpf ?? ""),
+    })),
+    referenceCity: contractCity(prefill.referenceCity),
+    includeNotesInContract: prefill.includeNotesInContract === true,
   };
 }
 
@@ -318,6 +367,7 @@ export function validateRevalidaForm(
   state: RevalidaFormState,
   catalog: RevalidaProduct[],
   payment: PaymentContext,
+  courseItems?: CourseContractItem[],
 ): FormIssue[] {
   const { issues, add } = issueList();
   const required = t("contract.errors.required");
@@ -338,11 +388,12 @@ export function validateRevalidaForm(
     }
   });
 
-  if (!hasInclusion(state)) {
+  const courseMode = Boolean(courseItems && courseItems.length > 0);
+  if (!courseMode && !hasInclusion(state)) {
     add(INCLUDED_FIELD_ID, t("contract.errors.inclusion"), t("contract.errors.inclusion"));
   }
 
-  for (const code of PRODUCT_ORDER) {
+  if (!courseMode) for (const code of PRODUCT_ORDER) {
     const p = state.products[code];
     if (!p.selected) continue;
     const name = productName(code, catalog);
@@ -361,16 +412,24 @@ export function validateRevalidaForm(
   if (!state.termEnd) {
     add("contract-term-end", t("contract.errors.termMissing"), t("contract.missing.termEnd"));
   } else {
-    const release = latestRelease(state);
     const termStart = state.termStart;
     if (termStart && state.termEnd <= termStart) {
       add("contract-term-end", t("contract.errors.termAfter", { date: isoToDisplay(termStart) }), checkTermEnd);
-    } else if (release && state.termEnd <= release) {
-      add("contract-term-end", t("contract.errors.afterRelease"), checkTermEnd);
+    } else if (courseMode) {
+      const ends = (courseItems ?? []).map((item) => item.endsAt).filter(Boolean).sort();
+      const maxEnd = ends[ends.length - 1] ?? "";
+      if (maxEnd && state.termEnd < maxEnd) {
+        add("contract-term-end", t("contract.errors.termBeforePeriod", { date: isoToDisplay(maxEnd) }), checkTermEnd);
+      }
     } else {
-      const suggestion = suggestTermEnd(state);
-      if (suggestion && state.termEnd < suggestion) {
-        add("contract-term-end", t("contract.errors.termBeforePeriod", { date: isoToDisplay(suggestion) }), checkTermEnd);
+      const release = latestRelease(state);
+      if (release && state.termEnd <= release) {
+        add("contract-term-end", t("contract.errors.afterRelease"), checkTermEnd);
+      } else {
+        const suggestion = suggestTermEnd(state);
+        if (suggestion && state.termEnd < suggestion) {
+          add("contract-term-end", t("contract.errors.termBeforePeriod", { date: isoToDisplay(suggestion) }), checkTermEnd);
+        }
       }
     }
   }
@@ -400,18 +459,21 @@ export function buildSchoolPayload(payload: SchoolContractPayload): SchoolGenera
   const sent = withoutPayment(payload);
   return {
     ...sent,
-    students: payload.students.map((student) => ({
-      ...student,
-      fullName: student.fullName.trim(),
-      birthPlace: student.birthPlace.trim(),
-      nationality: student.nationality.trim(),
-      passport: student.passport?.trim() || null,
-      fullAddress: student.fullAddress.trim(),
-      email: student.email.trim(),
-      phone: student.phone.trim(),
-    })),
+    students: payload.students.map((student) => {
+      const next: SchoolStudent = {
+        fullName: student.fullName.trim(),
+        nationality: student.nationality.trim(),
+        cpf: formatCpf(student.cpf ?? "") || null,
+        email: student.email.trim(),
+        phone: student.phone.trim(),
+      };
+      if (student.id) next.id = student.id;
+      if (student.clientId) next.clientId = student.clientId;
+      return next;
+    }),
     referenceCity: payload.referenceCity.trim(),
     notes: payload.notes?.trim() ? payload.notes.trim() : null,
+    includeNotesInContract: payload.includeNotesInContract === true,
   };
 }
 
@@ -424,7 +486,49 @@ export interface BuiltPayload {
 export function buildRevalidaPayload(
   prefill: RevalidaContractPayload,
   state: RevalidaFormState,
+  courseItems?: CourseContractItem[],
 ): BuiltPayload {
+  if (courseItems && courseItems.length > 0) {
+    const prefillParties = new Map(prefill.parties.map((party) => [party.id, party]));
+    const parties = state.parties.map((party) => {
+      const original = party.id ? prefillParties.get(party.id) : undefined;
+      return {
+        ...(original ?? {}),
+        id: party.id ?? party.key,
+        fullName: party.fullName.trim(),
+        document: party.document.trim(),
+        profession: party.profession.trim(),
+        email: party.email.trim(),
+        phone: party.phone.trim(),
+        nationality: party.nationality.trim() || null,
+      };
+    });
+    const payload: RevalidaGeneratePayload = {
+      ...withoutPayment(prefill),
+      parties,
+      decreeIncluded: state.decreeOn,
+      accessMode: "courses",
+      products: [],
+      courseItems: courseItems.map((item) => ({
+        kind: item.kind,
+        courseId: item.courseId,
+        moduleId: item.kind === "module" ? (item.moduleId ?? null) : null,
+        courseName: item.courseName,
+        moduleName: item.kind === "module" ? (item.moduleName ?? null) : null,
+        startsAt: item.startsAt,
+        endsAt: item.endsAt,
+      })),
+      expenses: { ...state.extras },
+      contractStartDate: state.termStart || null,
+      contractEndDate: state.termEnd || null,
+      contractDurationMonths: null,
+      referenceCity: state.referenceCity.trim(),
+      notes: state.notes.trim() ? state.notes.trim() : null,
+      includeNotesInContract: state.includeNotesInContract === true,
+    };
+    return { payload, sentProductCodes: [] };
+  }
+
   const sentProducts: RevalidaProductSelection[] = [];
   for (const code of PRODUCT_ORDER) {
     const p = state.products[code];
@@ -464,6 +568,7 @@ export function buildRevalidaPayload(
     contractDurationMonths: null,
     referenceCity: state.referenceCity.trim(),
     notes: state.notes.trim() ? state.notes.trim() : null,
+    includeNotesInContract: state.includeNotesInContract === true,
   };
 
   return { payload, sentProductCodes: sentProducts.map((p) => p.code) };
@@ -480,10 +585,14 @@ export interface SummaryContent {
 export function buildRevalidaSummary(
   state: RevalidaFormState,
   catalog: RevalidaProduct[],
+  courseItems?: CourseContractItem[],
 ): SummaryContent {
   const included: string[] = [];
   if (state.decreeOn) included.push(t("contract.summary.decree"));
-  for (const code of PRODUCT_ORDER) {
+  if (courseItems && courseItems.length > 0) {
+    for (const item of courseItems) included.push(item.kind === "module" ? (item.moduleName || item.courseName) : item.courseName);
+  }
+  if (!courseItems?.length) for (const code of PRODUCT_ORDER) {
     const p = state.products[code];
     if (!p.selected) continue;
     const name = productName(code, catalog);
@@ -504,15 +613,22 @@ export function buildRevalidaSummary(
 
 // ---- Escola de Italiano -------------------------------------------------
 
+/** What the Escola de Italiano contract lists as included, in print order. */
+export function schoolIncludedLabels(): string[] {
+  return [
+    t("contract.schoolIncluded.start"),
+    t("contract.schoolIncluded.quattromani"),
+    t("contract.schoolIncluded.examPreparation"),
+    t("contract.schoolIncluded.medicalItalian"),
+  ];
+}
+
 export function newStudent(): SchoolStudent {
   return {
     id: newPartyId(),
     fullName: "",
-    birthDate: "",
-    birthPlace: "",
     nationality: "",
-    passport: null,
-    fullAddress: "",
+    cpf: "",
     email: "",
     phone: "",
   };
@@ -529,10 +645,10 @@ export function validateSchoolForm(
     const who = studentLabel(s, i);
     const base = `contract-school-${i}`;
     if (!s.fullName.trim()) add(`${base}-fullName`, required, t("contract.missing.studentName", { n: i + 1 }));
-    if (!s.birthDate) add(`${base}-birthDate`, t("contract.errors.birthDate"), t("contract.missing.studentBirthDate", { who }));
-    if (!s.birthPlace.trim()) add(`${base}-birthPlace`, required, t("contract.missing.studentBirthPlace", { who }));
     if (!s.nationality.trim()) add(`${base}-nationality`, required, t("contract.missing.studentNationality", { who }));
-    if (!s.fullAddress.trim()) add(`${base}-fullAddress`, required, t("contract.missing.studentAddress", { who }));
+    const cpf = (s.cpf ?? "").trim();
+    if (!cpf) add(`${base}-cpf`, required, t("contract.missing.studentCpf", { who }));
+    else if (!isValidCpf(cpf)) add(`${base}-cpf`, t("contract.errors.cpf"), t("contract.missing.studentCpfValid", { who }));
     if (!s.email.trim()) add(`${base}-email`, required, t("contract.missing.studentEmail", { who }));
     else if (!isValidEmail(s.email)) {
       add(`${base}-email`, t("contract.errors.email"), t("contract.missing.studentEmailValid", { who }));

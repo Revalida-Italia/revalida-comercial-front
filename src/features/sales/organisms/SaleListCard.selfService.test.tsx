@@ -51,7 +51,7 @@ describe("listagem de vendas self-service", () => {
     }).not.toThrow();
 
     expect(screen.getByText("DNN Autonomy")).toBeInTheDocument();
-    expect(screen.getByText("Self-service")).toBeInTheDocument();
+    expect(screen.getByTitle(/Self-service/)).toHaveTextContent("Self-service");
     expect(screen.queryByText("Vendedor não informado")).not.toBeInTheDocument();
   });
 });

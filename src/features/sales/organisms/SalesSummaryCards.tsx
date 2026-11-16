@@ -79,8 +79,8 @@ const MetricCard = ({
     <CardContent className="p-2.5">
       <div className="flex items-start justify-between gap-1.5">
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-1">
-            <p className="truncate text-[11px] leading-none text-muted-foreground">{label}</p>
+          <div className="flex items-start gap-1">
+            <p className="text-[11px] leading-snug text-muted-foreground">{label}</p>
             {tooltip ? (
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -100,7 +100,7 @@ const MetricCard = ({
               </Tooltip>
             ) : null}
           </div>
-          <p className={cn("mt-1 truncate text-sm font-semibold leading-tight tabular-nums text-foreground", valueClass)}>
+          <p className={cn("mt-1 text-sm font-semibold leading-tight tabular-nums text-foreground", valueClass)}>
             {value}
           </p>
           {details}
@@ -159,7 +159,7 @@ const SalesSummaryCards = ({
   return (
     <>
       <div className="space-y-2">
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <div className="grid grid-cols-2 gap-2 xl:grid-cols-4">
           <MetricCard
             label="Vendas"
             value={String(summary.totalSales ?? 0)}
@@ -184,7 +184,7 @@ const SalesSummaryCards = ({
             tooltip={grossPaymentsTooltip}
             details={
               gatewayFees > 0 ? (
-                <p className="mt-1 truncate text-[10px] leading-tight text-muted-foreground">
+                <p className="mt-1 text-[10px] leading-tight text-muted-foreground">
                   Excluindo assinaturas marcadas como pendentes
                 </p>
               ) : null
@@ -202,7 +202,7 @@ const SalesSummaryCards = ({
             onClick={() => setAuditOpen(true)}
             details={
               gatewayFees > 0 ? (
-                <p className="mt-1 truncate text-[10px] leading-tight text-muted-foreground">
+                <p className="mt-1 text-[10px] leading-tight text-muted-foreground">
                   Taxas gateway: {formatCurrency(gatewayFees, currency)}
                 </p>
               ) : null
@@ -210,7 +210,7 @@ const SalesSummaryCards = ({
           />
         </div>
 
-        <div className={cn("grid grid-cols-2 gap-2", canViewFixedCosts ? "sm:grid-cols-4" : "sm:grid-cols-2")}>
+        <div className={cn("grid grid-cols-2 gap-2", canViewFixedCosts ? "xl:grid-cols-4" : "xl:grid-cols-2")}>
           <MetricCard
             label="Comissão desse mês"
             value={formatCurrency(commission, currency)}
@@ -253,7 +253,6 @@ const SalesSummaryCards = ({
                   <div className="mt-1 space-y-0.5 text-[10px] leading-tight text-muted-foreground">
                     <p>{formatPercent(netMarginPercent)}% sobre o recebido líquido</p>
                     <p
-                      className="truncate"
                       title={`Líquido ${formatCurrency(netReceived, currency)} · Comissão ${formatCurrency(commission, currency)} · Fixos ${formatCurrency(fixedCosts, currency)}`}
                     >
                       Líquido − fixos

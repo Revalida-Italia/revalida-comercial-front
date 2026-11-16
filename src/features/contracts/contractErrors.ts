@@ -36,10 +36,7 @@ const PARTY_MISSING = {
 } as const;
 
 const STUDENT_MISSING = {
-  birthDate: "contract.missing.studentBirthDate",
-  birthPlace: "contract.missing.studentBirthPlace",
   nationality: "contract.missing.studentNationality",
-  fullAddress: "contract.missing.studentAddress",
 } as const;
 
 /**
@@ -88,6 +85,7 @@ export function mapGenerateError(error: unknown, ctx: GenerateErrorContext): Map
       const id = `contract-school-${i}-${prop}`;
       if (prop === "email") push(id, t("contract.errors.email"), t("contract.missing.studentEmailValid", { who }));
       else if (prop === "phone") push(id, t("contract.errors.phone"), t("contract.missing.studentPhoneValid", { who }));
+      else if (prop === "cpf") push(id, t("contract.errors.cpf"), t("contract.missing.studentCpfValid", { who }));
       else if (prop === "fullName") push(id, required, t("contract.missing.studentName", { n: i + 1 }));
       else if (prop in STUDENT_MISSING) push(id, required, t(STUDENT_MISSING[prop as keyof typeof STUDENT_MISSING], { who }));
       else unmapped = true;

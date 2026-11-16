@@ -11,6 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { t } from "@/i18n";
 import { listGatewayFees } from "@/services/commercialApi";
 import { saleStatusLabel } from "../utils";
 import { SalesFiltersCardProps } from "../types";
@@ -97,12 +98,12 @@ const SalesFiltersCard = ({
           <Select value={gateway} onValueChange={onGatewayChange}>
             <SelectTrigger
               id="gateway"
-              className="h-10 w-full shrink-0 border-border/80 shadow-sm outline-none focus:ring-0 focus:ring-offset-0 focus-visible:ring-0 sm:w-[180px]"
+              className="h-10 w-full shrink-0 border-border/80 shadow-sm outline-none focus:ring-0 focus:ring-offset-0 focus-visible:ring-0 sm:w-[16.5rem]"
             >
-              <SelectValue placeholder="Todos os gateways" />
+              <SelectValue placeholder={t("sales.filters.allMethods")} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Todos os gateways</SelectItem>
+              <SelectItem value="all">{t("sales.filters.allMethods")}</SelectItem>
               {gatewayFees.map((item) => (
                 <SelectItem key={item.gateway} value={item.gateway}>
                   {item.gateway}
@@ -163,10 +164,10 @@ const SalesFiltersCard = ({
             <Label htmlFor="gateway">Gateway de pagamento</Label>
             <Select value={gateway} onValueChange={onGatewayChange}>
               <SelectTrigger id="gateway">
-                <SelectValue placeholder="Todos os gateways" />
+                <SelectValue placeholder={t("sales.filters.allMethods")} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Todos os gateways</SelectItem>
+                <SelectItem value="all">{t("sales.filters.allMethods")}</SelectItem>
                 {gatewayFees.map((item) => (
                   <SelectItem key={item.gateway} value={item.gateway}>
                     {item.gateway}

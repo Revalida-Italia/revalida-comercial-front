@@ -34,16 +34,26 @@ export interface SaleClient {
 export interface SaleItem {
   id: string;
   saleId: string;
-  productId: string;
-  releaseDate: string;
+  /** Generic product kept for sales made before courses. */
+  productId?: string | null;
+  releaseDate?: string | null;
   notes?: string | null;
+  kind?: "course" | "module" | null;
+  courseId?: string | null;
+  moduleId?: string | null;
+  startsAt?: string | null;
+  endsAt?: string | null;
+  /** Frozen on the sale. A module line uses both; a whole course leaves `moduleName` empty. */
+  courseName?: string | null;
+  moduleName?: string | null;
+  /** Older payloads. The sale response uses `courseName` and `moduleName`. */
+  name?: string | null;
   createdAt: string;
   updatedAt: string;
   product?: {
     id: string;
     name: string;
     description?: string | null;
-    hotmartCheckoutUrl?: string | null;
     isActive?: boolean;
     createdAt?: string;
     updatedAt?: string;
@@ -156,6 +166,8 @@ export interface SaleRecord {
   exchangeRateDate?: string | null;
   exchangeRateSource?: string | null;
   status: string;
+  /** `legacy` keeps generic products. `courses` is a sale of published courses. */
+  accessMode?: "legacy" | "courses" | null;
   soldAt?: string | null;
   asaasSubscriptionId?: string | null;
   hotmartCheckoutLink?: string | null;
@@ -222,11 +234,19 @@ export interface CreateSaleClient {
   email?: string;
 }
 
-export interface CreateSaleItem {
-  productId: string;
-  releaseDate: string;
-  notes?: string;
-}
+export type CreateSaleItem =
+  | {
+    productId: string;
+    releaseDate: string;
+    notes?: string;
+  }
+  | {
+    kind: "course" | "module";
+    courseId: string;
+    moduleId?: string;
+    startsAt: string;
+    endsAt: string;
+  };
 
 export type BillingType = "PIX" | "BOLETO" | "CREDIT_CARD" | "UNDEFINED";
 
@@ -278,11 +298,7 @@ export interface UpdateSaleClient {
   email?: string;
 }
 
-export interface UpdateSaleItem {
-  productId: string;
-  releaseDate: string;
-  notes?: string;
-}
+export type UpdateSaleItem = CreateSaleItem;
 
 export interface UpdateSalePayment {
   /** Amount as entered, in the sale's originalCurrency (EUR/USD); `amount` is in reais. */

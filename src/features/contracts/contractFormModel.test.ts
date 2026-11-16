@@ -5,7 +5,10 @@ import {
   buildRevalidaSummary,
   buildSchoolPayload,
   buildSchoolSummaryRows,
+  schoolIncludedLabels,
   createInitialRevalidaState,
+  DEFAULT_CONTRACT_CITY,
+  displayPhone,
   formatPhone,
   schoolFormFromPrefill,
   newPartyState,
@@ -74,6 +77,33 @@ function brenoState(): RevalidaFormState {
   return s;
 }
 
+describe("contract city", () => {
+  it("uses one default city for a new Revalida or Escola form", () => {
+    expect(DEFAULT_CONTRACT_CITY).toBe("Caxias do Sul, RS, Brasil");
+    expect(createInitialRevalidaState(prefill()).referenceCity).toBe(DEFAULT_CONTRACT_CITY);
+    expect(createInitialRevalidaState(prefill({ referenceCity: "   " })).referenceCity).toBe(DEFAULT_CONTRACT_CITY);
+    expect(schoolFormFromPrefill({ students: [], referenceCity: "" }).referenceCity).toBe(DEFAULT_CONTRACT_CITY);
+    expect(schoolFormFromPrefill({ students: [], referenceCity: null }).referenceCity).toBe(DEFAULT_CONTRACT_CITY);
+  });
+
+  it("keeps a city already saved on the sale", () => {
+    expect(createInitialRevalidaState(prefill({ referenceCity: "São Paulo" })).referenceCity).toBe("São Paulo");
+    expect(createInitialRevalidaState(prefill({ referenceCity: "  Porto Alegre  " })).referenceCity).toBe("  Porto Alegre  ");
+    expect(schoolFormFromPrefill({ students: [], referenceCity: "Pordenone" }).referenceCity).toBe("Pordenone");
+  });
+
+  it("uses the last contract city from prefill, and the default only when it is empty or missing", () => {
+    expect(createInitialRevalidaState(prefill({ referenceCity: "Milão" })).referenceCity).toBe("Milão");
+    expect(createInitialRevalidaState(prefill({ referenceCity: "" })).referenceCity).toBe(DEFAULT_CONTRACT_CITY);
+    expect(createInitialRevalidaState(prefill({ referenceCity: undefined })).referenceCity).toBe(DEFAULT_CONTRACT_CITY);
+
+    expect(schoolFormFromPrefill({ students: [], referenceCity: "Roma" }).referenceCity).toBe("Roma");
+    expect(schoolFormFromPrefill({ students: [], referenceCity: "" }).referenceCity).toBe(DEFAULT_CONTRACT_CITY);
+    expect(schoolFormFromPrefill({ students: [], referenceCity: null }).referenceCity).toBe(DEFAULT_CONTRACT_CITY);
+    expect(schoolFormFromPrefill({ students: [] }).referenceCity).toBe(DEFAULT_CONTRACT_CITY);
+  });
+});
+
 describe("initial state", () => {
   it("starts with nothing ticked, extras on Não, the sale date as start, no end date and Médico as profession", () => {
     const s = createInitialRevalidaState(prefill());
@@ -102,6 +132,7 @@ describe("validateRevalidaForm", () => {
 
   it("asks for what is included, the end of the term, the payment and the city", () => {
     const s = createInitialRevalidaState(prefill());
+    s.referenceCity = "";
     const issues = validateRevalidaForm(s, catalog, { phases: [] });
     expect(issues.map((i) => i.summary)).toEqual([
       "Escolha pelo menos um produto ou serviço.",
@@ -243,6 +274,28 @@ describe("buildRevalidaPayload", () => {
     expect(payload.decreeIncluded).toBe(false);
     expect(payload.expenses).toEqual({ translationsIncluded: true, apostillesIncluded: false, postalExpensesIncluded: false });
     expect(payload.notes).toBeNull();
+    expect(payload.includeNotesInContract).toBe(false);
+  });
+
+  it("sends the notes choice and restores it only when prefill says true", () => {
+    expect(createInitialRevalidaState(prefill()).includeNotesInContract).toBe(false);
+    expect(createInitialRevalidaState(prefill({ includeNotesInContract: false })).includeNotesInContract).toBe(false);
+    expect(createInitialRevalidaState(prefill({ includeNotesInContract: null })).includeNotesInContract).toBe(false);
+    const restored = createInitialRevalidaState(prefill({ includeNotesInContract: true, notes: "Entregar em mãos" }));
+    expect(restored.includeNotesInContract).toBe(true);
+    expect(restored.notes).toBe("Entregar em mãos");
+
+    const off = brenoState();
+    off.notes = "Ligação antes";
+    expect(buildRevalidaPayload(prefill(), off).payload).toMatchObject({
+      notes: "Ligação antes",
+      includeNotesInContract: false,
+    });
+    off.includeNotesInContract = true;
+    expect(buildRevalidaPayload(prefill(), off).payload).toMatchObject({
+      notes: "Ligação antes",
+      includeNotesInContract: true,
+    });
   });
 });
 
@@ -270,11 +323,8 @@ describe("Escola", () => {
   const student = {
     id: "s1",
     fullName: "Giulia Rossi",
-    birthDate: "1994-03-12",
-    birthPlace: "São Paulo",
     nationality: "brasiliana",
-    passport: "",
-    fullAddress: "Rua das Flores 100",
+    cpf: "529.982.247-25",
     email: "giulia@example.com",
     phone: "+55 (11) 98888-0000",
   };
@@ -310,12 +360,62 @@ describe("Escola", () => {
     ]);
   });
 
+  it("asks for a CPF and checks the digits", () => {
+    expect(validateSchoolForm(school({ students: [{ ...student, cpf: "" }] }), pay).map((i) => i.summary)).toEqual([
+      "Falta: CPF de Giulia Rossi",
+    ]);
+    const invalid = validateSchoolForm(school({ students: [{ ...student, cpf: "111.111.111-11" }] }), pay);
+    expect(invalid.map((i) => [i.fieldId, i.message, i.summary])).toEqual([
+      ["contract-school-0-cpf", "Digite um CPF válido.", "Falta: CPF válido de Giulia Rossi"],
+    ]);
+    expect(validateSchoolForm(school({ students: [{ ...student, cpf: "52998224725" }] }), pay)).toEqual([]);
+  });
+
   it("leaves the payment fields out and sends every student", () => {
-    const payload = buildSchoolPayload(school({ students: [student, { ...student, id: "s2", fullName: " Lucas " }] }));
+    const withOldFields = {
+      ...student,
+      birthDate: "1994-03-12",
+      birthPlace: "São Paulo",
+      passport: "AB123",
+      fullAddress: "Rua das Flores 100",
+    };
+    const payload = buildSchoolPayload(
+      school({ students: [withOldFields, { ...student, id: "s2", fullName: " Lucas ", cpf: "" }] }),
+    );
     for (const key of ["currency", "totalAmount", "phases"]) expect(payload).not.toHaveProperty(key);
     expect(payload.students.map((s) => s.fullName)).toEqual(["Giulia Rossi", "Lucas"]);
-    expect(payload.students[0].passport).toBeNull();
+    expect(payload.students[0]).toEqual({
+      id: "s1",
+      fullName: "Giulia Rossi",
+      nationality: "brasiliana",
+      cpf: "529.982.247-25",
+      email: "giulia@example.com",
+      phone: "+55 (11) 98888-0000",
+    });
+    expect(payload.students[1].cpf).toBeNull();
     expect(payload.course).toEqual({ durationMonths: 4, startDate: "2027-01-11" });
+    expect(payload.includeNotesInContract).toBe(false);
+    expect(payload.notes).toBeNull();
+  });
+
+  it("sends the notes choice and treats a missing prefill value as off", () => {
+    expect(schoolFormFromPrefill(school()).includeNotesInContract).toBe(false);
+    expect(schoolFormFromPrefill(school({ includeNotesInContract: null })).includeNotesInContract).toBe(false);
+    expect(schoolFormFromPrefill(school({ includeNotesInContract: true })).includeNotesInContract).toBe(true);
+    expect(buildSchoolPayload(school({ notes: "Sala 2", includeNotesInContract: true }))).toMatchObject({
+      notes: "Sala 2",
+      includeNotesInContract: true,
+    });
+    expect(buildSchoolPayload(school({ notes: "Sala 2" })).includeNotesInContract).toBe(false);
+  });
+
+  it("lists what is included in the school contract", () => {
+    expect(schoolIncludedLabels()).toEqual([
+      "Curso Start",
+      "Italiano Quattromani",
+      "Preparação para as provas de revalidação",
+      "Italiano Médico",
+    ]);
   });
 
   it("summarizes students and course", () => {
@@ -323,6 +423,31 @@ describe("Escola", () => {
       { label: "Estudante", value: "Giulia Rossi e mais 1" },
       { label: "Curso", value: "4 meses a partir de 11/01/2027" },
     ]);
+  });
+});
+
+describe("displayPhone", () => {
+  it("uses the contract mask for a complete Brazilian number", () => {
+    expect(displayPhone("11988880000")).toBe("+55 (11) 98888-0000");
+    expect(displayPhone("11977770000")).toBe("+55 (11) 97777-0000");
+    expect(displayPhone("5511911112222")).toBe("+55 (11) 91111-2222");
+    expect(displayPhone("5534999999999")).toBe("+55 (34) 99999-9999");
+    expect(displayPhone("1133334444")).toBe("+55 (11) 3333-4444");
+    expect(displayPhone("+55 (11) 98888-0000")).toBe("+55 (11) 98888-0000");
+  });
+
+  it("keeps a number that already has another country code", () => {
+    expect(displayPhone("+39 333 123 4567")).toBe("+39 333 123 4567");
+    expect(displayPhone("+393331234567")).toBe("+393331234567");
+    expect(displayPhone("+1 (415) 555-0100")).toBe("+1 (415) 555-0100");
+  });
+
+  it("returns the raw value when the number cannot be read", () => {
+    expect(displayPhone("not-a-phone")).toBe("not-a-phone");
+    expect(displayPhone("123")).toBe("123");
+    expect(displayPhone("0039 333 123 4567")).toBe("0039 333 123 4567");
+    expect(displayPhone("+39 333")).toBe("+39 333");
+    expect(displayPhone("")).toBe("");
   });
 });
 
@@ -440,5 +565,6 @@ describe("formatPhone", () => {
   it("formats the phones that come from the sale", () => {
     expect(schoolFormFromPrefill({ students: [{ phone: "5511911112222" }, { phone: "+39 333 123 4567" }] }).students.map((s) => s.phone))
       .toEqual(["+55 (11) 91111-2222", "+39 333 123 4567"]);
+    expect(schoolFormFromPrefill({ students: [{ phone: "", cpf: "52998224725" }] }).students[0].cpf).toBe("529.982.247-25");
   });
 });

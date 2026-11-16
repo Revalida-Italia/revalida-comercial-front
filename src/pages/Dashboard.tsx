@@ -1,16 +1,16 @@
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Link } from "react-router-dom";
+import { Button } from "@/components/ui/button";
 import DisplayCurrencySelect from "@/components/DisplayCurrencySelect";
 import SaleListCard from "@/features/sales/organisms/SaleListCard";
 import SalesFiltersCard from "@/features/sales/organisms/SalesFiltersCard";
 import SalesSummaryCards from "@/features/sales/organisms/SalesSummaryCards";
 import SalesDashboardFeature from "@/features/sales-dashboard/SalesDashboardFeature";
-import { canViewGlobalSalesExtras } from "@/lib/session";
+import { t } from "@/i18n";
+import { canViewGlobalSalesExtras, getProfile } from "@/lib/session";
+import { canMutateSales } from "@/services/usersApi";
 import { listSales, type ExchangeScope } from "@/services/commercialApi";
 import type { DisplayCurrency } from "@/services/exchangeRatesApi";
 import { useQuery } from "@tanstack/react-query";
-import { AlertCircle } from "lucide-react";
 import { useState } from "react";
 import { useDebounce } from "use-debounce";
 
@@ -42,6 +42,13 @@ const Dashboard = () => {
   };
 
   const sales = salesQuery.data?.sales ?? [];
+  const filtersActive = Boolean(
+    searchTerm.trim()
+    || debouncedSearchTerm.trim()
+    || gateway !== "all"
+    || status !== "all"
+    || exchangeScope !== "all",
+  );
   const summary = salesQuery.data?.summary ?? {
     totalSales: 0,
     totalAmount: 0,
@@ -61,9 +68,9 @@ const Dashboard = () => {
     <div className="space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-border/60 bg-gradient-to-br from-background to-muted/30 px-4 py-4">
         <div>
-          <h1 className="text-xl font-bold tracking-tight">Dashboard comercial</h1>
+          <h1 className="text-xl font-bold tracking-tight">{t("sales.dashboard.title")}</h1>
           <p className="mt-0.5 text-xs text-muted-foreground">
-            Resumo, metas e histórico de vendas.
+            {t("sales.dashboard.subtitle")}
           </p>
         </div>
 
@@ -73,7 +80,7 @@ const Dashboard = () => {
             onChange={setDisplayCurrency}
             ratesStale={ratesStale}
             rateDate={rateDate}
-            label="Moeda do balanço"
+            label={t("sales.dashboard.currency")}
           />
         </div>
       </div>
@@ -110,51 +117,62 @@ const Dashboard = () => {
         />
       </div>
 
-      <Card>
-        <CardHeader className="px-3 pb-1.5 pt-3 md:px-4">
-          <CardTitle className="text-base">Vendas</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2 p-3 pt-0 md:p-4 md:pt-0">
-          {salesQuery.isError && (
-            <Alert variant="destructive">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>
-                Erro ao carregar vendas: {(salesQuery.error as Error).message}
-              </AlertDescription>
-            </Alert>
-          )}
-
-          {salesQuery.isLoading ? (
-            <div className="space-y-2.5">
-              {[1, 2, 3].map((i) => (
-                <Card key={i} className="border-border/70">
-                  <CardContent className="p-3.5">
-                    <div className="grid gap-x-3 gap-y-2 md:grid-cols-[1.25fr_repeat(5,minmax(0,1fr))_auto] md:items-start">
-                      <div className="space-y-2">
-                        <Skeleton className="h-4 w-3/4" />
-                        <Skeleton className="h-3 w-1/2" />
-                        <Skeleton className="h-3 w-2/3" />
-                      </div>
-                      <Skeleton className="h-8 w-full" />
-                      <Skeleton className="h-8 w-full" />
-                      <Skeleton className="h-8 w-full" />
-                      <Skeleton className="h-8 w-full" />
-                      <Skeleton className="h-8 w-full" />
-                      <Skeleton className="h-6 w-20" />
+      <section className="space-y-3" aria-labelledby="sales-list-title">
+        <h2 id="sales-list-title" className="text-xl font-semibold">{t("sales.list.title")}</h2>
+        {salesQuery.isLoading ? (
+          <div className="sale-list" aria-busy="true" aria-label={t("common.loading")}>
+            {[1, 2, 3].map((item) => (
+              <div key={item} className="sale-card rounded-md bg-card p-4 shadow-[0_1px_2px_rgba(36,56,79,0.06)]">
+                <div className="sale-card-head space-y-2">
+                  <div className="h-4 w-2/3 rounded bg-muted" />
+                  <div className="h-3 w-1/2 rounded bg-muted" />
+                </div>
+                <div className="sale-card-nums">
+                  {[1, 2, 3, 4].map((cell) => (
+                    <div key={cell} className="space-y-2">
+                      <div className="h-3 w-16 rounded bg-muted" />
+                      <div className="h-4 w-20 rounded bg-muted" />
                     </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          ) : sales.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Nenhuma venda encontrada.</p>
-          ) : (
-            sales.map((sale) => (
+                  ))}
+                </div>
+                <div className="sale-card-acts">
+                  <div className="h-9 w-36 rounded bg-muted" />
+                  <div className="h-9 w-9 rounded bg-muted" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : salesQuery.isError ? (
+          <div className="rounded-md bg-card p-6 shadow-[0_1px_2px_rgba(36,56,79,0.06)]">
+            <p className="text-sm">{t("sales.list.error")}</p>
+            <Button type="button" variant="outline" className="mt-3" onClick={() => void salesQuery.refetch()}>
+              {t("sales.list.retry")}
+            </Button>
+          </div>
+        ) : sales.length === 0 && filtersActive ? (
+          <div className="rounded-md bg-card p-6 shadow-[0_1px_2px_rgba(36,56,79,0.06)]">
+            <p className="text-sm">{t("sales.list.emptyFiltered")}</p>
+            <Button type="button" variant="outline" className="mt-3" onClick={handleClearFilters}>
+              {t("sales.list.clearFilters")}
+            </Button>
+          </div>
+        ) : sales.length === 0 ? (
+          <div className="rounded-md bg-card p-6 shadow-[0_1px_2px_rgba(36,56,79,0.06)]">
+            <p className="text-sm">{t("sales.list.empty")}</p>
+            {canMutateSales(getProfile()?.role) ? (
+              <Button asChild className="mt-3">
+                <Link to="/nova-venda">{t("sales.list.emptyAction")}</Link>
+              </Button>
+            ) : null}
+          </div>
+        ) : (
+          <div className="sale-list">
+            {sales.map((sale) => (
               <SaleListCard key={sale.id} sale={sale} />
-            ))
-          )}
-        </CardContent>
-      </Card>
+            ))}
+          </div>
+        )}
+      </section>
     </div>
   );
 };

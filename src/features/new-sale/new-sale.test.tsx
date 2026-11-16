@@ -24,9 +24,14 @@ vi.mock("@/services/productsApi", async () => {
   const actual = await vi.importActual<typeof import("@/services/productsApi")>("@/services/productsApi");
   return { ...actual, listProducts: vi.fn() };
 });
+vi.mock("@/features/new-sale/courses/catalogApi", () => ({
+  listCourseCatalog: vi.fn(),
+  catalogUsesMock: () => false,
+}));
 
 const { createSale, listGatewayFees } = await import("@/services/commercialApi");
 const { listProducts } = await import("@/services/productsApi");
+const { listCourseCatalog } = await import("@/features/new-sale/courses/catalogApi");
 const { toast } = await import("sonner");
 
 function renderWizard() {
@@ -51,14 +56,21 @@ async function pick(triggerIndex: number, optionName: string | RegExp) {
   fireEvent.click(option);
 }
 
+function clickNext() {
+  const buttons = screen.getAllByRole("button", { name: "Próximo" }).filter((button) => !button.hasAttribute("disabled"));
+  fireEvent.click(buttons[0]);
+}
+
 async function fillAndConfirm() {
   fireEvent.change(screen.getByPlaceholderText("Nome completo"), { target: { value: "Maria Souza" } });
   fireEvent.change(screen.getByPlaceholderText("5534999999999"), { target: { value: "11988880000" } });
   fireEvent.click(screen.getByRole("button", { name: "Próximo" }));
 
-  await pick(0, "Curso Start");
-  fireEvent.change(screen.getByLabelText("Selecionar data"), { target: { value: "2026-10-15" } });
-  fireEvent.click(screen.getByRole("button", { name: "Próximo" }));
+  fireEvent.click(await screen.findByRole("checkbox", { name: "Curso Start" }));
+  const end = screen.getByLabelText("Fim");
+  fireEvent.change(end, { target: { value: "20/08/2030" } });
+  fireEvent.blur(end);
+  clickNext();
 
   await screen.findByRole("heading", { name: "Pagamentos" });
   await pick(0, "WISE");
@@ -83,6 +95,14 @@ beforeEach(() => {
   vi.clearAllMocks();
   window.localStorage.clear();
   vi.mocked(listProducts).mockResolvedValue([{ id: "prod-1", name: "Curso Start" }]);
+  vi.mocked(listCourseCatalog).mockResolvedValue([
+    {
+      id: "course-start",
+      name: "Curso Start",
+      thumbnailUrl: null,
+      modules: [{ id: "mod-1", name: "Documentação", thumbnailUrl: null }],
+    },
+  ]);
   vi.mocked(listGatewayFees).mockResolvedValue([
     { gateway: "WISE", paymentOptions: [{ paymentType: "FULL_PAYMENT", feeRate: 0 }] },
   ]);
@@ -90,6 +110,19 @@ beforeEach(() => {
 });
 
 describe("new sale", () => {
+  it("loads the published courses once and does not offer a generic product", async () => {
+    setProfile({ sub: "seller-1", email: "s@example.com", name: "Seller", role: "SELLER", roles: ["SELLER"] });
+    renderWizard();
+    fireEvent.change(screen.getByPlaceholderText("Nome completo"), { target: { value: "Maria Souza" } });
+    fireEvent.change(screen.getByPlaceholderText("5534999999999"), { target: { value: "11988880000" } });
+    fireEvent.click(screen.getByRole("button", { name: "Próximo" }));
+    expect(await screen.findByRole("checkbox", { name: "Curso Start" })).toBeInTheDocument();
+    expect(screen.queryByText("Programa Revalida Italia")).toBeNull();
+    fireEvent.change(screen.getByLabelText("Buscar curso ou módulo"), { target: { value: "doc" } });
+    expect(listCourseCatalog).toHaveBeenCalledTimes(1);
+    expect(listProducts).not.toHaveBeenCalled();
+  });
+
   it("opens the contract for the created sale when the person can generate contracts", async () => {
     setProfile({ sub: "seller-1", email: "s@example.com", name: "Seller", role: "SELLER", roles: ["SELLER"] });
     renderWizard();

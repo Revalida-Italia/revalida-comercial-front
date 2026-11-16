@@ -13,6 +13,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import { t } from "@/i18n";
 import { archiveSale, deleteSale, type SaleRecord } from "@/services/commercialApi";
 import { saleHasPaidRecords, saleHasActiveSubscription } from "../utils";
 
@@ -24,31 +25,31 @@ type SaleArchiveDeleteActionsProps = {
 };
 
 function getSaleActionErrorMessage(error: unknown): string {
-  if (!(error instanceof Error)) {
-    return "Não foi possível concluir a operação.";
+  const fallback = t("sales.actionError.failed");
+  if (!(error instanceof Error) || !error.message.trim()) {
+    return fallback;
   }
 
   if (error.message === "SALE_HAS_PAID_RECORDS") {
-    return "Esta venda tem pagamentos ou comissões pagas. Use Arquivar.";
+    return t("sales.actionError.paidRecords");
   }
 
   if (error.message === "COBRANCA_TOKEN_REQUIRED") {
-    return "Token de cobrança necessário para cancelar a assinatura. Faça login novamente.";
+    return t("sales.actionError.signInAgain");
   }
 
   if (error.message === "SALE_NOT_FOUND") {
-    return "Venda não encontrada.";
+    return t("sales.actionError.notFound");
   }
 
-  return error.message || "Não foi possível concluir a operação.";
+  if (/^[A-Z0-9_]+$/.test(error.message) || /asaas|token de cobrança|cascata|\bARCHIVED\b/i.test(error.message)) {
+    return fallback;
+  }
+
+  return error.message;
 }
 
-const SaleArchiveDeleteActions = ({
-  sale,
-  size = "sm",
-  onDeleted,
-  className,
-}: SaleArchiveDeleteActionsProps) => {
+export function useSaleArchiveDelete(sale: SaleRecord, onDeleted?: () => void) {
   const queryClient = useQueryClient();
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -69,17 +70,17 @@ const SaleArchiveDeleteActions = ({
     mutationFn: () => archiveSale(sale.id),
     onSuccess: async (result) => {
       if (result.alreadyArchived) {
-        toast.success("Venda já estava arquivada");
+        toast.success(t("sales.archive.already"));
       } else {
         toast.success(
           result.subscriptionCancelled
-            ? "Venda arquivada e assinatura cancelada"
-            : "Venda arquivada",
+            ? t("sales.archive.doneSubscription")
+            : t("sales.archive.done"),
         );
       }
 
       if (result.remoteInstallmentsNotCancelled) {
-        toast.warning("Parcelas avulsas no gateway podem continuar ativas — revise no Asaas.");
+        toast.warning(t("sales.actionError.installmentsLeft"));
       }
 
       setArchiveOpen(false);
@@ -95,12 +96,12 @@ const SaleArchiveDeleteActions = ({
     onSuccess: async (result) => {
       toast.success(
         result.subscriptionCancelled
-          ? "Venda excluída e assinatura cancelada"
-          : "Venda excluída",
+          ? t("sales.removeDialog.doneSubscription")
+          : t("sales.removeDialog.done"),
       );
 
       if (result.remoteInstallmentsNotCancelled) {
-        toast.warning("Parcelas avulsas no gateway podem continuar ativas — revise no Asaas.");
+        toast.warning(t("sales.actionError.installmentsLeft"));
       }
 
       setDeleteOpen(false);
@@ -112,65 +113,24 @@ const SaleArchiveDeleteActions = ({
     },
   });
 
-  const buttonSize = size === "sm" ? "sm" : "default";
-  const buttonClass = size === "sm" ? "h-7 gap-1 px-2 text-[11px]" : "gap-1.5";
+  const openArchive = () => setArchiveOpen(true);
+  const openDelete = () => setDeleteOpen(true);
 
-  if (isArchived) {
-    return (
-      <Button type="button" variant="outline" size={buttonSize} className={buttonClass} disabled>
-        <Archive className="h-3.5 w-3.5" />
-        Arquivada
-      </Button>
-    );
-  }
-
-  return (
+  const dialogs = (
     <>
-      <div className={className ?? "flex flex-wrap items-center gap-1.5"}>
-        <Button
-          type="button"
-          variant="outline"
-          size={buttonSize}
-          className={buttonClass}
-          onClick={() => setArchiveOpen(true)}
-        >
-          <Archive className="h-3.5 w-3.5" />
-          Arquivar
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
-          size={buttonSize}
-          className={`${buttonClass} text-destructive hover:text-destructive`}
-          disabled={hasPaid}
-          title={hasPaid ? "Venda com registros pagos — use Arquivar" : "Excluir permanentemente"}
-          onClick={() => setDeleteOpen(true)}
-        >
-          <Trash2 className="h-3.5 w-3.5" />
-          Excluir
-        </Button>
-      </div>
-
       <AlertDialog open={archiveOpen} onOpenChange={setArchiveOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Arquivar venda?</AlertDialogTitle>
+            <AlertDialogTitle>{t("sales.archive.title")}</AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div className="space-y-2 text-sm text-muted-foreground">
-                <p>
-                  A venda deixa de cobrar o restante e fica com status <strong className="text-foreground">ARCHIVED</strong>.
-                  Pagamentos, comissões e clientes <strong className="text-foreground">permanecem</strong> no histórico.
-                </p>
-                {hasSubscription || hasPaid ? (
-                  <p>
-                    Cobranças futuras da assinatura serão canceladas quando houver assinatura Asaas ativa.
-                  </p>
-                ) : null}
+                <p>{t("sales.archive.body")}</p>
+                {hasSubscription ? <p>{t("sales.archive.subscription")}</p> : null}
               </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={archiveMutation.isPending}>Cancelar</AlertDialogCancel>
+            <AlertDialogCancel disabled={archiveMutation.isPending}>{t("common.cancel")}</AlertDialogCancel>
             <AlertDialogAction
               disabled={archiveMutation.isPending}
               onClick={(event) => {
@@ -181,10 +141,10 @@ const SaleArchiveDeleteActions = ({
               {archiveMutation.isPending ? (
                 <>
                   <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
-                  Arquivando...
+                  {t("sales.archive.working")}
                 </>
               ) : (
-                "Sim, arquivar"
+                t("sales.archive.confirm")
               )}
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -194,19 +154,16 @@ const SaleArchiveDeleteActions = ({
       <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Excluir venda?</AlertDialogTitle>
+            <AlertDialogTitle>{t("sales.removeDialog.title")}</AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div className="space-y-2 text-sm text-muted-foreground">
-                <p>
-                  Esta ação <strong className="text-foreground">apaga de fato</strong> a venda e os dados em cascata
-                  (clientes, itens, pagamentos e comissões).
-                </p>
-                <p>Só use em cadastro errado ou venda sem pagamentos/comissões pagos.</p>
+                <p>{t("sales.removeDialog.body")}</p>
+                <p>{t("sales.removeDialog.hint")}</p>
               </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleteMutation.isPending}>Cancelar</AlertDialogCancel>
+            <AlertDialogCancel disabled={deleteMutation.isPending}>{t("common.cancel")}</AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               disabled={deleteMutation.isPending}
@@ -218,15 +175,71 @@ const SaleArchiveDeleteActions = ({
               {deleteMutation.isPending ? (
                 <>
                   <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
-                  Excluindo...
+                  {t("sales.removeDialog.working")}
                 </>
               ) : (
-                "Sim, excluir"
+                t("sales.removeDialog.confirm")
               )}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+    </>
+  );
+
+  return { isArchived, hasPaid, openArchive, openDelete, dialogs };
+}
+
+const SaleArchiveDeleteActions = ({
+  sale,
+  size = "sm",
+  onDeleted,
+  className,
+}: SaleArchiveDeleteActionsProps) => {
+  const { isArchived, hasPaid, openArchive, openDelete, dialogs } = useSaleArchiveDelete(sale, onDeleted);
+  const buttonSize = size === "sm" ? "sm" : "default";
+  const buttonClass = size === "sm" ? "h-7 shrink-0 gap-1 px-1.5 text-[11px] sm:px-2" : "gap-1.5";
+  const labelClass = size === "sm" ? "sr-only sm:not-sr-only sm:whitespace-nowrap" : undefined;
+
+  if (isArchived) {
+    return (
+      <Button type="button" variant="outline" size={buttonSize} className={buttonClass} disabled>
+        <Archive className="h-3.5 w-3.5" />
+        <span className={labelClass}>{t("sales.actions.archived")}</span>
+      </Button>
+    );
+  }
+
+  return (
+    <>
+      <div className={className ?? "flex flex-wrap items-center gap-1"}>
+        <Button
+          type="button"
+          variant="outline"
+          size={buttonSize}
+          className={buttonClass}
+          aria-label={t("sales.actions.archive")}
+          title={t("sales.actions.archive")}
+          onClick={openArchive}
+        >
+          <Archive className="h-3.5 w-3.5" />
+          <span className={labelClass}>{t("sales.actions.archive")}</span>
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          size={buttonSize}
+          className={`${buttonClass} text-destructive hover:text-destructive`}
+          disabled={hasPaid}
+          aria-label={t("sales.actions.remove")}
+          title={hasPaid ? t("sales.actions.removeBlocked") : t("sales.actions.removeReady")}
+          onClick={openDelete}
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+          <span className={labelClass}>{t("sales.actions.remove")}</span>
+        </Button>
+      </div>
+      {dialogs}
     </>
   );
 };

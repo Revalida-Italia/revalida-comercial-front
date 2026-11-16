@@ -4,7 +4,8 @@ import { Input } from "@/components/ui/input";
 import { t } from "@/i18n";
 import type { SchoolContractPayload, SchoolStudent } from "@/services/contractsApi";
 import { DateField } from "@/features/contracts/DateField";
-import { formatPhone, newStudent } from "@/features/contracts/contractFormModel";
+import { formatCpf } from "@/features/contracts/cpf";
+import { formatPhone, newStudent, schoolIncludedLabels } from "@/features/contracts/contractFormModel";
 import { Field, SectionHeading, errorId, type FormControl } from "@/features/contracts/contractFormParts";
 
 type Props = {
@@ -13,7 +14,7 @@ type Props = {
   form: FormControl;
 };
 
-type TextProp = "fullName" | "birthPlace" | "nationality" | "passport" | "fullAddress" | "email" | "phone";
+type TextProp = "fullName" | "nationality" | "cpf" | "email" | "phone";
 
 function fieldHelpers(form: FormControl) {
   const text = (
@@ -86,13 +87,12 @@ function StudentFields({
   update: Props["update"];
   form: FormControl;
 }) {
-  const { text, date } = fieldHelpers(form);
+  const { text } = fieldHelpers(form);
   const base = `contract-school-${index}`;
   const patch = (change: Partial<SchoolStudent>) =>
     update((p) => ({ ...p, students: p.students.map((s, i) => (i === index ? { ...s, ...change } : s)) }));
   const field = (prop: TextProp, label: string, options?: Parameters<typeof text>[4]) =>
     text(`${base}-${prop}`, label, student[prop] ?? "", (value) => patch({ [prop]: value }), options);
-  const now = new Date().getFullYear();
 
   return (
     <div className="space-y-4 py-5 first:pt-0 last:pb-0">
@@ -117,14 +117,12 @@ function StudentFields({
       )}
       <div className="grid min-w-0 gap-4 sm:grid-cols-2 [&>*]:min-w-0">
         {field("fullName", t("contract.student.fullName"), { className: "sm:col-span-2" })}
-        {date(`${base}-birthDate`, t("contract.student.birthDate"), student.birthDate, (iso) => patch({ birthDate: iso }), {
-          fromYear: 1930,
-          toYear: now,
-        })}
-        {field("birthPlace", t("contract.student.birthPlace"))}
         {field("nationality", t("contract.student.nationality"))}
-        {field("passport", t("contract.student.passport"))}
-        {field("fullAddress", t("contract.student.fullAddress"), { className: "sm:col-span-2" })}
+        {field("cpf", t("contract.student.cpf"), {
+          inputMode: "numeric",
+          format: formatCpf,
+          placeholder: t("contract.student.cpfPlaceholder"),
+        })}
         {field("email", t("contract.student.email"), { inputMode: "email" })}
         {field("phone", t("contract.student.phone"), {
           inputMode: "tel",
@@ -172,8 +170,19 @@ export default function SchoolFormFields({ payload, update, form }: Props) {
         </Button>
       </section>
 
+      <section aria-labelledby="contract-school-included-title">
+        <SectionHeading number={2} title={t("contract.sections.included")} id="contract-school-included-title" />
+        <ul className="divide-y divide-border/60 border-y border-border/60">
+          {schoolIncludedLabels().map((item) => (
+            <li key={item} className="py-3.5 text-[15px] font-semibold">
+              {item}
+            </li>
+          ))}
+        </ul>
+      </section>
+
       <section aria-labelledby="contract-course-title">
-        <SectionHeading number={2} title={t("contract.sections.course")} id="contract-course-title" />
+        <SectionHeading number={3} title={t("contract.sections.course")} id="contract-course-title" />
         <div className="grid min-w-0 gap-4 sm:grid-cols-2 [&>*]:min-w-0">
           {text(
             "contract-school-durationMonths",

@@ -19,6 +19,8 @@ import AdminCostsCalendar from "@/pages/AdminCostsCalendar";
 import AdminTreasury from "@/pages/AdminTreasury";
 import BillingCalendar from "@/pages/BillingCalendar";
 import FirstAccess from "@/pages/FirstAccess";
+import ForgotPassword from "@/pages/ForgotPassword";
+import ResetPassword from "@/pages/ResetPassword";
 import PaymentCancel from "./pages/payment-return/PaymentCancel";
 import PaymentSuccess from "./pages/payment-return/PaymentSuccess";
 import SaleDetails from "./pages/SaleDetails";
@@ -49,6 +51,8 @@ const App = () => (
         <Routes>
           <Route path="/" element={<Login />} />
           <Route path="/primeiro-acesso" element={<FirstAccess />} />
+          <Route path="/recuperar-senha" element={<ForgotPassword />} />
+          <Route path="/redefinir-senha" element={<ResetPassword />} />
           {/* Stripe return URLs. Public: the buyer has no comercial session. */}
           <Route path="/sales/payment/success" element={<PaymentSuccess />} />
           <Route path="/sales/payment/cancel" element={<PaymentCancel />} />
