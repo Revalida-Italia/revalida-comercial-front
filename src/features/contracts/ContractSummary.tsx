@@ -71,6 +71,7 @@ export function GenerateButton({
       )}
       disabled={blocked}
       aria-disabled={blocked || generating}
+      title={blocked ? issues[0]?.summary : undefined}
       onClick={() => {
         if (blocked || generating) return;
         onGenerate();
@@ -146,13 +147,11 @@ export default function ContractSummary(props: ContractSummaryProps) {
       className="overflow-visible rounded-lg bg-card p-6 shadow-[0_4px_24px_rgba(15,40,60,0.07)]"
     >
       {props.modelName ? (
-        <div className="mb-4 flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">{t("contract.page.modelLabel")}</p>
-            <p className="truncate font-semibold" title={props.modelName}>{props.modelName}</p>
-          </div>
+        <div className="mb-4 min-w-0">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">{t("contract.page.modelLabel")}</p>
+          <p className="break-words font-semibold">{props.modelName}</p>
           {props.onChangeModel ? (
-            <button type="button" onClick={props.onChangeModel} className="shrink-0 text-[13px] font-semibold text-primary">
+            <button type="button" onClick={props.onChangeModel} className="mt-1 text-[13px] font-semibold text-primary">
               {t("contract.page.switchModel")}
             </button>
           ) : null}
@@ -185,7 +184,7 @@ export function GenerateBar({
   const first = issues[0];
   return (
     <div className="sticky bottom-0 z-10 -mx-3 mt-6 border-t border-border bg-white px-3 py-3 shadow-[0_-6px_20px_rgba(36,56,79,0.08)] md:-mx-5 md:px-5">
-      {modelName ? <p className="truncate text-[13px] font-semibold text-foreground" title={modelName}>{modelName}</p> : null}
+      {modelName ? <p className="break-words text-[13px] font-semibold text-foreground">{modelName}</p> : null}
       {totalLabel ? <p className="text-[15px] tabular-nums text-foreground">{totalLabel}</p> : null}
       {first && (
         <p className="mb-2 text-[13px] text-muted-foreground">

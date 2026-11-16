@@ -1,4 +1,5 @@
 import type { CreateSaleCustomer } from "@/services/commercialApi";
+import { formatPhone } from "@/features/contracts/contractFormModel";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -65,8 +66,8 @@ const CustomersStep = ({
               <Input
                 type="tel"
                 value={customer.telefone}
-                onChange={(event) => onUpdateCustomer(index, "telefone", event.target.value)}
-                placeholder="5534999999999"
+                onChange={(event) => onUpdateCustomer(index, "telefone", formatPhone(event.target.value, customer.telefone))}
+                placeholder="+55 (34) 99999-9999"
               />
             </div>
             <div className="space-y-1.5">

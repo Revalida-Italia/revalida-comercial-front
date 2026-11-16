@@ -455,7 +455,6 @@ const EditSaleFeature = () => {
       <div className="flex items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-foreground">Editar venda</h1>
-          <p className="text-muted-foreground">Atualize os dados da venda.</p>
         </div>
         <Button asChild variant="outline" size="sm">
           <Link to={`/vendas/${id}`}><ArrowLeft className="mr-1 h-4 w-4" />Voltar ao detalhe</Link>

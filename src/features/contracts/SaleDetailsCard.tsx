@@ -105,10 +105,8 @@ export default function SaleDetailsCard({ saleId }: { saleId: string }) {
             {courses.map((item) => (
               <li key={`${item.kind}-${item.moduleId ?? item.courseId}`}>
                 <p className="font-semibold">{item.name}</p>
-                <p className="whitespace-nowrap text-sm text-muted-foreground">
-                  {item.kind === "module" ? t("sale.courses.wholeModule") : t("sale.courses.kindCourse")}
-                  {item.startsAt && item.endsAt ? ` · ${rangeLabel(item.startsAt, item.endsAt)}` : ""}
-                </p>
+                <p className="text-sm text-muted-foreground">{item.kind === "module" ? t("sale.courses.wholeModule") : t("sale.courses.kindCourse")}</p>
+                {item.startsAt && item.endsAt ? <p className="text-sm text-muted-foreground">{rangeLabel(item.startsAt, item.endsAt)}</p> : null}
               </li>
             ))}
           </ul>

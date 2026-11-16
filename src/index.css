@@ -194,19 +194,21 @@ html {
 @container sales (min-width: 700px) {
   .sale-list-head,
   .sale-card {
-    grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.72fr) minmax(6.5rem, 0.8fr) 8.25rem 6.75rem 9.75rem;
+    grid-template-columns: minmax(0, 1.15fr) minmax(6.5rem, 0.9fr) 9rem 8.25rem 6.5rem 9.25rem;
     grid-template-areas: "client seller contract payments status acts";
     align-items: center;
     column-gap: 0;
   }
-  .sale-card { height: 72px; min-height: 72px; border-radius: 0.5rem; }
+  .sale-card { height: auto; min-height: 72px; border-radius: 0.5rem; }
   .sale-list-head { display: grid; padding: 0 16px; }
   .sale-list-head > span { padding-left: 10px; }
   .sale-list-head > span:nth-child(4),
   .sale-list-head > span:nth-child(5) { white-space: nowrap; }
   .sale-list-head > span:first-child { padding-left: 0; }
   .sale-zone-payments p { white-space: nowrap; }
-  .sale-zone { padding: 0 10px; }
+  .sale-zone { min-width: 0; overflow: hidden; padding: 0 10px; }
+  .sale-zone-seller,
+  .sale-zone-seller p { overflow-wrap: break-word; white-space: normal; }
   .sale-zone-client { padding-left: 0; }
   .sale-zone-label { display: none; }
   .sale-zone-status { justify-self: start; }
