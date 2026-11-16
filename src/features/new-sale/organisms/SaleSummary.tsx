@@ -31,6 +31,7 @@ import { Badge } from "@/components/ui/badge";
 import { formatInstallmentLabel, getPaymentGrossValue } from "@/shared/utils/payment";
 import { formatPaymentChargeLabel } from "@/features/sales/utils/chargeLabel";
 import { isCancelledStatus, PAYMENT_REVERT_BLOCKED_MESSAGE } from "@/features/sales/utils/commissionStatus";
+import { displayPhone } from "@/features/contracts/contractFormModel";
 import { formatDate } from "@/shared/utils/format";
 import { t } from "@/i18n";
 import type { CourseSummaryModel } from "@/features/new-sale/courses/copy";
@@ -171,7 +172,7 @@ const SaleSummary = ({
                 <li key={index}>
                   <p className="font-medium leading-tight">{customer.name}</p>
                   {customer.document && <p className="text-xs text-muted-foreground">{customer.document}</p>}
-                  {customer.telefone ? <p className="text-xs text-muted-foreground">{customer.telefone}</p> : null}
+                  {customer.telefone ? <p className="text-xs text-muted-foreground">{displayPhone(customer.telefone)}</p> : null}
                   {customer.email && <p className="text-xs text-muted-foreground">{customer.email}</p>}
                 </li>
               ))}
@@ -244,7 +245,7 @@ const SaleSummary = ({
               {saleItems.map((item, index) => (
                 <li key={`${item.productName}-${item.releaseDate}-${index}`}>
                   <p className="font-medium leading-tight">{item.productName}</p>
-                  {item.releaseDate && <p className="text-xs text-muted-foreground">Liberação: {showDate(item.releaseDate)}</p>}
+                  {item.releaseDate ? <p className="text-xs text-muted-foreground">{t("sale.legacy.release", { data: formatDate(item.releaseDate) })}</p> : null}
                 </li>
               ))}
             </ul>

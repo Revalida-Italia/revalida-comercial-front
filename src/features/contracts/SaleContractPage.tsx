@@ -276,7 +276,7 @@ function ContractLayout({
     <div data-layout="stack" className="space-y-6">
       {formCard}
       {preview}
-      {summary}
+      <div className="max-md:hidden">{summary}</div>
       {bar}
     </div>
   );
@@ -368,7 +368,7 @@ function RevalidaBody({
       <ContractLayout
         saleId={saleId}
         disabled={generating}
-        bar={isDesktop ? null : <GenerateBar issues={feedback.allIssues} generating={generating} onGenerate={onGenerate} modelName={modelName} />}
+        bar={isDesktop ? null : <GenerateBar issues={feedback.allIssues} generating={generating} onGenerate={onGenerate} modelName={modelName} totalLabel={formatCurrency(total, currency)} />}
         form={
           <>
             <ModelPaper name={modelName} onChange={onSwitchModel} />
@@ -416,7 +416,7 @@ function RevalidaBody({
           <AlertDialogHeader>
             <AlertDialogTitle>{t("contract.page.confirmTitle")}</AlertDialogTitle>
             <AlertDialogDescription>
-              {t("contract.page.confirmLine", {
+              {t((courses?.length ?? summary.included.length) === 1 ? "contract.page.confirmLine.one" : "contract.page.confirmLine.other", {
                 cliente: state.parties[0]?.fullName || t("sales.card.unknownClient"),
                 valor: formatCurrency(total, currency),
                 n: courses?.length ?? summary.included.length,
@@ -513,7 +513,7 @@ function SchoolBody({
       <ContractLayout
         saleId={saleId}
         disabled={generating}
-        bar={isDesktop ? null : <GenerateBar issues={feedback.allIssues} generating={generating} onGenerate={onGenerate} modelName={modelName} />}
+        bar={isDesktop ? null : <GenerateBar issues={feedback.allIssues} generating={generating} onGenerate={onGenerate} modelName={modelName} totalLabel={formatCurrency(total, currency)} />}
         form={
           <>
             <ModelPaper name={modelName} onChange={onSwitchModel} />
@@ -559,7 +559,7 @@ function SchoolBody({
           <AlertDialogHeader>
             <AlertDialogTitle>{t("contract.page.confirmTitle")}</AlertDialogTitle>
             <AlertDialogDescription>
-              {t("contract.page.confirmLine", {
+              {t(payload.students.length === 1 ? "contract.page.confirmLine.one" : "contract.page.confirmLine.other", {
                 cliente: payload.students[0]?.fullName || t("sales.card.unknownClient"),
                 valor: formatCurrency(total, currency),
                 n: payload.students.length,
@@ -717,7 +717,7 @@ export default function SaleContractPage() {
   const rail = useContractRail();
 
   return (
-    <div className={cn("pb-6", rail ? "w-full" : "mx-auto max-w-[1120px]")}>
+    <div className={cn("-mb-3 pb-6 md:-mb-5 xl:-mb-6", rail ? "w-full" : "mx-auto max-w-[1120px]")}>
       <Link
         to={`/vendas/${saleId}`}
         className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"

@@ -251,7 +251,7 @@ const SaleListCard = ({ sale }: SaleListCardProps) => {
           {payments.note ? <p className="text-xs text-muted-foreground">{payments.note}</p> : null}
           {payments.ratio != null ? (
             <div className="my-1 h-1 overflow-hidden rounded-sm bg-border" aria-hidden="true">
-              <span className={cn("block h-full", payments.settled ? "bg-success" : "bg-primary")} style={{ width: `${payments.ratio}%` }} />
+              <span className={cn("block h-full", payments.settled ? "bg-[#7FA88A]" : "bg-[#2F5679]")} style={{ width: `${payments.ratio}%` }} />
             </div>
           ) : null}
         </div>

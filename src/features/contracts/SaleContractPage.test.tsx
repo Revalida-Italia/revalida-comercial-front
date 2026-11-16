@@ -142,10 +142,14 @@ async function openSchoolForm() {
 }
 
 /** Everything the form asks for, in the order a seller would do it. */
+function decreeRadio(name: "Sim" | "Não") {
+  return within(screen.getByRole("radiogroup", { name: "Decreto" })).getByRole("radio", { name });
+}
+
 function fillEverything() {
   type("contract-party-0-email", "billy@example.com");
   type("contract-party-0-phone", "11988880000");
-  fireEvent.click(screen.getByRole("switch", { name: "Decreto" }));
+  fireEvent.click(decreeRadio("Sim"));
   fireEvent.click(screen.getByRole("checkbox", { name: "Curso Start" }));
   type("contract-product-START-release", "15/10/2026");
   type("contract-product-START-duration", "12");
@@ -197,7 +201,7 @@ beforeEach(() => {
   vi.mocked(getSaleById).mockResolvedValue({
     id: "s1",
     clients: [
-      { id: "c1", nameCiphertext: "Billy Willy" },
+      { id: "c1", nameCiphertext: "Billy Willy", documentCiphertext: "123.456.789-00", telefone: "11988880000", email: "billy@example.com" },
       { id: "c2", nameCiphertext: "Ana Lima" },
     ],
   } as never);
@@ -301,7 +305,7 @@ describe("Gerar contrato page", () => {
     }
     // nothing is pre-ticked
     for (const c of catalog) expect(screen.getByRole("checkbox", { name: c.name })).not.toBeChecked();
-    expect(screen.getByRole("switch", { name: "Decreto" })).not.toBeChecked();
+    expect(decreeRadio("Não")).toHaveAttribute("aria-checked", "true");
   });
 
   it("disables Gerar contrato and lists the reasons, clickable", async () => {
@@ -364,7 +368,7 @@ describe("Gerar contrato page", () => {
 
   it("has the decree as a switch with no dates, and asks for release and duration of a product", async () => {
     await ready();
-    fireEvent.click(screen.getByRole("switch", { name: "Decreto" }));
+    fireEvent.click(decreeRadio("Sim"));
     expect(document.getElementById("contract-decree-release")).toBeNull();
     expect(document.getElementById("contract-decree-duration")).toBeNull();
     fireEvent.click(screen.getByRole("checkbox", { name: "Italiano Médico" }));
@@ -408,7 +412,7 @@ describe("Gerar contrato page", () => {
 
   it("starts with the decree off and no product ticked", async () => {
     await ready();
-    expect(screen.getByRole("switch", { name: "Decreto" })).toHaveAttribute("aria-checked", "false");
+    expect(decreeRadio("Não")).toHaveAttribute("aria-checked", "true");
     for (const name of ["Curso Start", "Preparação para as provas de revalidação", "Italiano Médico", "Italiano Quattromani"]) {
       expect(screen.getByRole("checkbox", { name })).toHaveAttribute("aria-checked", "false");
     }
@@ -808,6 +812,9 @@ describe("Gerar contrato page", () => {
     expect(sale.closest("[data-layout]")).toHaveAttribute("data-layout", "stack");
     expect(form.compareDocumentPosition(sale) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(within(sale).getByText("Billy Willy")).toBeInTheDocument();
+    expect(within(sale).getByText("123.456.789-00")).toBeInTheDocument();
+    expect(within(sale).getByText("+55 (11) 98888-0000")).toBeInTheDocument();
+    expect(within(sale).getByText("billy@example.com")).toBeInTheDocument();
     expect(screen.getByRole("complementary", { name: "Resumo" }).closest("[data-layout='rail']")).toBeNull();
     await waitFor(() => expect(getSaleById).toHaveBeenCalledTimes(1));
   });
@@ -854,7 +861,7 @@ describe("Gerar contrato page", () => {
     await ready();
     type("contract-party-0-email", "billy@example.com");
     type("contract-party-0-phone", "11988880000");
-    fireEvent.click(screen.getByRole("switch", { name: "Decreto" }));
+    fireEvent.click(decreeRadio("Sim"));
     fireEvent.click(screen.getByRole("checkbox", { name: "Curso Start" }));
     type("contract-product-START-release", "15/10/2026");
     type("contract-product-START-duration", "12");
@@ -919,7 +926,7 @@ describe("Gerar contrato page", () => {
     expect(screen.queryByRole("checkbox", { name: "Curso Start" })).toBeNull();
     expect(screen.getByRole("link", { name: "Alterar na venda" })).toHaveAttribute("href", "/vendas/s1/editar?step=2");
     expect(screen.getAllByText("Pediatria").length).toBeGreaterThan(0);
-    expect(screen.getByRole("switch", { name: "Decreto" })).toBeInTheDocument();
+    expect(screen.getByRole("radiogroup", { name: "Decreto" })).toBeInTheDocument();
     expect(byId("contract-term-start").value).toBe("20/08/2026");
     expect(byId("contract-term-end").value).toBe("");
     expect(screen.queryByText(/Sugerido/)).toBeNull();

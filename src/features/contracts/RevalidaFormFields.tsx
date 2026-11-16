@@ -435,14 +435,16 @@ export default function RevalidaFormFields({ state, update, catalog, form, cours
           ))}
 
           <div className="flex min-h-[56px] items-center justify-between gap-4 border-b border-border/60 py-2">
-            <label htmlFor="contract-decree-toggle" className="cursor-pointer text-[15px] font-semibold">
-              {t("contract.included.decree")}
-            </label>
-            <Switch
-              id="contract-decree-toggle"
-              checked={state.decreeOn}
+            <span className="text-[15px] font-semibold">{t("contract.included.decree")}</span>
+            <SegmentedChoice
+              label={t("contract.included.decree")}
+              value={state.decreeOn ? "yes" : "no"}
+              onChange={(value) => update((s) => ({ ...s, decreeOn: value === "yes" }))}
               disabled={form.disabled}
-              onCheckedChange={(checked) => update((s) => ({ ...s, decreeOn: checked }))}
+              options={[
+                { value: "yes", label: t("common.yes") },
+                { value: "no", label: t("common.no") },
+              ]}
             />
           </div>
         </div>

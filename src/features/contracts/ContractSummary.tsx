@@ -149,7 +149,7 @@ export default function ContractSummary(props: ContractSummaryProps) {
         <div className="mb-4 flex items-start justify-between gap-3">
           <div className="min-w-0">
             <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">{t("contract.page.modelLabel")}</p>
-            <p className="font-semibold">{props.modelName}</p>
+            <p className="truncate font-semibold" title={props.modelName}>{props.modelName}</p>
           </div>
           {props.onChangeModel ? (
             <button type="button" onClick={props.onChangeModel} className="shrink-0 text-[13px] font-semibold text-primary">
@@ -174,16 +174,19 @@ export function GenerateBar({
   generating,
   onGenerate,
   modelName,
+  totalLabel,
 }: {
   issues: FormIssue[];
   generating: boolean;
   onGenerate: () => void;
   modelName?: string;
+  totalLabel?: string;
 }) {
   const first = issues[0];
   return (
     <div className="sticky bottom-0 z-10 -mx-3 mt-6 border-t border-border bg-white px-3 py-3 shadow-[0_-6px_20px_rgba(36,56,79,0.08)] md:-mx-5 md:px-5">
-      {modelName ? <p className="mb-1 text-[13px] font-semibold text-foreground">{modelName}</p> : null}
+      {modelName ? <p className="truncate text-[13px] font-semibold text-foreground" title={modelName}>{modelName}</p> : null}
+      {totalLabel ? <p className="text-[15px] tabular-nums text-foreground">{totalLabel}</p> : null}
       {first && (
         <p className="mb-2 text-[13px] text-muted-foreground">
           {issues.length > 1

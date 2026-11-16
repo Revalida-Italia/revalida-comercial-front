@@ -194,15 +194,18 @@ html {
 @container sales (min-width: 700px) {
   .sale-list-head,
   .sale-card {
-    grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) minmax(8rem, 1fr) minmax(0, 0.85fr) 100px 166px;
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.72fr) minmax(6.5rem, 0.8fr) 8.25rem 6.75rem 9.75rem;
     grid-template-areas: "client seller contract payments status acts";
     align-items: center;
     column-gap: 0;
   }
-  .sale-card { min-height: 72px; border-radius: 0.5rem; }
+  .sale-card { height: 72px; min-height: 72px; border-radius: 0.5rem; }
   .sale-list-head { display: grid; padding: 0 16px; }
   .sale-list-head > span { padding-left: 10px; }
+  .sale-list-head > span:nth-child(4),
+  .sale-list-head > span:nth-child(5) { white-space: nowrap; }
   .sale-list-head > span:first-child { padding-left: 0; }
+  .sale-zone-payments p { white-space: nowrap; }
   .sale-zone { padding: 0 10px; }
   .sale-zone-client { padding-left: 0; }
   .sale-zone-label { display: none; }

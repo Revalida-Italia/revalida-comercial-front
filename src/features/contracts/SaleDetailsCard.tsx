@@ -4,13 +4,25 @@ import { Link } from "react-router-dom";
 import { Receipt } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { t } from "@/i18n";
+import { t, type MessageKey } from "@/i18n";
+import type { SaleClient } from "@/services/commercialApi";
 import { displayPhone } from "@/features/contracts/contractFormModel";
 import { readCourseItems } from "@/features/new-sale/courses/model";
 import { rangeLabel } from "@/features/new-sale/courses/copy";
 import { saleQueryOptions } from "@/features/new-sale/saleQuery";
 import { formatCurrency, formatDate } from "@/shared/utils/format";
 import { getSaleProductName } from "@/features/sales/utils";
+
+function clientText(client: SaleClient, key: "document" | "phone" | "email"): string {
+  const extra = client as SaleClient & { document?: string | null; cpf?: string | null };
+  if (key === "document") return (client.documentCiphertext || extra.document || extra.cpf || "").trim();
+  if (key === "phone") return (client.telefone || client.phone || "").trim();
+  return (client.email || "").trim();
+}
+
+function countLine(group: "contract.page.installments" | "contract.page.confirmLine", count: number, vars: Record<string, string | number>) {
+  return t(`${group}.${count === 1 ? "one" : "other"}` as MessageKey, { ...vars, n: count });
+}
 
 function Block({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -64,9 +76,9 @@ export default function SaleDetailsCard({ saleId }: { saleId: string }) {
       {sale.clients.map((client) => (
         <Block key={client.id} title={t("sales.card.clientFallback")}>
           <p className="font-semibold">{client.nameCiphertext}</p>
-          {client.documentCiphertext ? <p className="text-sm text-muted-foreground">{client.documentCiphertext}</p> : null}
-          {client.telefone || client.phone ? <p className="text-sm text-muted-foreground">{displayPhone(client.telefone || client.phone || "")}</p> : null}
-          {client.email ? <p className="text-sm text-muted-foreground">{client.email}</p> : null}
+          {clientText(client, "document") ? <p className="text-sm text-muted-foreground">{clientText(client, "document")}</p> : null}
+          {clientText(client, "phone") ? <p className="text-sm text-muted-foreground">{displayPhone(clientText(client, "phone"))}</p> : null}
+          {clientText(client, "email") ? <p className="text-sm text-muted-foreground">{clientText(client, "email")}</p> : null}
         </Block>
       ))}
 
@@ -79,7 +91,10 @@ export default function SaleDetailsCard({ saleId }: { saleId: string }) {
         {currency ? <p className="text-lg font-bold tabular-nums">{formatCurrency(Number(sale.contractValue ?? amount), currency)}</p> : null}
         {payments.length > 0 && currency ? (
           <p className="text-sm text-muted-foreground">
-            {t("contract.page.installments", { n: payments.length, valor: formatCurrency(amount, currency), p: paid })}
+            {countLine("contract.page.installments", payments.length, {
+              valor: formatCurrency(amount, currency),
+              paid: t(paid === 1 ? "contract.page.paidCount.one" : "contract.page.paidCount.other", { p: paid }),
+            })}
           </p>
         ) : null}
       </Block>
@@ -90,7 +105,7 @@ export default function SaleDetailsCard({ saleId }: { saleId: string }) {
             {courses.map((item) => (
               <li key={`${item.kind}-${item.moduleId ?? item.courseId}`}>
                 <p className="font-semibold">{item.name}</p>
-                <p className="text-sm text-muted-foreground">
+                <p className="whitespace-nowrap text-sm text-muted-foreground">
                   {item.kind === "module" ? t("sale.courses.wholeModule") : t("sale.courses.kindCourse")}
                   {item.startsAt && item.endsAt ? ` · ${rangeLabel(item.startsAt, item.endsAt)}` : ""}
                 </p>
