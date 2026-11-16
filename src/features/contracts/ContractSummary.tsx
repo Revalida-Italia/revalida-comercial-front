@@ -143,8 +143,8 @@ export default function ContractSummary(props: ContractSummaryProps) {
       aria-label={t("contract.summary.title")}
       className={cn(
         "rounded-lg bg-card p-6 shadow-[0_4px_24px_rgba(15,40,60,0.07)]",
-        contained && "flex max-h-[min(32rem,calc(100dvh-18rem))] flex-col",
-        !contained && "lg:max-h-[calc(100dvh-3rem)] lg:overflow-y-auto",
+        contained && "flex h-fit max-h-[min(32rem,calc(100dvh-18rem))] min-h-0 flex-col",
+        !contained && "h-fit lg:max-h-[calc(100dvh-6.5rem)] lg:overflow-y-auto",
       )}
     >
       {contained ? <div className="min-h-0 overflow-y-auto">{body}</div> : body}
@@ -169,7 +169,7 @@ export function GenerateBar({
 }) {
   const first = issues[0];
   return (
-    <div className="sticky bottom-0 z-10 -mx-4 mt-6 border-t border-border bg-background/95 px-4 py-3 backdrop-blur md:-mx-5 md:px-5">
+    <div className="sticky bottom-0 z-10 -mx-3 mt-6 border-t border-border bg-background/95 px-3 py-3 backdrop-blur md:-mx-5 md:px-5">
       {first && (
         <p className="mb-2 text-[13px] text-muted-foreground">
           {issues.length > 1

@@ -271,7 +271,7 @@ function ContractLayout({
     return (
       <div data-layout="rail" className="grid w-full grid-cols-[minmax(0,720px)_minmax(280px,360px)] items-start gap-10">
         {formCard}
-        <div className="sticky top-6 flex max-h-[calc(100dvh-6.5rem)] min-h-0 flex-col gap-4 overflow-hidden">
+        <div className="sticky top-6 flex h-fit max-h-[calc(100dvh-6.5rem)] min-h-0 w-full flex-col gap-4 self-start overflow-hidden">
           <div className="shrink-0">{summary}</div>
           <div className="min-h-0 flex-1 overflow-y-auto">
             <SalePreviewDisclosure>{preview}</SalePreviewDisclosure>

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { CoursesStep } from "./CoursesStep";
@@ -98,6 +98,31 @@ describe("Courses step", () => {
     expect(screen.getByRole("checkbox", { name: "Curso Start" })).toHaveAttribute("aria-checked", "true");
     fireEvent.change(screen.getByLabelText("Buscar curso ou módulo"), { target: { value: "radiologia" } });
     expect(screen.getByText("Nada encontrado para “radiologia”")).toBeInTheDocument();
+  });
+
+  it("toggles a course from the row and leaves the expand control alone", () => {
+    render(<Harness />);
+    const course = screen.getByRole("treeitem", { name: /Curso Start/ });
+    fireEvent.click(within(course).getByText("Curso Start"));
+    const checkbox = screen.getByRole("checkbox", { name: "Curso Start" });
+    expect(checkbox).toHaveAttribute("aria-checked", "true");
+    expect(course).toHaveAttribute("aria-checked", "true");
+
+    fireEvent.click(checkbox);
+    expect(checkbox).toHaveAttribute("aria-checked", "false");
+
+    fireEvent.click(within(course).getByText(/módulos/));
+    expect(checkbox).toHaveAttribute("aria-checked", "true");
+
+    const expand = screen.getByRole("button", { name: "Módulos de Curso Start" });
+    fireEvent.click(expand);
+    expect(checkbox).toHaveAttribute("aria-checked", "true");
+    expect(expand).toHaveAttribute("aria-expanded", "true");
+
+    fireEvent.click(screen.getByRole("button", { name: "Módulos de Preparação" }));
+    fireEvent.click(screen.getByText("Pediatria"));
+    expect(screen.getByRole("checkbox", { name: "Pediatria" })).toHaveAttribute("aria-checked", "true");
+    expect(screen.getByRole("checkbox", { name: "Preparação" })).toHaveAttribute("aria-checked", "mixed");
   });
 
   it("marks a course from the keyboard and announces a partial check", () => {
