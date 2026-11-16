@@ -10,6 +10,9 @@ import { getSaleCommissionValue, saleAllowsStripeCheckoutLink } from "../utils";
 import SaleSummary from "@/features/new-sale/organisms/SaleSummary";
 import { buildCourseSummary } from "@/features/new-sale/courses/copy";
 import { draftFromItems, readCourseItems } from "@/features/new-sale/courses/model";
+import type { TeachingCatalog } from "@/features/new-sale/courses/types";
+
+const EMPTY_CATALOG: TeachingCatalog = { modules: [], courses: [] };
 import { useMemo } from "react";
 
 type SaleDetailPreviewProps = {
@@ -51,25 +54,28 @@ const SaleDetailPreview = ({
   payingCommissionPaymentId = null,
   onPayCommission,
 }: SaleDetailPreviewProps) => {
-  const filledCustomers: FilledSaleCustomer[] = sale.clients.map((client) => ({
+  const clients = sale.clients ?? [];
+  const items = sale.items ?? [];
+  const payments = sale.payments ?? [];
+  const filledCustomers: FilledSaleCustomer[] = clients.map((client) => ({
     name: client.nameCiphertext || "Sem nome",
     document: client.documentCiphertext || undefined,
     telefone: client.telefone || "-",
     email: client.email || undefined,
   }));
 
-  const courseItems = readCourseItems(sale.items);
+  const courseItems = readCourseItems(items);
   const courseSummary = courseItems.length > 0
-    ? buildCourseSummary(draftFromItems(courseItems, courseItems[0]?.startsAt || ""), [], sale.clients.map((client) => client.nameCiphertext || ""))
+    ? buildCourseSummary(draftFromItems(courseItems, courseItems[0]?.startsAt || ""), EMPTY_CATALOG, clients.map((client) => client.nameCiphertext || ""))
     : undefined;
   const saleItems = courseSummary
     ? []
-    : sale.items.map((item) => ({
+    : items.map((item) => ({
       productName: item.product?.name || "Produto não identificado",
       releaseDate: item.releaseDate?.slice(0, 10) ?? "",
     }));
 
-  const configuredPayments: ConfiguredSalePayment[] = sale.payments.map((payment) => ({
+  const configuredPayments: ConfiguredSalePayment[] = payments.map((payment) => ({
     id: payment.id,
     status: payment.status,
     paymentDate: payment.paymentDate?.slice(0, 10) ?? undefined,
@@ -122,10 +128,10 @@ const SaleDetailPreview = ({
       totalCommission,
       payments: breakdown.payments.map((payment, index) => ({
         ...payment,
-        commissionAmount: toNumberOrZero(sale.payments[index]?.commission?.amount),
+        commissionAmount: toNumberOrZero(payments[index]?.commission?.amount),
       })),
     };
-  }, [configuredPayments, commissionRate, sale.payments, totalCommission]);
+  }, [configuredPayments, commissionRate, payments, totalCommission]);
 
   const getFeeRate = (gateway: string, paymentType: string) => {
     const payment = configuredPayments.find((item) => item.gateway === gateway && item.paymentType === paymentType);

@@ -25,15 +25,20 @@ type SendPaymentLinkDialogProps = {
   initialPaymentId?: string;
 };
 
+function paymentsOf(sale: SaleRecord): SalePayment[] {
+  return sale.payments ?? [];
+}
+
 function getDefaultPayment(sale: SaleRecord, initialPaymentId?: string): SalePayment | undefined {
+  const payments = paymentsOf(sale);
   if (initialPaymentId) {
-    const selected = sale.payments.find((payment) => payment.id === initialPaymentId);
+    const selected = payments.find((payment) => payment.id === initialPaymentId);
     if (selected) {
       return selected;
     }
   }
 
-  return sale.payments.find((payment) => payment.linkPagamento) ?? sale.payments[0];
+  return payments.find((payment) => payment.linkPagamento) ?? payments[0];
 }
 
 const SendPaymentLinkDialog = ({
@@ -109,7 +114,8 @@ const SendPaymentLinkDialog = ({
     },
   });
 
-  const selectedPayment = sale.payments.find((payment) => payment.id === paymentId);
+  const payments = paymentsOf(sale);
+  const selectedPayment = payments.find((payment) => payment.id === paymentId);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -132,7 +138,7 @@ const SendPaymentLinkDialog = ({
                 <SelectValue placeholder="Selecione o pagamento" />
               </SelectTrigger>
               <SelectContent>
-                {sale.payments.map((payment) => (
+                {payments.map((payment) => (
                   <SelectItem key={payment.id} value={payment.id}>
                     {payment.gateway} · {payment.type} · R$ {payment.amount}
                     {!payment.linkPagamento ? " (sem link)" : ""}
@@ -190,7 +196,7 @@ const SendPaymentLinkDialog = ({
           </Button>
           <Button
             onClick={() => sendMutation.mutate()}
-            disabled={sendMutation.isPending || sale.payments.length === 0}
+            disabled={sendMutation.isPending || payments.length === 0}
           >
             {sendMutation.isPending ? "Enviando..." : "Enviar WhatsApp"}
           </Button>

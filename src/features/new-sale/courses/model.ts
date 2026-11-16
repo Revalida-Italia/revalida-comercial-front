@@ -154,22 +154,22 @@ function datesFor(draft: CourseDraft, key: string): ItemDates {
 }
 
 export function moduleById(catalog: TeachingCatalog, moduleId: string): CatalogModule | undefined {
-  return catalog.modules.find((item) => item.id === moduleId);
+  return (catalog.modules ?? []).find((item) => item.id === moduleId);
 }
 
 export function courseById(catalog: TeachingCatalog, courseId: string): CatalogCourse | undefined {
-  return catalog.courses.find((item) => item.id === courseId);
+  return (catalog.courses ?? []).find((item) => item.id === courseId);
 }
 
 export function courseNamesOf(catalog: TeachingCatalog, module: CatalogModule): string[] {
-  return module.courseIds
+  return (module.courseIds ?? [])
     .map((id) => courseById(catalog, id)?.name)
     .filter((name): name is string => Boolean(name));
 }
 
 /** Modules currently selected that contain this course, in catalog order. */
 export function lockingModules(catalog: TeachingCatalog, draft: CourseDraft, courseId: string): CatalogModule[] {
-  return catalog.modules.filter((item) => draft.modules.includes(item.id) && item.courseIds.includes(courseId));
+  return (catalog.modules ?? []).filter((item) => draft.modules.includes(item.id) && (item.courseIds ?? []).includes(courseId));
 }
 
 export function isCourseLocked(catalog: TeachingCatalog, draft: CourseDraft, courseId: string): boolean {
@@ -188,7 +188,7 @@ export function toggleModule(draft: CourseDraft, module: CatalogModule): CourseD
   if (draft.modules.includes(module.id)) {
     return { ...draft, modules: draft.modules.filter((id) => id !== module.id) };
   }
-  const covered = new Set(module.courseIds);
+  const covered = new Set(module.courseIds ?? []);
   return withNewRow({
     ...draft,
     modules: [...draft.modules, module.id],
@@ -389,15 +389,17 @@ export type CatalogView = {
 
 /** Local filter. A search hits a module name, a course name, and the courses inside a module. */
 export function filterCatalog(catalog: TeachingCatalog, query: string): CatalogView {
+  const modulesAll = catalog.modules ?? [];
+  const coursesAll = catalog.courses ?? [];
   const q = query.trim().toLowerCase();
-  if (!q) return { modules: catalog.modules, courses: catalog.courses };
+  if (!q) return { modules: modulesAll, courses: coursesAll };
   const courseHit = new Set(
-    catalog.courses.filter((course) => course.name.toLowerCase().includes(q)).map((course) => course.id),
+    coursesAll.filter((course) => course.name.toLowerCase().includes(q)).map((course) => course.id),
   );
-  const modules = catalog.modules.filter((mod) => {
+  const modules = modulesAll.filter((mod) => {
     if (mod.name.toLowerCase().includes(q)) return true;
-    return mod.courseIds.some((id) => courseHit.has(id) || courseById(catalog, id)?.name.toLowerCase().includes(q));
+    return (mod.courseIds ?? []).some((id) => courseHit.has(id) || courseById(catalog, id)?.name.toLowerCase().includes(q));
   });
-  const courses = catalog.courses.filter((course) => courseHit.has(course.id));
+  const courses = coursesAll.filter((course) => courseHit.has(course.id));
   return { modules, courses };
 }
