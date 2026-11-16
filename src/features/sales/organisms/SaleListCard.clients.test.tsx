@@ -62,10 +62,7 @@ describe("sale list client names and actions", () => {
 
     const line = screen.getByTitle("Maria, João, Ana");
     expect(line).toHaveTextContent("Maria");
-    expect(line).toHaveTextContent("+2");
-    expect(line).not.toHaveTextContent("João");
-    expect(screen.getByText("Clientes")).toBeInTheDocument();
-    expect(screen.getByText("3")).toBeInTheDocument();
+    expect(screen.getByText("João, Ana")).toBeInTheDocument();
   });
 
   it("shows a single client name in the header line", () => {
@@ -83,7 +80,6 @@ describe("sale list client names and actions", () => {
     expect(screen.getByRole("button", { name: "Arquivar" })).toBeInTheDocument();
     const remove = screen.getByRole("button", { name: "Excluir" });
     expect(remove.className).toContain("9A3F3F");
-    expect(remove.className).not.toContain("border-destructive");
 
     fireEvent.click(remove);
     expect(await screen.findByRole("alertdialog", { name: "Excluir venda?" })).toBeInTheDocument();

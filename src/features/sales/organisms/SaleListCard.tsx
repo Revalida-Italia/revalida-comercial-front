@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import type { SaleRecord } from "@/services/commercialApi";
 import { formatCurrency, formatDate } from "@/shared/utils/format";
@@ -28,7 +28,6 @@ import {
   getInstallmentPaymentsProgress,
   getSaleCommissionValue,
   getSaleContractValue,
-  getSaleNetContractValue,
   getSaleProductName,
   getSaleSellerInfo,
   getSubscriptionPaymentsProgress,
@@ -52,6 +51,33 @@ import ViewPaymentLinkDialog from "./ViewPaymentLinkDialog";
 type SaleListCardProps = {
   sale: SaleRecord;
 };
+
+function useMinWidth(px: number): boolean {
+  const query = `(min-width: ${px}px)`;
+  const [matches, setMatches] = useState(() => typeof window.matchMedia === "function" && window.matchMedia(query).matches);
+  useEffect(() => {
+    if (typeof window.matchMedia !== "function") return;
+    const media = window.matchMedia(query);
+    const onChange = () => setMatches(media.matches);
+    onChange();
+    media.addEventListener("change", onChange);
+    return () => media.removeEventListener("change", onChange);
+  }, [query]);
+  return matches;
+}
+
+export function SalesListHeader() {
+  return (
+    <div className="sale-list-head text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+      <span>{t("sales.list.colClient")}</span>
+      <span>{t("sales.list.colSeller")}</span>
+      <span>{t("sales.list.colContract")}</span>
+      <span>{t("sales.list.colPayments")}</span>
+      <span>{t("sales.list.colStatus")}</span>
+      <span />
+    </div>
+  );
+}
 
 const ACTION =
   "sale-action inline-flex h-9 shrink-0 items-center gap-1.5 rounded-md border border-foreground/10 bg-transparent px-2.5 text-[13px] font-medium text-foreground shadow-none hover:bg-foreground/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2";
@@ -83,7 +109,9 @@ function paymentCell(sale: SaleRecord) {
     kind: "installment" | "subscription",
     cancelled: boolean,
   ) => ({
-    value: paidPhrase(group, progress.paid, progress.total),
+    value: kind === "installment"
+      ? t(progress.total === 1 ? "sales.list.paidOf.one" : "sales.list.paidOf.other", { p: progress.paid, n: progress.total })
+      : paidPhrase(group, progress.paid, progress.total),
     ratio: progress.total > 0 ? (progress.paid / progress.total) * 100 : 0,
     settled: progress.pending === 0 && !cancelled && progress.total > 0,
     note: progressNote(kind, progress, cancelled),
@@ -139,17 +167,8 @@ function paymentCell(sale: SaleRecord) {
   };
 }
 
-function NumberCell({ label, value, children }: { label: string; value: string; children?: ReactNode }) {
-  return (
-    <div className="min-w-0">
-      <p className="overflow-hidden text-ellipsis whitespace-nowrap text-[11px] font-semibold uppercase tracking-[0.04em] text-muted-foreground">{label}</p>
-      <p className="overflow-hidden text-ellipsis text-[15px] font-semibold tabular-nums text-foreground whitespace-nowrap">{value}</p>
-      {children}
-    </div>
-  );
-}
-
 const SaleListCard = ({ sale }: SaleListCardProps) => {
+  const wideActions = useMinWidth(1100);
   const profile = getProfile();
   const isAdmin = hasRole("ADMIN");
   const canMutate = canMutateSales(profile?.role);
@@ -161,9 +180,7 @@ const SaleListCard = ({ sale }: SaleListCardProps) => {
   const archiveActions = useSaleArchiveDelete(sale);
   const names = saleClientNames(sale);
   const clientTitle = names.length > 0 ? names.join(", ") : t("sales.card.unknownClient");
-  const extraClients = Math.max(0, names.length - 1);
   const contractValue = getSaleContractValue(sale);
-  const netContractValue = getSaleNetContractValue(sale);
   const commissionValue = getSaleCommissionValue(sale);
   const payments = paymentCell(sale);
   const subscriptionProgress = getSubscriptionPaymentsProgress(sale);
@@ -190,64 +207,53 @@ const SaleListCard = ({ sale }: SaleListCardProps) => {
   const showCreateLink = canMutate && !hasPaymentLink && !isArchived && !subscriptionCancelled;
   const showWhatsapp = canMutate && !isArchived;
   const showEdit = canMutate && !isArchived;
-  const dotClass = isArchived
-    ? "bg-muted-foreground"
-    : String(sale.status).toUpperCase() === "CONCLUDED"
-      ? "bg-success"
-      : "bg-warning";
+  const concluded = String(sale.status).toUpperCase() === "CONCLUDED";
+  const dotClass = isArchived ? "bg-muted-foreground" : concluded ? "bg-[#7FA88A]" : "bg-[#C9A15A]";
+  const statusClass = isArchived ? "text-muted-foreground" : concluded ? "text-[#2F5A43]" : "text-[#8A611F]";
 
   return (
     <>
       <article
         aria-labelledby={nameId}
         className={cn(
-          "sale-card rounded-md bg-card p-3 shadow-[0_1px_2px_rgba(36,56,79,0.06),0_4px_12px_rgba(36,56,79,0.06)] sm:p-4",
+          "sale-card rounded-md bg-card p-3 shadow-[0_1px_2px_rgba(36,56,79,0.06),0_4px_12px_rgba(36,56,79,0.06)]",
           isArchived && "opacity-[.72]",
         )}
       >
-        <div className="sale-card-head grid min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-1">
-          <h2 id={nameId} title={productName} className="line-clamp-2 min-w-0 text-base font-semibold leading-snug">
-            {productName}
+        <div className="sale-zone sale-zone-client min-w-0">
+          <h2 id={nameId} title={clientTitle} className="truncate text-[15px] font-semibold leading-snug">
+            {names[0] ?? clientTitle}
           </h2>
-          {hideStatus ? <span /> : (
-            <p className="flex items-center gap-1.5 self-start whitespace-nowrap pt-0.5 text-xs font-semibold">
-              <span className={cn("h-1.5 w-1.5 rounded-full", dotClass)} aria-hidden="true" />
-              {statusLabel}
-            </p>
-          )}
+          {names.slice(1).length > 0 ? <p className="truncate text-[13px] text-muted-foreground">{names.slice(1).join(", ")}</p> : null}
+          <p title={productName} className="truncate text-[13px] text-muted-foreground">{productName}</p>
         </div>
-        <p title={meta} className="sale-card-meta truncate text-[13px] text-muted-foreground">
-          {sellerName} · {formatDate(sale.soldAt)}
-        </p>
-        <p title={clientTitle} className="sale-card-clients flex min-w-0 items-baseline gap-1 text-[13px] text-foreground">
-          <span className="min-w-0 truncate">{names[0] ?? clientTitle}</span>
-          {extraClients > 0 ? <span className="shrink-0 tabular-nums">+{extraClients}</span> : null}
-        </p>
-
-        <div className="sale-card-nums">
-          <NumberCell label={t("sales.card.clients")} value={String(sale.clients?.length ?? 0)} />
-          <div className="min-w-0">
-            <p className="overflow-hidden text-ellipsis whitespace-nowrap text-[11px] font-semibold uppercase tracking-[0.04em] text-muted-foreground">{t("sales.card.payments")}</p>
-            <p className="sale-pay-value text-[15px] font-semibold tabular-nums text-foreground">{payments.value}</p>
-            {payments.ratio != null ? (
-              <div className="my-1 h-1 overflow-hidden rounded-sm bg-border" aria-hidden="true">
-                <span
-                  className={cn("block h-full", payments.settled ? "bg-success" : "bg-primary")}
-                  style={{ width: `${payments.ratio}%` }}
-                />
-              </div>
-            ) : null}
-            {payments.note ? <p className="whitespace-nowrap text-xs text-muted-foreground">{payments.note}</p> : null}
-          </div>
-          <NumberCell label={t("sales.card.contract")} value={formatCurrency(contractValue, currency)} />
-          <NumberCell label={t("sales.card.net")} value={formatCurrency(netContractValue, currency)}>
-            <p className="mt-1 overflow-hidden text-ellipsis whitespace-nowrap text-[11px] font-semibold uppercase tracking-[0.04em] text-muted-foreground">
-              {t("sales.card.commission")}
-            </p>
-            <p className="overflow-hidden text-ellipsis whitespace-nowrap text-[15px] font-semibold tabular-nums text-foreground">
-              {formatCurrency(commissionValue, "BRL")}
-            </p>
-          </NumberCell>
+        {hideStatus ? <span className="sale-zone sale-zone-status" /> : (
+          <p className={cn("sale-zone sale-zone-status flex items-center gap-1.5 text-[13px] font-semibold", statusClass)}>
+            <span className={cn("h-1.5 w-1.5 rounded-full", dotClass)} aria-hidden="true" />
+            {statusLabel}
+          </p>
+        )}
+        <div className="sale-zone sale-zone-seller">
+          <p className="sale-zone-label text-[11px] font-semibold uppercase tracking-[0.04em] text-muted-foreground">{t("sales.list.sellerShort")}</p>
+          <p title={meta} className="text-sm">{sellerName}</p>
+          <p className="text-[13px] text-muted-foreground">{formatDate(sale.soldAt)}</p>
+        </div>
+        <div className="sale-zone sale-zone-contract">
+          <p className="sale-zone-label text-[11px] font-semibold uppercase tracking-[0.04em] text-muted-foreground">{t("sales.list.colContract")}</p>
+          <p className="sale-money text-[15px] font-semibold tabular-nums">{formatCurrency(contractValue, currency)}</p>
+          <p className="text-[13px] text-muted-foreground">
+            <span>{t("sales.card.commission")}</span> {formatCurrency(commissionValue, "BRL")}
+          </p>
+        </div>
+        <div className="sale-zone sale-zone-payments">
+          <p className="sale-zone-label text-[11px] font-semibold uppercase tracking-[0.04em] text-muted-foreground">{t("sales.list.colPayments")}</p>
+          <p className="sale-payments-value text-sm font-semibold">{payments.value}</p>
+          {payments.note ? <p className="text-xs text-muted-foreground">{payments.note}</p> : null}
+          {payments.ratio != null ? (
+            <div className="my-1 h-1 overflow-hidden rounded-sm bg-border" aria-hidden="true">
+              <span className={cn("block h-full", payments.settled ? "bg-[#7FA88A]" : "bg-[#2F5679]")} style={{ width: `${payments.ratio}%` }} />
+            </div>
+          ) : null}
         </div>
 
         <div className="sale-card-acts">
@@ -255,13 +261,13 @@ const SaleListCard = ({ sale }: SaleListCardProps) => {
             <Button
               type="button"
               variant="ghost"
-              className={ACTION}
+              className={cn(ACTION, "sale-icon-btn")}
               title={t("sales.actions.stripeTitle")}
               aria-label={t("sales.actions.stripeName")}
               onClick={() => setStripeOpen(true)}
             >
               <StripeMark className="h-4 w-4" />
-              <span>{t("sales.actions.stripe")}</span>
+              <span className="sale-link-long">{t("sales.actions.stripe")}</span>
             </Button>
           ) : null}
           {showViewLink || showCreateLink ? (
@@ -282,7 +288,7 @@ const SaleListCard = ({ sale }: SaleListCardProps) => {
                 <Button
                   type="button"
                   variant="ghost"
-                  className={cn(ACTION, "text-primary", hasHotmartCheckout && "rounded-r-none", !hasPayments && "cursor-not-allowed")}
+                  className={cn(ACTION, "sale-icon-btn text-primary", hasHotmartCheckout && "rounded-r-none", !hasPayments && "cursor-not-allowed")}
                   aria-disabled={!hasPayments}
                   aria-label={t("sales.actions.paymentLink")}
                   title={hasPayments ? t("sales.actions.createLinkTitle") : t("sales.actions.noPayments")}
@@ -334,11 +340,11 @@ const SaleListCard = ({ sale }: SaleListCardProps) => {
               <span className="sale-link-long">{t("sales.actions.hotmart")}</span>
             </Button>
           ) : null}
-          {showWhatsapp ? (
+          {showWhatsapp && wideActions ? (
             <Button
               type="button"
               variant="ghost"
-              className={cn(ACTION, "sale-compact px-0", !hasPaymentLink && "cursor-not-allowed")}
+              className={cn(ACTION, "sale-icon-btn sale-compact px-0", !hasPaymentLink && "cursor-not-allowed")}
               aria-disabled={!hasPaymentLink}
               aria-label={t("sales.actions.whatsapp")}
               title={hasPaymentLink ? t("sales.actions.whatsappReady") : t("sales.actions.whatsappMissing")}
@@ -349,52 +355,45 @@ const SaleListCard = ({ sale }: SaleListCardProps) => {
               <MessageCircle className="h-4 w-4" aria-hidden="true" />
             </Button>
           ) : null}
-          {showEdit ? (
-            <Link
-              to={`/vendas/${sale.id}/editar`}
-              className={cn(ACTION, "sale-compact")}
-              aria-label={t("sales.actions.edit")}
-              title={t("sales.actions.edit")}
-            >
-              <Pencil className="h-4 w-4" aria-hidden="true" />
-              <span className="sale-wide-label">{t("sales.actions.edit")}</span>
-            </Link>
-          ) : null}
           <Link
             to={`/vendas/${sale.id}`}
             className={cn(ACTION, "sale-compact")}
             aria-label={t("sales.actions.details")}
             title={t("sales.actions.details")}
           >
-            <FileText className="h-4 w-4" aria-hidden="true" />
-            <span className="sale-wide-label">{t("sales.actions.details")}</span>
+            <FileText className="sale-details-icon h-4 w-4" aria-hidden="true" />
+            <span>{t("sales.actions.details")}</span>
           </Link>
-          {isAdmin && !archiveActions.isArchived ? (
-            <button
-              type="button"
-              className={cn(ACTION, "sale-compact")}
-              aria-label={t("sales.actions.archive")}
-              title={t("sales.actions.archive")}
-              onClick={archiveActions.openArchive}
-            >
-              <Archive className="h-4 w-4" aria-hidden="true" />
-              <span className="sale-wide-label">{t("sales.actions.archive")}</span>
-            </button>
-          ) : null}
-          {isAdmin && !archiveActions.isArchived ? (
-            <button
-              type="button"
-              className={cn(ACTION, "sale-compact text-[#9A3F3F]")}
-              aria-label={t("sales.actions.remove")}
-              title={archiveActions.hasPaid ? t("sales.actions.removeBlocked") : t("sales.actions.removeReady")}
-              onClick={() => {
-                if (!archiveActions.hasPaid) archiveActions.openDelete();
-              }}
-            >
-              <Trash2 className="h-4 w-4" aria-hidden="true" />
-              <span className="sale-wide-label">{t("sales.actions.remove")}</span>
-            </button>
-          ) : null}
+          <details className="relative">
+            <summary className={cn(ACTION, "sale-compact cursor-pointer list-none px-3")} aria-label={t("sales.actions.more")}>…</summary>
+            <div className="absolute right-0 z-20 mt-1 min-w-[180px] rounded-md border bg-popover p-1 shadow-md">
+              {showWhatsapp && !wideActions ? (
+                <button type="button" className="block w-full px-2 py-2 text-left text-sm" disabled={!hasPaymentLink} onClick={() => { if (hasPaymentLink) setWhatsappOpen(true); }}>
+                  {t("sales.actions.whatsapp")}
+                </button>
+              ) : null}
+              {showEdit ? (
+                <Link to={`/vendas/${sale.id}/editar`} className="block px-2 py-2 text-sm" aria-label={t("sales.actions.edit")}>
+                  {t("sales.actions.edit")}
+                </Link>
+              ) : null}
+              {isAdmin && !archiveActions.isArchived ? (
+                <button type="button" className="block w-full px-2 py-2 text-left text-sm" aria-label={t("sales.actions.archive")} onClick={archiveActions.openArchive}>
+                  {t("sales.actions.archive")}
+                </button>
+              ) : null}
+              {isAdmin && !archiveActions.isArchived ? (
+                <button
+                  type="button"
+                  className="block w-full px-2 py-2 text-left text-sm text-[#9A3F3F]"
+                  aria-label={t("sales.actions.remove")}
+                  onClick={() => { if (!archiveActions.hasPaid) archiveActions.openDelete(); }}
+                >
+                  {t("sales.actions.remove")}
+                </button>
+              ) : null}
+            </div>
+          </details>
         </div>
       </article>
 

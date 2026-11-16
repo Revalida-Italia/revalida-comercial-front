@@ -31,6 +31,7 @@ import { Badge } from "@/components/ui/badge";
 import { formatInstallmentLabel, getPaymentGrossValue } from "@/shared/utils/payment";
 import { formatPaymentChargeLabel } from "@/features/sales/utils/chargeLabel";
 import { isCancelledStatus, PAYMENT_REVERT_BLOCKED_MESSAGE } from "@/features/sales/utils/commissionStatus";
+import { displayPhone } from "@/features/contracts/contractFormModel";
 import { formatDate } from "@/shared/utils/format";
 import { t } from "@/i18n";
 import type { CourseSummaryModel } from "@/features/new-sale/courses/copy";
@@ -164,14 +165,14 @@ const SaleSummary = ({
         <div className="space-y-1.5">
           {heading(1, <User className="h-3.5 w-3.5" />, "Clientes")}
           {filledCustomers.length === 0 ? (
-            <p className="italic text-muted-foreground">Nenhum cliente adicionado</p>
+            <p className="text-muted-foreground">Nenhum cliente adicionado</p>
           ) : (
             <ul className="space-y-1">
               {filledCustomers.map((customer, index) => (
                 <li key={index}>
                   <p className="font-medium leading-tight">{customer.name}</p>
                   {customer.document && <p className="text-xs text-muted-foreground">{customer.document}</p>}
-                  {customer.telefone ? <p className="text-xs text-muted-foreground">{customer.telefone}</p> : null}
+                  {customer.telefone ? <p className="text-xs text-muted-foreground">{displayPhone(customer.telefone)}</p> : null}
                   {customer.email && <p className="text-xs text-muted-foreground">{customer.email}</p>}
                 </li>
               ))}
@@ -187,7 +188,7 @@ const SaleSummary = ({
           {heading(
             2,
             courseSummary ? <BookOpen className="h-3.5 w-3.5" /> : <Package className="h-3.5 w-3.5" />,
-            courseSummary ? (courseLayout === "table" ? t("sale.summary.coursesAccess") : t("sale.preview.courses")) : t("sale.preview.products"),
+            courseSummary ? (courseLayout === "table" ? t("sale.summary.coursesAccess") : t("sale.courses.title")) : t("sale.preview.products"),
           )}
           {courseSummary ? (
             courseLayout === "table" ? (
@@ -217,6 +218,9 @@ const SaleSummary = ({
                     </tbody>
                   </table>
                 )}
+                {courseSummary.notIncluded ? (
+                  <p className="mt-3 text-[13px] text-muted-foreground">{courseSummary.notIncluded}</p>
+                ) : null}
                 {courseSummary.summaryNote ? (
                   <p className="mt-3 text-[13px] text-muted-foreground">{courseSummary.summaryNote}</p>
                 ) : null}
@@ -241,12 +245,12 @@ const SaleSummary = ({
               {saleItems.map((item, index) => (
                 <li key={`${item.productName}-${item.releaseDate}-${index}`}>
                   <p className="font-medium leading-tight">{item.productName}</p>
-                  {item.releaseDate && <p className="text-xs text-muted-foreground">Liberação: {showDate(item.releaseDate)}</p>}
+                  {item.releaseDate ? <p className="text-xs text-muted-foreground">{t("sale.legacy.release", { data: formatDate(item.releaseDate) })}</p> : null}
                 </li>
               ))}
             </ul>
           ) : (
-            <p className="italic text-muted-foreground">Não selecionado</p>
+            <p className="text-muted-foreground">Não selecionado</p>
           )}
         </div>
       ))}
@@ -257,7 +261,7 @@ const SaleSummary = ({
         <div className="space-y-1.5">
           {heading(3, <CreditCard className="h-3.5 w-3.5" />, "Pagamentos")}
           {configuredPayments.length === 0 ? (
-            <p className="italic text-muted-foreground">Nenhum pagamento configurado</p>
+            <p className="text-muted-foreground">Nenhum pagamento configurado</p>
           ) : (
             <ul className="space-y-2">
               {configuredPayments.map((payment, index) => {
@@ -526,7 +530,7 @@ const SaleSummary = ({
           </div>
         </div>
       ) : (
-        <p className="italic text-muted-foreground">Preencha os pagamentos para calcular</p>
+        <p className="text-muted-foreground">Preencha os pagamentos para calcular</p>
       )}
       </div>
       </>

@@ -1,8 +1,8 @@
 import { t, type MessageKey } from "@/i18n";
 import { accessLength } from "./duration";
 import { formatAccessDate } from "./dates";
-import { continueState, listItems, previewGroups, type ListedItem } from "./model";
-import type { CatalogCourse, CourseDraft } from "./types";
+import { continueState, listItems, type ListedItem } from "./model";
+import type { CourseDraft, TeachingCatalog } from "./types";
 
 function plural(group: string, n: number): string {
   return t(`${group}.${n === 1 ? "one" : "other"}` as MessageKey, { n });
@@ -41,12 +41,10 @@ export function joinNames(names: string[]): string {
 }
 
 export function itemDetail(item: ListedItem): string {
-  if (item.kind === "course") {
-    return item.moduleCount > 0
-      ? `${t("sale.courses.wholeCourse")} · ${modulesLabel(item.moduleCount)}`
-      : t("sale.courses.wholeCourse");
+  if (item.kind === "module") {
+    return t(item.courseCount === 1 ? "sale.courses.kindModule.one" : "sale.courses.kindModule.other", { n: item.courseCount });
   }
-  return t("sale.courses.moduleOf", { curso: item.courseName });
+  return t("sale.courses.kindCourse");
 }
 
 export type CourseSummaryModel = {
@@ -56,9 +54,10 @@ export type CourseSummaryModel = {
   tone: "muted" | "error";
   clientNote: string | null;
   summaryNote: string | null;
+  notIncluded: string | null;
 };
 
-export function buildCourseSummary(draft: CourseDraft, catalog: CatalogCourse[], clientNames: string[]): CourseSummaryModel {
+export function buildCourseSummary(draft: CourseDraft, catalog: TeachingCatalog, clientNames: string[]): CourseSummaryModel {
   const items = listItems(draft, catalog);
   const state = continueState(draft, catalog);
   const rows = items.map((item) => {
@@ -71,10 +70,10 @@ export function buildCourseSummary(draft: CourseDraft, catalog: CatalogCourse[],
       duration: ready ? durationLabel(item.startsAt, item.endsAt, "short") : "",
     };
   });
-  const groups = previewGroups(items).map((group) => ({
-    courseId: group.courseId,
-    title: group.title,
-    detail: group.whole ? t("sale.courses.wholeCourse") : group.modules.join(", "),
+  const groups = rows.map((row) => ({
+    courseId: row.key,
+    title: row.title,
+    detail: row.detail,
   }));
 
   let period = t("sale.preview.noCourses");
@@ -93,6 +92,12 @@ export function buildCourseSummary(draft: CourseDraft, catalog: CatalogCourse[],
   }
 
   const names = clientNames.map((name) => name.trim()).filter(Boolean);
+  const missing = [
+    !draft.services.translation ? t("sale.services.translation") : "",
+    !draft.services.apostille ? t("sale.services.apostille") : "",
+    !draft.services.postal ? t("sale.services.postal") : "",
+    !draft.services.decree ? t("sale.services.decree") : "",
+  ].filter(Boolean);
   return {
     rows,
     groups,
@@ -100,5 +105,6 @@ export function buildCourseSummary(draft: CourseDraft, catalog: CatalogCourse[],
     tone,
     clientNote: names.length > 1 ? t("sale.access.clients", { n: names.length, nomes: joinNames(names) }) : null,
     summaryNote: names.length > 1 ? t("sale.summary.sameForClients", { n: names.length }) : null,
+    notIncluded: missing.length > 0 ? t("sale.services.notIncluded", { lista: missing.join(", ") }) : null,
   };
 }

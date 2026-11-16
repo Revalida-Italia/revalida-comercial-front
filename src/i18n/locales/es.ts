@@ -4,7 +4,7 @@ import { ptBR } from "./pt-BR";
 export const es = {
   ...ptBR,
   sale: {
-    steps: { courses: "Cursos" },
+    steps: { courses: "Cursos", coursesServices: "Cursos y servicios" },
     courses: {
       title: "Cursos y módulos",
       search: "Buscar curso o módulo",
@@ -18,6 +18,23 @@ export const es = {
       loadError: "No se pudieron cargar los cursos.",
       retry: "Intentar de nuevo",
       toggle: "Módulos de {curso}",
+      groupModules: "Módulos",
+      groupCourses: "Cursos",
+      filterAll: "Todos",
+      moduleCourses: { one: "{n} curso: {nomes}", other: "{n} cursos: {nomes}" },
+      wholeModule: "Módulo completo",
+      includedIn: "Incluido en el módulo {nome}",
+      includedMore: "Incluido en el módulo {nome} +{n}",
+      kindModule: { one: "Módulo · {n} curso", other: "Módulo · {n} cursos" },
+      kindCourse: "Curso",
+    },
+    services: {
+      title: "Servicios adicionales",
+      translation: "Traducción jurada",
+      apostille: "Apostilla de La Haya",
+      postal: "Gastos postales",
+      decree: "Decreto",
+      notIncluded: "No incluidos: {lista}",
     },
     access: {
       title: "Período de acceso",
@@ -67,8 +84,45 @@ export const es = {
       count: { one: "{n} producto", other: "{n} productos" },
     },
   },
+  sales: {
+    ...ptBR.sales,
+    list: {
+      ...ptBR.sales.list,
+      colClient: "Cliente y elementos",
+      colSeller: "Vendedor y fecha",
+      colContract: "Contrato",
+      colPayments: "Pagos",
+      colStatus: "Estado",
+      paidOf: { one: "{p} de {n} pagada", other: "{p} de {n} pagadas" },
+      itemsMore: { one: "{nome} + {n} elemento", other: "{nome} + {n} elementos" },
+      commission: "Comisión {valor}",
+      search: "Buscar cliente o curso",
+      sellerShort: "Vendedor",
+    },
+  },
   contract: {
     ...ptBR.contract,
+    page: {
+      ...ptBR.contract.page,
+      modelLabel: "Modelo del contrato",
+      confirmTitle: "¿Generar contrato?",
+      confirmLine: {
+        one: "{cliente} · {valor} · {n} elemento incluido",
+        other: "{cliente} · {valor} · {n} elementos incluidos",
+      },
+      confirmGenerate: "Generar contrato",
+      switchModel: "Cambiar modelo",
+      seller: "Vendedor",
+      soldOn: "Venta el {data}",
+      valuePayments: "Valor y pagos",
+      installments: {
+        one: "{n} cuota de {valor} · {paid}",
+        other: "{n} cuotas de {valor} · {paid}",
+      },
+      paidCount: { one: "{p} pagada", other: "{p} pagadas" },
+      coursesPeriod: "Cursos y período",
+      openSale: "Ver venta",
+    },
     included: {
       ...ptBR.contract.included,
       available: "Disponible",
@@ -77,6 +131,8 @@ export const es = {
       pick: "Elegir cursos en la venta",
     },
     term: { ...ptBR.contract.term, coversAll: "Cubre todos los elementos" },
+    summary: { ...ptBR.contract.summary, termMissing: "Fin del acceso no definido" },
+    missing: { ...ptBR.contract.missing, termEnd: "Falta: fin del acceso" },
     doc: {
       wholeCourse: "{curso}: curso completo.",
       module: "{curso} — módulo {modulo}.",

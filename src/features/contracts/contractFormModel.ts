@@ -588,9 +588,8 @@ export function buildRevalidaSummary(
   courseItems?: CourseContractItem[],
 ): SummaryContent {
   const included: string[] = [];
-  if (state.decreeOn) included.push(t("contract.summary.decree"));
   if (courseItems && courseItems.length > 0) {
-    for (const item of courseItems) included.push(item.kind === "module" ? (item.moduleName || item.courseName) : item.courseName);
+    for (const item of courseItems) included.push(item.kind === "module" ? (item.moduleName || item.courseName || "") : (item.courseName || ""));
   }
   if (!courseItems?.length) for (const code of PRODUCT_ORDER) {
     const p = state.products[code];
@@ -602,6 +601,7 @@ export function buildRevalidaSummary(
   for (const key of EXTRA_KEYS) {
     (state.extras[key] ? included : notIncluded).push(extraLabel(key));
   }
+  if (state.decreeOn) included.push(t("contract.summary.decree"));
   return {
     contractors: tCount("contract.summary.contractors", state.parties.length),
     included,

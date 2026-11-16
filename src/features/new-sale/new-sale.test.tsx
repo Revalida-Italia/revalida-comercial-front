@@ -63,7 +63,7 @@ function clickNext() {
 
 async function fillAndConfirm() {
   fireEvent.change(screen.getByPlaceholderText("Nome completo"), { target: { value: "Maria Souza" } });
-  fireEvent.change(screen.getByPlaceholderText("5534999999999"), { target: { value: "11988880000" } });
+  fireEvent.change(screen.getByPlaceholderText("+55 (34) 99999-9999"), { target: { value: "11988880000" } });
   fireEvent.click(screen.getByRole("button", { name: "Próximo" }));
 
   fireEvent.click(await screen.findByRole("checkbox", { name: "Curso Start" }));
@@ -95,14 +95,10 @@ beforeEach(() => {
   vi.clearAllMocks();
   window.localStorage.clear();
   vi.mocked(listProducts).mockResolvedValue([{ id: "prod-1", name: "Curso Start" }]);
-  vi.mocked(listCourseCatalog).mockResolvedValue([
-    {
-      id: "course-start",
-      name: "Curso Start",
-      thumbnailUrl: null,
-      modules: [{ id: "mod-1", name: "Documentação", thumbnailUrl: null }],
-    },
-  ]);
+  vi.mocked(listCourseCatalog).mockResolvedValue({
+    modules: [{ id: "mod-1", name: "Documentação", thumbnailUrl: null, courseIds: ["course-start"] }],
+    courses: [{ id: "course-start", name: "Curso Start", thumbnailUrl: null }],
+  });
   vi.mocked(listGatewayFees).mockResolvedValue([
     { gateway: "WISE", paymentOptions: [{ paymentType: "FULL_PAYMENT", feeRate: 0 }] },
   ]);
@@ -114,7 +110,7 @@ describe("new sale", () => {
     setProfile({ sub: "seller-1", email: "s@example.com", name: "Seller", role: "SELLER", roles: ["SELLER"] });
     renderWizard();
     fireEvent.change(screen.getByPlaceholderText("Nome completo"), { target: { value: "Maria Souza" } });
-    fireEvent.change(screen.getByPlaceholderText("5534999999999"), { target: { value: "11988880000" } });
+    fireEvent.change(screen.getByPlaceholderText("+55 (34) 99999-9999"), { target: { value: "11988880000" } });
     fireEvent.click(screen.getByRole("button", { name: "Próximo" }));
     expect(await screen.findByRole("checkbox", { name: "Curso Start" })).toBeInTheDocument();
     expect(screen.queryByText("Programa Revalida Italia")).toBeNull();

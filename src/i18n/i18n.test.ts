@@ -17,6 +17,10 @@ describe("i18n", () => {
     expect(tCount("contract.summary.contractors", 3)).toBe("3 contratantes");
     expect(t("sales.card.paidInstallments.one", { paid: 1, total: 1 })).toBe("1 de 1 parcela paga");
     expect(t("sales.card.paidInstallments.other", { paid: 1, total: 6 })).toBe("1 de 6 parcelas pagas");
+    expect(t("contract.page.installments.one", { n: 1, valor: "R$ 10,00", paid: "0 pagas" })).toBe("1 parcela de R$ 10,00 · 0 pagas");
+    expect(t("contract.page.installments.other", { n: 5, valor: "R$ 10,00", paid: "2 pagas" })).toBe("5 parcelas de R$ 10,00 · 2 pagas");
+    expect(t("contract.page.confirmLine.one", { cliente: "Ana", valor: "R$ 10,00", n: 1 })).toBe("Ana · R$ 10,00 · 1 item incluso");
+    expect(t("contract.page.confirmLine.other", { cliente: "Ana", valor: "R$ 10,00", n: 3 })).toBe("Ana · R$ 10,00 · 3 itens inclusos");
     expect(tCount("sales.card.pending", 1)).toBe("1 pendente");
     expect(tCount("sales.card.pending", 5)).toBe("5 pendentes");
   });

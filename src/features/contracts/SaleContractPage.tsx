@@ -2,7 +2,7 @@ import { useCallback, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { ChevronDown, ChevronLeft, Loader2, Receipt } from "lucide-react";
+import { ChevronLeft, FileText, Loader2 } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -14,19 +14,14 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Skeleton } from "@/components/ui/skeleton";
+import SaleDetailsCard from "@/features/contracts/SaleDetailsCard";
 import { type SaleRecord } from "@/services/commercialApi";
 import type { CourseContractItem } from "@/services/contractsApi";
 import { readCourseItems } from "@/features/new-sale/courses/model";
 import {
   generateContract,
+  listContractModels,
   listRevalidaProducts,
   prefillContract,
   sendContractForSignature,
@@ -60,8 +55,7 @@ import ContractPaymentSection from "@/features/contracts/ContractPaymentSection"
 import ContractSummary, { GenerateBar } from "@/features/contracts/ContractSummary";
 import RevalidaFormFields, { ObservationsSection, RevalidaSignaturesSection } from "@/features/contracts/RevalidaFormFields";
 import SchoolFormFields, { SchoolSignaturesSection } from "@/features/contracts/SchoolFormFields";
-import { useContractRail, useIsDesktop } from "@/features/contracts/useIsDesktop";
-import SaleSummaryFromRecord from "@/features/new-sale/SaleSummaryFromRecord";
+import { useContractRail, useContractSplit, useIsDesktop } from "@/features/contracts/useIsDesktop";
 import { saleQueryOptions } from "@/features/new-sale/saleQuery";
 import { cn } from "@/lib/utils";
 
@@ -216,32 +210,20 @@ function RegisterSignatureDialog({
   );
 }
 
-const FORM_CARD = "m-0 min-w-0 space-y-10 rounded-lg border-0 bg-card p-6 shadow-[0_4px_24px_rgba(15,40,60,0.07)] sm:p-8";
+const FORM_CARD = "contract-form m-0 min-w-0 space-y-10 rounded-lg border-0 bg-card p-6 shadow-[0_4px_24px_rgba(15,40,60,0.07)] sm:p-8";
 
-function SalePreviewDisclosure({ children, className }: { children: ReactNode; className?: string }) {
-  const [open, setOpen] = useState(true);
+function ModelPaper({ name, onChange }: { name: string; onChange: () => void }) {
   return (
-    <Collapsible
-      open={open}
-      onOpenChange={setOpen}
-      className={cn("rounded-lg bg-card shadow-[0_4px_24px_rgba(15,40,60,0.07)]", className)}
-    >
-      <CollapsibleTrigger className="flex w-full items-center justify-between gap-3 px-6 py-4 text-left text-sm font-medium text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-        <span className="inline-flex items-center gap-2">
-          <Receipt className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
-          {t("contract.page.salePreview")}
-        </span>
-        <ChevronDown
-          aria-hidden="true"
-          className={cn("h-4 w-4 shrink-0 text-muted-foreground transition-transform", open && "rotate-180")}
-        />
-      </CollapsibleTrigger>
-      <CollapsibleContent>
-        <section aria-label={t("contract.page.salePreview")} className="border-t border-border px-6 py-4">
-          {children}
-        </section>
-      </CollapsibleContent>
-    </Collapsible>
+    <div className="model-paper flex flex-wrap items-center gap-4 rounded-md bg-[#F6F1E8] p-4">
+      <span className="grid h-11 w-11 shrink-0 place-items-center rounded-md bg-white text-[#2F5679]">
+        <FileText className="h-5 w-5" aria-hidden="true" />
+      </span>
+      <div className="min-w-0 flex-1 basis-40">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">{t("contract.page.modelLabel")}</p>
+        <p className="text-lg font-bold leading-tight">{name}</p>
+      </div>
+      <Button type="button" variant="outline" className="model-switch" onClick={onChange}>{t("contract.page.switchModel")}</Button>
+    </div>
   );
 }
 
@@ -260,7 +242,8 @@ function ContractLayout({
   disabled: boolean;
 }) {
   const rail = useContractRail();
-  const preview = <SaleSummaryFromRecord saleId={saleId} />;
+  const split = useContractSplit();
+  const preview = <SaleDetailsCard saleId={saleId} />;
   const formCard = (
     <fieldset disabled={disabled} className={FORM_CARD}>
       {form}
@@ -269,25 +252,31 @@ function ContractLayout({
 
   if (rail) {
     return (
-      <div data-layout="rail" className="grid w-full grid-cols-[minmax(0,720px)_minmax(280px,360px)] items-start gap-10">
+      <div data-layout="rail" className="grid w-full items-start gap-6 min-[1400px]:grid-cols-[minmax(0,1fr)_280px_300px]">
         {formCard}
-        <div className="sticky top-6 flex h-fit max-h-[calc(100dvh-6.5rem)] min-h-0 w-full flex-col gap-4 self-start overflow-hidden">
-          <div className="shrink-0">{summary}</div>
-          <div className="min-h-0 flex-1 overflow-y-auto">
-            <SalePreviewDisclosure>{preview}</SalePreviewDisclosure>
-          </div>
+        <div className="sticky top-6 self-start">{summary}</div>
+        {preview}
+      </div>
+    );
+  }
+
+  if (split) {
+    return (
+      <div data-layout="stack" className="grid items-start gap-8 md:grid-cols-[minmax(0,1fr)_320px]">
+        {formCard}
+        <div className="space-y-4">
+          {summary ? <div className="sticky top-6 self-start">{summary}</div> : null}
+          {preview}
         </div>
       </div>
     );
   }
 
   return (
-    <div data-layout="stack">
-      <SalePreviewDisclosure className="mb-8">{preview}</SalePreviewDisclosure>
-      <div className={cn("grid gap-8", summary && "xl:grid-cols-[minmax(0,720px)_320px] xl:items-start xl:gap-10")}>
-        {formCard}
-        {summary ? <div className="xl:sticky xl:top-6">{summary}</div> : null}
-      </div>
+    <div data-layout="stack" className="space-y-6">
+      {formCard}
+      {preview}
+      <div className="max-md:hidden">{summary}</div>
       {bar}
     </div>
   );
@@ -299,15 +288,20 @@ function RevalidaBody({
   catalog,
   onDirty,
   courseItems,
+  modelName,
+  onSwitchModel,
 }: {
   saleId: string;
   prefill: RevalidaContractPayload;
   catalog: RevalidaProduct[];
   onDirty: () => void;
   courseItems: CourseContractItem[];
+  modelName: string;
+  onSwitchModel: () => void;
 }) {
   const isDesktop = useIsDesktop();
   const rail = useContractRail();
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const [state, setState] = useState<RevalidaFormState>(() => {
     const initial = createInitialRevalidaState(prefill);
     if (courseItems.length === 0) return initial;
@@ -348,6 +342,11 @@ function RevalidaBody({
       focusField(feedback.allIssues[0].fieldId);
       return;
     }
+    setConfirmOpen(true);
+  };
+
+  const commitGenerate = () => {
+    setConfirmOpen(false);
     const built = buildRevalidaPayload(prefill, state, courses);
     registration.requestRegister(built.payload, (error) => {
       const mapped = mapGenerateError(error, {
@@ -369,9 +368,10 @@ function RevalidaBody({
       <ContractLayout
         saleId={saleId}
         disabled={generating}
-        bar={isDesktop ? null : <GenerateBar issues={feedback.allIssues} generating={generating} onGenerate={onGenerate} />}
+        bar={isDesktop ? null : <GenerateBar issues={feedback.allIssues} generating={generating} onGenerate={onGenerate} modelName={modelName} totalLabel={formatCurrency(total, currency)} />}
         form={
           <>
+            <ModelPaper name={modelName} onChange={onSwitchModel} />
             <RevalidaFormFields state={state} update={update} catalog={catalog} form={form} courseItems={courses} saleId={saleId} />
             <ContractPaymentSection
               number={4}
@@ -405,10 +405,33 @@ function RevalidaBody({
             generating={generating}
             stickyBar={!isDesktop}
             contained={rail}
+            modelName={modelName}
+            onChangeModel={onSwitchModel}
             onGenerate={onGenerate}
           />
         }
       />
+      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <AlertDialogContent overlayClassName="bg-[rgba(36,56,79,0.18)]">
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("contract.page.confirmTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t((courses?.length ?? summary.included.length) === 1 ? "contract.page.confirmLine.one" : "contract.page.confirmLine.other", {
+                cliente: state.parties[0]?.fullName || t("sales.card.unknownClient"),
+                valor: formatCurrency(total, currency),
+                n: courses?.length ?? summary.included.length,
+              })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <ModelPaper name={modelName} onChange={() => { setConfirmOpen(false); onSwitchModel(); }} />
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
+            <AlertDialogAction onClick={(event) => { event.preventDefault(); commitGenerate(); }}>
+              {t("contract.page.confirmGenerate")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <RegisterSignatureDialog
         open={registration.open}
         pending={generating}
@@ -424,13 +447,18 @@ function SchoolBody({
   saleId,
   prefill,
   onDirty,
+  modelName,
+  onSwitchModel,
 }: {
   saleId: string;
   prefill: SchoolContractPayload;
   onDirty: () => void;
+  modelName: string;
+  onSwitchModel: () => void;
 }) {
   const isDesktop = useIsDesktop();
   const rail = useContractRail();
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const [payload, setPayload] = useState<SchoolContractPayload>(() => schoolFormFromPrefill(prefill));
   const issues = useMemo(
     () => validateSchoolForm(payload, { phases: payload.phases }),
@@ -460,6 +488,11 @@ function SchoolBody({
       focusField(feedback.allIssues[0].fieldId);
       return;
     }
+    setConfirmOpen(true);
+  };
+
+  const commitGenerate = () => {
+    setConfirmOpen(false);
     registration.requestRegister(buildSchoolPayload(payload), (error) => {
       const mapped = mapGenerateError(error, {
         productCodes: [],
@@ -480,9 +513,10 @@ function SchoolBody({
       <ContractLayout
         saleId={saleId}
         disabled={generating}
-        bar={isDesktop ? null : <GenerateBar issues={feedback.allIssues} generating={generating} onGenerate={onGenerate} />}
+        bar={isDesktop ? null : <GenerateBar issues={feedback.allIssues} generating={generating} onGenerate={onGenerate} modelName={modelName} totalLabel={formatCurrency(total, currency)} />}
         form={
           <>
+            <ModelPaper name={modelName} onChange={onSwitchModel} />
             <SchoolFormFields payload={payload} update={update} form={form} />
             <ContractPaymentSection
               number={4}
@@ -514,10 +548,33 @@ function SchoolBody({
             generating={generating}
             stickyBar={!isDesktop}
             contained={rail}
+            modelName={modelName}
+            onChangeModel={onSwitchModel}
             onGenerate={onGenerate}
           />
         }
       />
+      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <AlertDialogContent overlayClassName="bg-[rgba(36,56,79,0.18)]">
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("contract.page.confirmTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t(payload.students.length === 1 ? "contract.page.confirmLine.one" : "contract.page.confirmLine.other", {
+                cliente: payload.students[0]?.fullName || t("sales.card.unknownClient"),
+                valor: formatCurrency(total, currency),
+                n: payload.students.length,
+              })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <ModelPaper name={modelName} onChange={() => { setConfirmOpen(false); onSwitchModel(); }} />
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
+            <AlertDialogAction onClick={(event) => { event.preventDefault(); commitGenerate(); }}>
+              {t("contract.page.confirmGenerate")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <RegisterSignatureDialog
         open={registration.open}
         pending={generating}
@@ -595,6 +652,12 @@ export default function SaleContractPage() {
     enabled: productType === "PROGRAMA_REVALIDA_ITALIA",
   });
 
+  const modelsQuery = useQuery({
+    queryKey: ["contract-models"],
+    queryFn: listContractModels,
+    staleTime: 5 * 60 * 1000,
+  });
+
   const switchModel = (next: ContractProductType) => {
     setProductType(next);
     setDirty(false);
@@ -626,21 +689,35 @@ export default function SaleContractPage() {
         catalog={catalog}
         onDirty={markDirty}
         courseItems={readCourseItems(sale?.items)}
+        modelName={prefill.contractModel?.name ?? modelsQuery.data?.find((model) => model.productType === "PROGRAMA_REVALIDA_ITALIA")?.name ?? modelName("PROGRAMA_REVALIDA_ITALIA")}
+        onSwitchModel={() => {
+          if (dirty) setPendingModel("ESCOLA_DE_ITALIANO");
+          else switchModel("ESCOLA_DE_ITALIANO");
+        }}
       />
     );
   } else if (prefill.productType === "ESCOLA_DE_ITALIANO") {
-    body = <SchoolBody key={`esc-${prefillQuery.dataUpdatedAt}`} saleId={saleId} prefill={prefill} onDirty={markDirty} />;
+    body = (
+      <SchoolBody
+        key={`esc-${prefillQuery.dataUpdatedAt}`}
+        saleId={saleId}
+        prefill={prefill}
+        onDirty={markDirty}
+        modelName={prefill.contractModel?.name ?? modelsQuery.data?.find((model) => model.productType === "ESCOLA_DE_ITALIANO")?.name ?? modelName("ESCOLA_DE_ITALIANO")}
+        onSwitchModel={() => {
+          if (dirty) setPendingModel("PROGRAMA_REVALIDA_ITALIA");
+          else switchModel("PROGRAMA_REVALIDA_ITALIA");
+        }}
+      />
+    );
   } else {
     body = <LoadingState saleId={saleId} />;
   }
 
-  const otherModel: ContractProductType =
-    productType === "PROGRAMA_REVALIDA_ITALIA" ? "ESCOLA_DE_ITALIANO" : "PROGRAMA_REVALIDA_ITALIA";
-
   const rail = useContractRail();
 
   return (
-    <div className={cn("pb-6", rail ? "w-full" : "mx-auto max-w-[1120px]")}>
+    <div className={cn("-mb-3 pb-6 md:-mb-5 xl:-mb-6", rail ? "w-full" : "mx-auto max-w-[1120px]")}>
       <Link
         to={`/vendas/${saleId}`}
         className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -651,35 +728,13 @@ export default function SaleContractPage() {
       <h1 className="mt-3 text-[28px] font-bold leading-tight text-foreground">{t("contract.page.title")}</h1>
       <div className="mb-8 mt-1 flex flex-col gap-y-1 text-muted-foreground sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-3">
         {saleQuery.isLoading ? <Skeleton className="h-5 w-40" /> : clients ? <span>{clients}</span> : null}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button
-              type="button"
-              className="inline-flex items-center gap-1 rounded text-sm hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              {modelName(productType)}
-              <span className="text-primary underline underline-offset-4">{t("contract.page.switchModel")}</span>
-              <ChevronDown className="h-3.5 w-3.5" />
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start">
-            <DropdownMenuItem
-              onSelect={() => {
-                if (dirty) setPendingModel(otherModel);
-                else switchModel(otherModel);
-              }}
-            >
-              {modelName(otherModel)}
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
         {prefillQuery.isFetching && !prefillQuery.isLoading && <Loader2 className="h-4 w-4 animate-spin" />}
       </div>
 
       {body}
 
       <AlertDialog open={pendingModel !== null} onOpenChange={(open) => !open && setPendingModel(null)}>
-        <AlertDialogContent>
+        <AlertDialogContent overlayClassName="bg-[rgba(36,56,79,0.18)]">
           <AlertDialogHeader>
             <AlertDialogTitle>{t("contract.page.switchTitle")}</AlertDialogTitle>
             <AlertDialogDescription>{t("contract.page.switchBody")}</AlertDialogDescription>

@@ -84,12 +84,21 @@ export interface RevalidaProductSelection {
 /** Course line copied from the sale. Names are the ones frozen at sale time. */
 export interface CourseContractItem {
   kind: "course" | "module";
-  courseId: string;
+  courseId: string | null;
   moduleId?: string | null;
-  courseName: string;
+  courseName: string | null;
   moduleName?: string | null;
   startsAt: string;
   endsAt: string;
+}
+
+/** One contract the seller can generate. `name` is what the screen shows. */
+export interface ContractModelInfo {
+  productType: "PROGRAMA_REVALIDA_ITALIA" | "ESCOLA_DE_ITALIANO";
+  templateId: string;
+  name: string;
+  language: "pt" | "it" | "es" | "en";
+  version: string;
 }
 
 /** One installment line of the sale. A card installment line ("12 x R$ 1.000") has `installments` > 1. */
@@ -145,6 +154,7 @@ export interface RevalidaContractPayload {
   notes?: string | null;
   /** Absent means the notes stay off the contract. */
   includeNotesInContract?: boolean | null;
+  contractModel?: ContractModelInfo | null;
 }
 
 export interface SchoolStudent {
@@ -174,6 +184,7 @@ export interface SchoolContractPayload {
   notes?: string | null;
   /** Absent means the notes stay off the contract. */
   includeNotesInContract?: boolean | null;
+  contractModel?: ContractModelInfo | null;
 }
 
 export type ContractFormPayload = RevalidaContractPayload | SchoolContractPayload;
@@ -189,6 +200,15 @@ export async function listContractModules(): Promise<ContractModule[]> {
 
 export async function listRevalidaProducts(): Promise<RevalidaProduct[]> {
   return apiRequest(CORE_API_URL, "/contracts/revalida-products");
+}
+
+export async function listContractModels(): Promise<ContractModelInfo[]> {
+  const payload = await apiRequest<{ models?: ContractModelInfo[] } | ContractModelInfo[]>(
+    CORE_API_URL,
+    "/contracts/models",
+  );
+  if (Array.isArray(payload)) return payload;
+  return payload.models ?? [];
 }
 
 export async function listSaleContracts(saleId: string): Promise<SaleContract[]> {

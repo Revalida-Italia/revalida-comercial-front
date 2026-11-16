@@ -29,6 +29,8 @@ export interface ContractSummaryProps {
   stickyBar: boolean;
   /** The surrounding column already scrolls, so this panel should not. */
   contained?: boolean;
+  modelName?: string;
+  onChangeModel?: () => void;
   onGenerate: () => void;
 }
 
@@ -64,11 +66,12 @@ export function GenerateButton({
       size="lg"
       className={cn(
         "w-full",
-        blocked && !generating && "cursor-not-allowed opacity-50 disabled:pointer-events-auto disabled:cursor-not-allowed",
+        blocked && !generating && "cursor-not-allowed !bg-[#C9D3DD] !text-white !opacity-100 hover:!bg-[#C9D3DD] disabled:pointer-events-auto disabled:cursor-not-allowed disabled:!bg-[#C9D3DD] disabled:!text-white disabled:!opacity-100",
         className,
       )}
       disabled={blocked}
       aria-disabled={blocked || generating}
+      title={blocked ? issues[0]?.summary : undefined}
       onClick={() => {
         if (blocked || generating) return;
         onGenerate();
@@ -81,12 +84,12 @@ export function GenerateButton({
 }
 
 export default function ContractSummary(props: ContractSummaryProps) {
-  const { issues, banner, generating, stickyBar, contained = false, onGenerate } = props;
+  const { issues, banner, generating, stickyBar, onGenerate } = props;
 
   const body = (
     <>
         <h2 className="text-[13px] font-medium text-muted-foreground">{t("contract.summary.title")}</h2>
-        <p className="mt-1 text-[28px] font-bold leading-tight tabular-nums">{props.totalLabel}</p>
+        <p className="mt-1 text-[28px] font-light leading-tight tabular-nums">{props.totalLabel}</p>
         <p className="mt-1 text-sm text-muted-foreground">{props.contractors}</p>
 
         <div className="mt-5 space-y-4">
@@ -125,7 +128,7 @@ export default function ContractSummary(props: ContractSummaryProps) {
                 <li key={issue.id}>
                   <button
                     type="button"
-                    className="text-left text-foreground underline decoration-border underline-offset-4 hover:decoration-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    className="text-left text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     onClick={() => focusField(issue.fieldId)}
                   >
                     {issue.summary}
@@ -141,15 +144,22 @@ export default function ContractSummary(props: ContractSummaryProps) {
   return (
     <aside
       aria-label={t("contract.summary.title")}
-      className={cn(
-        "rounded-lg bg-card p-6 shadow-[0_4px_24px_rgba(15,40,60,0.07)]",
-        contained && "flex h-fit max-h-[min(32rem,calc(100dvh-18rem))] min-h-0 flex-col",
-        !contained && "h-fit lg:max-h-[calc(100dvh-6.5rem)] lg:overflow-y-auto",
-      )}
+      className="overflow-visible rounded-lg bg-card p-6 shadow-[0_4px_24px_rgba(15,40,60,0.07)]"
     >
-      {contained ? <div className="min-h-0 overflow-y-auto">{body}</div> : body}
+      {props.modelName ? (
+        <div className="mb-4 min-w-0">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">{t("contract.page.modelLabel")}</p>
+          <p className="break-words font-semibold">{props.modelName}</p>
+          {props.onChangeModel ? (
+            <button type="button" onClick={props.onChangeModel} className="mt-1 text-[13px] font-semibold text-primary">
+              {t("contract.page.switchModel")}
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+      {body}
       {!stickyBar && (
-        <div className={cn(contained && "shrink-0 bg-card pt-4")}>
+        <div className="pt-4">
           <GenerateButton issues={issues} generating={generating} onGenerate={onGenerate} />
         </div>
       )}
@@ -162,14 +172,20 @@ export function GenerateBar({
   issues,
   generating,
   onGenerate,
+  modelName,
+  totalLabel,
 }: {
   issues: FormIssue[];
   generating: boolean;
   onGenerate: () => void;
+  modelName?: string;
+  totalLabel?: string;
 }) {
   const first = issues[0];
   return (
-    <div className="sticky bottom-0 z-10 -mx-3 mt-6 border-t border-border bg-background/95 px-3 py-3 backdrop-blur md:-mx-5 md:px-5">
+    <div className="sticky bottom-0 z-10 -mx-3 mt-6 border-t border-border bg-white px-3 py-3 shadow-[0_-6px_20px_rgba(36,56,79,0.08)] md:-mx-5 md:px-5">
+      {modelName ? <p className="break-words text-[13px] font-semibold text-foreground">{modelName}</p> : null}
+      {totalLabel ? <p className="text-[15px] tabular-nums text-foreground">{totalLabel}</p> : null}
       {first && (
         <p className="mb-2 text-[13px] text-muted-foreground">
           {issues.length > 1

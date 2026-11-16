@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import DisplayCurrencySelect from "@/components/DisplayCurrencySelect";
-import SaleListCard from "@/features/sales/organisms/SaleListCard";
+import SaleListCard, { SalesListHeader } from "@/features/sales/organisms/SaleListCard";
 import SalesFiltersCard from "@/features/sales/organisms/SalesFiltersCard";
 import SalesSummaryCards from "@/features/sales/organisms/SalesSummaryCards";
 import SalesDashboardFeature from "@/features/sales-dashboard/SalesDashboardFeature";
@@ -167,6 +167,7 @@ const Dashboard = () => {
           </div>
         ) : (
           <div className="sale-list">
+            <SalesListHeader />
             {sales.map((sale) => (
               <SaleListCard key={sale.id} sale={sale} />
             ))}
