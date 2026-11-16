@@ -24,7 +24,7 @@ const StepIndicator = ({ labels, step }: StepIndicatorProps) => (
             >
               {isDone ? "\u2713" : n}
             </div>
-            <span className={`text-sm ${isActive ? "font-medium text-foreground" : "text-muted-foreground"}`}>
+            <span className={`text-sm ${isActive ? "font-medium text-foreground" : "hidden text-muted-foreground md:inline"}`}>
               {label}
             </span>
           </div>

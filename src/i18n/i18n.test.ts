@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { t, tCount } from "@/i18n";
+import { setLocale, t, tCount } from "@/i18n";
+import { en } from "@/i18n/locales/en";
+import { es } from "@/i18n/locales/es";
+import { it as italian } from "@/i18n/locales/it";
 import { ptBR } from "@/i18n/locales/pt-BR";
 
 function leaves(node: unknown): string[] {
@@ -16,6 +19,26 @@ describe("i18n", () => {
     expect(t("sales.card.paidInstallments.other", { paid: 1, total: 6 })).toBe("1 de 6 parcelas pagas");
     expect(tCount("sales.card.pending", 1)).toBe("1 pendente");
     expect(tCount("sales.card.pending", 5)).toBe("5 pendentes");
+  });
+
+  it("translates the course step in Portuguese, Italian, Spanish and English", () => {
+    const samples = [
+      ["pt-BR", "Cursos e módulos", "Informe o fim do acesso para continuar."],
+      ["it", "Corsi e moduli", "Indica la fine dell'accesso per continuare."],
+      ["es", "Cursos y módulos", "Indica el fin del acceso para continuar."],
+      ["en", "Courses and modules", "Enter the access end date to continue."],
+    ] as const;
+    for (const [locale, title, end] of samples) {
+      setLocale(locale);
+      expect(t("sale.courses.title")).toBe(title);
+      expect(t("sale.access.endRequired")).toBe(end);
+      expect(t("sale.courses.title")).not.toBe("sale.courses.title");
+    }
+    setLocale("pt-BR");
+    for (const messages of [ptBR, italian, es, en]) {
+      expect(messages.sale.courses.wholeCourse.trim()).not.toBe("");
+      expect(messages.contract.doc.module).toContain("{modulo}");
+    }
   });
 
   it("has no empty text, no emoji and no field names in the copy", () => {

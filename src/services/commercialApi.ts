@@ -34,9 +34,18 @@ export interface SaleClient {
 export interface SaleItem {
   id: string;
   saleId: string;
-  productId: string;
-  releaseDate: string;
+  /** Generic product kept for sales made before courses. */
+  productId?: string | null;
+  releaseDate?: string | null;
   notes?: string | null;
+  kind?: "course" | "module" | null;
+  courseId?: string | null;
+  moduleId?: string | null;
+  startsAt?: string | null;
+  endsAt?: string | null;
+  /** Frozen when the sale is saved. */
+  name?: string | null;
+  courseName?: string | null;
   createdAt: string;
   updatedAt: string;
   product?: {
@@ -221,11 +230,21 @@ export interface CreateSaleClient {
   email?: string;
 }
 
-export interface CreateSaleItem {
-  productId: string;
-  releaseDate: string;
-  notes?: string;
-}
+export type CreateSaleItem =
+  | {
+    productId: string;
+    releaseDate: string;
+    notes?: string;
+  }
+  | {
+    kind: "course" | "module";
+    courseId: string;
+    moduleId?: string;
+    startsAt: string;
+    endsAt: string;
+    name: string;
+    courseName: string;
+  };
 
 export type BillingType = "PIX" | "BOLETO" | "CREDIT_CARD" | "UNDEFINED";
 
@@ -277,11 +296,7 @@ export interface UpdateSaleClient {
   email?: string;
 }
 
-export interface UpdateSaleItem {
-  productId: string;
-  releaseDate: string;
-  notes?: string;
-}
+export type UpdateSaleItem = CreateSaleItem;
 
 export interface UpdateSalePayment {
   /** Amount as entered, in the sale's originalCurrency (EUR/USD); `amount` is in reais. */

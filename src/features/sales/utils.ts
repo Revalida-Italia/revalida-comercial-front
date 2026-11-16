@@ -215,8 +215,14 @@ export const getSaleCustomerNames = (sale: SaleRecord): string => {
   return `${names[0]} +${names.length - 1}`;
 };
 
-export const getSaleProductName = (sale: SaleRecord): string =>
-  sale.items?.[0]?.product?.name ?? t("sales.card.unknownProduct");
+export const getSaleProductName = (sale: SaleRecord): string => {
+  const item = sale.items?.[0];
+  if (!item) return t("sales.card.unknownProduct");
+  if (item.kind === "course" || item.kind === "module" || item.courseId) {
+    return item.name?.trim() || item.courseName?.trim() || t("sales.card.unknownProduct");
+  }
+  return item.product?.name ?? t("sales.card.unknownProduct");
+};
 
 export const SELF_SERVICE_SELLER_LABEL = "Self-service";
 

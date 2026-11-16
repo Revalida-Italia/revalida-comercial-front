@@ -23,6 +23,8 @@ import {
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Skeleton } from "@/components/ui/skeleton";
 import { type SaleRecord } from "@/services/commercialApi";
+import type { CourseContractItem } from "@/services/contractsApi";
+import { readCourseItems } from "@/features/new-sale/courses/model";
 import {
   generateContract,
   listRevalidaProducts,
@@ -296,21 +298,29 @@ function RevalidaBody({
   prefill,
   catalog,
   onDirty,
+  courseItems,
 }: {
   saleId: string;
   prefill: RevalidaContractPayload;
   catalog: RevalidaProduct[];
   onDirty: () => void;
+  courseItems: CourseContractItem[];
 }) {
   const isDesktop = useIsDesktop();
   const rail = useContractRail();
-  const [state, setState] = useState<RevalidaFormState>(() => createInitialRevalidaState(prefill));
+  const [state, setState] = useState<RevalidaFormState>(() => {
+    const initial = createInitialRevalidaState(prefill);
+    if (courseItems.length === 0) return initial;
+    const starts = courseItems.map((item) => item.startsAt).filter(Boolean).sort();
+    return { ...initial, termStart: starts[0] ?? "", termEnd: "" };
+  });
   const total = paymentTotal(prefill.phases, prefill.totalAmount ?? 0);
   const currency = prefill.currency ?? "BRL";
+  const courses = courseItems.length > 0 ? courseItems : undefined;
 
   const issues = useMemo(
-    () => validateRevalidaForm(state, catalog, { phases: prefill.phases }),
-    [state, catalog, prefill.phases],
+    () => validateRevalidaForm(state, catalog, { phases: prefill.phases }, courses),
+    [state, catalog, prefill.phases, courses],
   );
   const feedback = useFormFeedback(issues);
   const registration = useRegisterFlow(saleId, "PROGRAMA_REVALIDA_ITALIA");
@@ -338,7 +348,7 @@ function RevalidaBody({
       focusField(feedback.allIssues[0].fieldId);
       return;
     }
-    const built = buildRevalidaPayload(prefill, state);
+    const built = buildRevalidaPayload(prefill, state, courses);
     registration.requestRegister(built.payload, (error) => {
       const mapped = mapGenerateError(error, {
         productCodes: built.sentProductCodes,
@@ -351,7 +361,7 @@ function RevalidaBody({
     });
   };
 
-  const summary = buildRevalidaSummary(state, catalog);
+  const summary = buildRevalidaSummary(state, catalog, courses);
   const paymentError = feedback.errorFor("contract-section-payment");
 
   return (
@@ -362,7 +372,7 @@ function RevalidaBody({
         bar={isDesktop ? null : <GenerateBar issues={feedback.allIssues} generating={generating} onGenerate={onGenerate} />}
         form={
           <>
-            <RevalidaFormFields state={state} update={update} catalog={catalog} form={form} />
+            <RevalidaFormFields state={state} update={update} catalog={catalog} form={form} courseItems={courses} saleId={saleId} />
             <ContractPaymentSection
               number={4}
               saleId={saleId}
@@ -605,7 +615,7 @@ export default function SaleContractPage() {
     body = (
       <ErrorState saleId={saleId} message={t("contract.page.productsError")} onRetry={() => void catalogQuery.refetch()} />
     );
-  } else if (!prefill || prefillQuery.isFetching || (productType === "PROGRAMA_REVALIDA_ITALIA" && !catalog)) {
+  } else if (saleQuery.isLoading || !prefill || prefillQuery.isFetching || (productType === "PROGRAMA_REVALIDA_ITALIA" && !catalog)) {
     body = <LoadingState saleId={saleId} />;
   } else if (prefill.productType === "PROGRAMA_REVALIDA_ITALIA" && catalog) {
     body = (
@@ -615,6 +625,7 @@ export default function SaleContractPage() {
         prefill={prefill}
         catalog={catalog}
         onDirty={markDirty}
+        courseItems={readCourseItems(sale?.items)}
       />
     );
   } else if (prefill.productType === "ESCOLA_DE_ITALIANO") {

@@ -4,6 +4,7 @@ import { addMonthsIso, isoToDisplay } from "@/features/contracts/contractDates";
 import type {
   ContractPaymentPhase,
   ContractProductType,
+  CourseContractItem,
   RevalidaContractPayload,
   RevalidaGeneratePayload,
   RevalidaProduct,
@@ -145,7 +146,7 @@ export function createInitialRevalidaState(prefill: RevalidaContractPayload): Re
   const products = {} as Record<RevalidaProductCode, ProductState>;
   for (const code of PRODUCT_ORDER) products[code] = emptyProductState();
   for (const sel of prefill.products ?? []) {
-    if (sel.included === false || !PRODUCT_ORDER.includes(sel.code)) continue;
+    if (!("code" in sel) || sel.included === false || !PRODUCT_ORDER.includes(sel.code)) continue;
     products[sel.code] = {
       selected: true,
       releaseDate: sel.releaseDate ?? "",
@@ -366,6 +367,7 @@ export function validateRevalidaForm(
   state: RevalidaFormState,
   catalog: RevalidaProduct[],
   payment: PaymentContext,
+  courseItems?: CourseContractItem[],
 ): FormIssue[] {
   const { issues, add } = issueList();
   const required = t("contract.errors.required");
@@ -386,11 +388,12 @@ export function validateRevalidaForm(
     }
   });
 
-  if (!hasInclusion(state)) {
+  const courseMode = Boolean(courseItems && courseItems.length > 0);
+  if (!courseMode && !hasInclusion(state)) {
     add(INCLUDED_FIELD_ID, t("contract.errors.inclusion"), t("contract.errors.inclusion"));
   }
 
-  for (const code of PRODUCT_ORDER) {
+  if (!courseMode) for (const code of PRODUCT_ORDER) {
     const p = state.products[code];
     if (!p.selected) continue;
     const name = productName(code, catalog);
@@ -409,16 +412,24 @@ export function validateRevalidaForm(
   if (!state.termEnd) {
     add("contract-term-end", t("contract.errors.termMissing"), t("contract.missing.termEnd"));
   } else {
-    const release = latestRelease(state);
     const termStart = state.termStart;
     if (termStart && state.termEnd <= termStart) {
       add("contract-term-end", t("contract.errors.termAfter", { date: isoToDisplay(termStart) }), checkTermEnd);
-    } else if (release && state.termEnd <= release) {
-      add("contract-term-end", t("contract.errors.afterRelease"), checkTermEnd);
+    } else if (courseMode) {
+      const ends = (courseItems ?? []).map((item) => item.endsAt).filter(Boolean).sort();
+      const maxEnd = ends[ends.length - 1] ?? "";
+      if (maxEnd && state.termEnd < maxEnd) {
+        add("contract-term-end", t("contract.errors.termBeforePeriod", { date: isoToDisplay(maxEnd) }), checkTermEnd);
+      }
     } else {
-      const suggestion = suggestTermEnd(state);
-      if (suggestion && state.termEnd < suggestion) {
-        add("contract-term-end", t("contract.errors.termBeforePeriod", { date: isoToDisplay(suggestion) }), checkTermEnd);
+      const release = latestRelease(state);
+      if (release && state.termEnd <= release) {
+        add("contract-term-end", t("contract.errors.afterRelease"), checkTermEnd);
+      } else {
+        const suggestion = suggestTermEnd(state);
+        if (suggestion && state.termEnd < suggestion) {
+          add("contract-term-end", t("contract.errors.termBeforePeriod", { date: isoToDisplay(suggestion) }), checkTermEnd);
+        }
       }
     }
   }
@@ -475,7 +486,39 @@ export interface BuiltPayload {
 export function buildRevalidaPayload(
   prefill: RevalidaContractPayload,
   state: RevalidaFormState,
+  courseItems?: CourseContractItem[],
 ): BuiltPayload {
+  if (courseItems && courseItems.length > 0) {
+    const prefillParties = new Map(prefill.parties.map((party) => [party.id, party]));
+    const parties = state.parties.map((party) => {
+      const original = party.id ? prefillParties.get(party.id) : undefined;
+      return {
+        ...(original ?? {}),
+        id: party.id ?? party.key,
+        fullName: party.fullName.trim(),
+        document: party.document.trim(),
+        profession: party.profession.trim(),
+        email: party.email.trim(),
+        phone: party.phone.trim(),
+        nationality: party.nationality.trim() || null,
+      };
+    });
+    const payload: RevalidaGeneratePayload = {
+      ...withoutPayment(prefill),
+      parties,
+      decreeIncluded: state.decreeOn,
+      products: courseItems,
+      expenses: { ...state.extras },
+      contractStartDate: state.termStart || null,
+      contractEndDate: state.termEnd || null,
+      contractDurationMonths: null,
+      referenceCity: state.referenceCity.trim(),
+      notes: state.notes.trim() ? state.notes.trim() : null,
+      includeNotesInContract: state.includeNotesInContract === true,
+    };
+    return { payload, sentProductCodes: [] };
+  }
+
   const sentProducts: RevalidaProductSelection[] = [];
   for (const code of PRODUCT_ORDER) {
     const p = state.products[code];
@@ -532,10 +575,14 @@ export interface SummaryContent {
 export function buildRevalidaSummary(
   state: RevalidaFormState,
   catalog: RevalidaProduct[],
+  courseItems?: CourseContractItem[],
 ): SummaryContent {
   const included: string[] = [];
   if (state.decreeOn) included.push(t("contract.summary.decree"));
-  for (const code of PRODUCT_ORDER) {
+  if (courseItems && courseItems.length > 0) {
+    for (const item of courseItems) included.push(item.name);
+  }
+  if (!courseItems?.length) for (const code of PRODUCT_ORDER) {
     const p = state.products[code];
     if (!p.selected) continue;
     const name = productName(code, catalog);

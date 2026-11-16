@@ -902,6 +902,30 @@ describe("Gerar contrato page", () => {
     expect(byId("contract-reference-city").value).toBe("Bento Gonçalves");
   });
 
+  it("lists the courses from the sale and leaves the contract end blank", async () => {
+    vi.mocked(getSaleById).mockResolvedValue({
+      id: "s1",
+      clients: [{ id: "c1", nameCiphertext: "Billy Willy" }],
+      items: [
+        { id: "i1", saleId: "s1", kind: "course", courseId: "start", name: "Curso Start", courseName: "Curso Start", startsAt: "2026-08-20", endsAt: "2027-08-20" },
+        { id: "i2", saleId: "s1", kind: "module", courseId: "prep", moduleId: "pedia", name: "Pediatria", courseName: "Preparação", startsAt: "2026-09-01", endsAt: "2027-03-01" },
+      ],
+    } as never);
+    await ready();
+    expect(screen.queryByRole("checkbox", { name: "Curso Start" })).toBeNull();
+    expect(screen.getByRole("link", { name: "Alterar na venda" })).toHaveAttribute("href", "/vendas/s1/editar?step=2");
+    expect(screen.getAllByText("Pediatria").length).toBeGreaterThan(0);
+    expect(screen.getByRole("switch", { name: "Decreto" })).toBeInTheDocument();
+    expect(byId("contract-term-start").value).toBe("20/08/2026");
+    expect(byId("contract-term-end").value).toBe("");
+    expect(screen.queryByText(/Sugerido/)).toBeNull();
+    type("contract-term-end", "01/01/2027");
+    type("contract-party-0-email", "billy@example.com");
+    type("contract-party-0-phone", "11988880000");
+    fireEvent.click(generateButton());
+    expect(document.body.textContent ?? "").toMatch(/fim da vigência|ou depois/);
+  });
+
   it("keeps the city already saved on an Escola sale", async () => {
     mockSchoolPrefill("Pordenone");
     await openSchoolForm();

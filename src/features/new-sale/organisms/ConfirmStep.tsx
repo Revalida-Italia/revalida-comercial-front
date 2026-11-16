@@ -9,6 +9,7 @@ import type { SaleStatus } from "@/services/commercialApi";
 import type { UserSearchResult } from "@/services/usersApi";
 import SaleSummary from "@/features/new-sale/organisms/SaleSummary";
 import { SALE_STATUS_OPTIONS } from "../constants";
+import type { CourseSummaryModel } from "@/features/new-sale/courses/copy";
 import type { ConfiguredSalePayment, FilledSaleCustomer, SalePaymentDraft, SaleSummaryItem } from "../types";
 
 type ConfirmStepProps = {
@@ -37,6 +38,8 @@ type ConfirmStepProps = {
   onSellerIdChange?: (value: string) => void;
   onSellerSearchChange?: (value: string) => void;
   sellerSearchTerm?: string;
+  courseSummary?: CourseSummaryModel;
+  onEditStep?: (step: number) => void;
 };
 
 const ConfirmStep = ({
@@ -65,6 +68,8 @@ const ConfirmStep = ({
   onSellerIdChange,
   onSellerSearchChange,
   sellerSearchTerm = "",
+  courseSummary,
+  onEditStep,
 }: ConfirmStepProps) => (
   <Card>
     <CardHeader>
@@ -141,6 +146,9 @@ const ConfirmStep = ({
           careerPlanName={careerPlanName}
           getFeeRate={getFeeRate}
           paymentGrossValue={paymentGrossValue}
+          courseSummary={courseSummary}
+          courseLayout={courseSummary ? "table" : "compact"}
+          onEditStep={onEditStep}
         />
       </div>
 

@@ -8,6 +8,8 @@ import { readStripePaymentMethod } from "@/features/sales/utils/stripePaymentMet
 import { isCancelledStatus, type CommissionPayView } from "@/features/sales/utils/commissionStatus";
 import { getSaleCommissionValue, saleAllowsStripeCheckoutLink } from "../utils";
 import SaleSummary from "@/features/new-sale/organisms/SaleSummary";
+import { buildCourseSummary } from "@/features/new-sale/courses/copy";
+import { draftFromItems, readCourseItems } from "@/features/new-sale/courses/model";
 import { useMemo } from "react";
 
 type SaleDetailPreviewProps = {
@@ -56,10 +58,16 @@ const SaleDetailPreview = ({
     email: client.email || undefined,
   }));
 
-  const saleItems = sale.items.map((item) => ({
-    productName: item.product?.name || "Produto não identificado",
-    releaseDate: item.releaseDate?.slice(0, 10) ?? "",
-  }));
+  const courseItems = readCourseItems(sale.items);
+  const courseSummary = courseItems.length > 0
+    ? buildCourseSummary(draftFromItems(courseItems, courseItems[0]?.startsAt || ""), [], sale.clients.map((client) => client.nameCiphertext || ""))
+    : undefined;
+  const saleItems = courseSummary
+    ? []
+    : sale.items.map((item) => ({
+      productName: item.product?.name || "Produto não identificado",
+      releaseDate: item.releaseDate?.slice(0, 10) ?? "",
+    }));
 
   const configuredPayments: ConfiguredSalePayment[] = sale.payments.map((payment) => ({
     id: payment.id,
@@ -130,6 +138,8 @@ const SaleDetailPreview = ({
     <SaleSummary
       filledCustomers={filledCustomers}
       saleItems={saleItems}
+      courseSummary={courseSummary}
+      courseLayout={courseSummary ? "compact" : undefined}
       configuredPayments={configuredPayments}
       commissionBreakdown={commissionBreakdown}
       estimatedCommission={totalCommission}

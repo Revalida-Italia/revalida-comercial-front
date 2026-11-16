@@ -6,6 +6,8 @@ import { getPaymentGrossValue, isMonthlySubscriptionPayment } from "@/shared/uti
 import { getSaleCommissionValue } from "@/features/sales/utils";
 import { mapSaleToForm } from "./mapSaleToForm";
 import type { ConfiguredSalePayment, FilledSaleCustomer, SaleSummaryItem } from "./types";
+import { buildCourseSummary, type CourseSummaryModel } from "./courses/copy";
+import { draftFromItems, readCourseItems } from "./courses/model";
 
 export type SaleSummaryFromRecordProps = {
   filledCustomers: FilledSaleCustomer[];
@@ -19,6 +21,8 @@ export type SaleSummaryFromRecordProps = {
   getFeeRate: (gateway: string, paymentType: string) => number;
   paymentGrossValue: (payment: { amount: string | number; paymentType: string; totalInstallments?: string | number }) => number;
   subscriptionMonthLabelMode: "compact";
+  courseSummary?: CourseSummaryModel;
+  courseLayout?: "compact" | "table";
 };
 
 function dateOnly(value?: string | null): string {
@@ -40,7 +44,16 @@ export function saleSummaryPropsFromRecord(sale: SaleRecord): SaleSummaryFromRec
       email: customer.email?.trim() || undefined,
     }));
 
-  const saleItems: SaleSummaryItem[] = form.items
+  const courseItems = readCourseItems(items);
+  const courseSummary = courseItems.length > 0
+    ? buildCourseSummary(
+      draftFromItems(courseItems, courseItems[0]?.startsAt || ""),
+      [],
+      (sale.clients ?? []).map((client) => client.nameCiphertext || ""),
+    )
+    : undefined;
+
+  const saleItems: SaleSummaryItem[] = courseSummary ? [] : form.items
     .filter((item) => item.productId)
     .map((item) => {
       const source = items.find((candidate) => candidate.productId === item.productId && dateOnly(candidate.releaseDate) === item.releaseDate)
@@ -139,5 +152,7 @@ export function saleSummaryPropsFromRecord(sale: SaleRecord): SaleSummaryFromRec
       configuredPayments.find((payment) => payment.gateway === gateway && payment.paymentType === paymentType)?.feeRate ?? 0,
     paymentGrossValue: (payment) => getPaymentGrossValue(payment, configuredPayments),
     subscriptionMonthLabelMode: "compact",
+    courseSummary,
+    courseLayout: courseSummary ? "table" : undefined,
   };
 }
