@@ -124,7 +124,7 @@ function ProfessionField({
   const fieldId = `${base}-profession`;
   const error = form.error(fieldId);
   return (
-    <div className="sm:col-span-2">
+    <div className="contract-span">
       <Label className="mb-1.5 block text-sm font-medium">{t("contract.party.profession")}</Label>
       <SegmentedChoice<ProfessionChoice>
         label={t("contract.party.profession")}
@@ -212,8 +212,8 @@ function PartyFields({
           )}
         </div>
       )}
-      <div className="grid min-w-0 gap-4 sm:grid-cols-2 [&>*]:min-w-0">
-        {text("fullName", t("contract.party.fullName"), { className: "sm:col-span-2", autoComplete: "name" })}
+      <div className="contract-fields grid min-w-0">
+        {text("fullName", t("contract.party.fullName"), { className: "contract-span", autoComplete: "name" })}
         {text("document", t("contract.party.document"))}
         {text("nationality", t("contract.party.nationality"))}
         <ProfessionField party={party} base={base} patch={patch} form={form} />
@@ -250,7 +250,7 @@ function PeriodFields({
   const releaseError = form.error(releaseId);
   const durationError = form.error(durationId);
   return (
-    <Expand className="mt-3 grid min-w-0 gap-4 sm:grid-cols-2 [&>*]:min-w-0">
+    <Expand className="mt-3 contract-fields grid min-w-0">
       <Field id={releaseId} label={t("contract.included.release")} error={releaseError}>
         <DateField
           id={releaseId}
@@ -451,7 +451,7 @@ export default function RevalidaFormFields({ state, update, catalog, form, cours
 
       <section aria-labelledby="contract-term-title">
         <SectionHeading number={3} title={t("contract.sections.term")} id="contract-term-title" />
-        <div className="grid min-w-0 gap-4 sm:grid-cols-2 [&>*]:min-w-0">
+        <div className="contract-fields grid min-w-0">
           <Field id="contract-term-start" label={t("contract.term.start")} error={termStartError}>
             <DateField
               id="contract-term-start"
@@ -513,7 +513,7 @@ export function RevalidaSignaturesSection({
   return (
     <section aria-labelledby="contract-signatures-title">
       <SectionHeading number={number} title={t("contract.sections.signatures")} id="contract-signatures-title" />
-      <div className="grid min-w-0 gap-4 sm:grid-cols-2 [&>*]:min-w-0">
+      <div className="contract-fields grid min-w-0">
         <TextField
           id="contract-reference-city"
           label={t("contract.signatures.city")}

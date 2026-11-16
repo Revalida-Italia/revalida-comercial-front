@@ -109,7 +109,9 @@ function paymentCell(sale: SaleRecord) {
     kind: "installment" | "subscription",
     cancelled: boolean,
   ) => ({
-    value: paidPhrase(group, progress.paid, progress.total),
+    value: kind === "installment"
+      ? t(progress.total === 1 ? "sales.list.paidOf.one" : "sales.list.paidOf.other", { p: progress.paid, n: progress.total })
+      : paidPhrase(group, progress.paid, progress.total),
     ratio: progress.total > 0 ? (progress.paid / progress.total) * 100 : 0,
     settled: progress.pending === 0 && !cancelled && progress.total > 0,
     note: progressNote(kind, progress, cancelled),
@@ -205,11 +207,9 @@ const SaleListCard = ({ sale }: SaleListCardProps) => {
   const showCreateLink = canMutate && !hasPaymentLink && !isArchived && !subscriptionCancelled;
   const showWhatsapp = canMutate && !isArchived;
   const showEdit = canMutate && !isArchived;
-  const dotClass = isArchived
-    ? "bg-muted-foreground"
-    : String(sale.status).toUpperCase() === "CONCLUDED"
-      ? "bg-success"
-      : "bg-warning";
+  const concluded = String(sale.status).toUpperCase() === "CONCLUDED";
+  const dotClass = isArchived ? "bg-muted-foreground" : concluded ? "bg-[#7FA88A]" : "bg-[#C9A15A]";
+  const statusClass = isArchived ? "text-muted-foreground" : concluded ? "text-[#2F5A43]" : "text-[#8A611F]";
 
   return (
     <>
@@ -228,7 +228,7 @@ const SaleListCard = ({ sale }: SaleListCardProps) => {
           <p title={productName} className="truncate text-[13px] text-muted-foreground">{productName}</p>
         </div>
         {hideStatus ? <span className="sale-zone sale-zone-status" /> : (
-          <p className="sale-zone sale-zone-status flex items-center gap-1.5 text-xs font-semibold">
+          <p className={cn("sale-zone sale-zone-status flex items-center gap-1.5 text-[13px] font-semibold", statusClass)}>
             <span className={cn("h-1.5 w-1.5 rounded-full", dotClass)} aria-hidden="true" />
             {statusLabel}
           </p>
@@ -261,13 +261,13 @@ const SaleListCard = ({ sale }: SaleListCardProps) => {
             <Button
               type="button"
               variant="ghost"
-              className={ACTION}
+              className={cn(ACTION, "sale-icon-btn")}
               title={t("sales.actions.stripeTitle")}
               aria-label={t("sales.actions.stripeName")}
               onClick={() => setStripeOpen(true)}
             >
               <StripeMark className="h-4 w-4" />
-              <span>{t("sales.actions.stripe")}</span>
+              <span className="sale-link-long">{t("sales.actions.stripe")}</span>
             </Button>
           ) : null}
           {showViewLink || showCreateLink ? (
@@ -288,7 +288,7 @@ const SaleListCard = ({ sale }: SaleListCardProps) => {
                 <Button
                   type="button"
                   variant="ghost"
-                  className={cn(ACTION, "text-primary", hasHotmartCheckout && "rounded-r-none", !hasPayments && "cursor-not-allowed")}
+                  className={cn(ACTION, "sale-icon-btn text-primary", hasHotmartCheckout && "rounded-r-none", !hasPayments && "cursor-not-allowed")}
                   aria-disabled={!hasPayments}
                   aria-label={t("sales.actions.paymentLink")}
                   title={hasPayments ? t("sales.actions.createLinkTitle") : t("sales.actions.noPayments")}
@@ -344,7 +344,7 @@ const SaleListCard = ({ sale }: SaleListCardProps) => {
             <Button
               type="button"
               variant="ghost"
-              className={cn(ACTION, "sale-compact px-0", !hasPaymentLink && "cursor-not-allowed")}
+              className={cn(ACTION, "sale-icon-btn sale-compact px-0", !hasPaymentLink && "cursor-not-allowed")}
               aria-disabled={!hasPaymentLink}
               aria-label={t("sales.actions.whatsapp")}
               title={hasPaymentLink ? t("sales.actions.whatsappReady") : t("sales.actions.whatsappMissing")}
@@ -361,7 +361,7 @@ const SaleListCard = ({ sale }: SaleListCardProps) => {
             aria-label={t("sales.actions.details")}
             title={t("sales.actions.details")}
           >
-            <FileText className="h-4 w-4" aria-hidden="true" />
+            <FileText className="sale-details-icon h-4 w-4" aria-hidden="true" />
             <span>{t("sales.actions.details")}</span>
           </Link>
           <details className="relative">

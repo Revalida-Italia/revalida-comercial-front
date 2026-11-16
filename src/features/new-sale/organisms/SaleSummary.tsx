@@ -164,7 +164,7 @@ const SaleSummary = ({
         <div className="space-y-1.5">
           {heading(1, <User className="h-3.5 w-3.5" />, "Clientes")}
           {filledCustomers.length === 0 ? (
-            <p className="italic text-muted-foreground">Nenhum cliente adicionado</p>
+            <p className="text-muted-foreground">Nenhum cliente adicionado</p>
           ) : (
             <ul className="space-y-1">
               {filledCustomers.map((customer, index) => (
@@ -187,7 +187,7 @@ const SaleSummary = ({
           {heading(
             2,
             courseSummary ? <BookOpen className="h-3.5 w-3.5" /> : <Package className="h-3.5 w-3.5" />,
-            courseSummary ? (courseLayout === "table" ? t("sale.summary.coursesAccess") : t("sale.preview.courses")) : t("sale.preview.products"),
+            courseSummary ? (courseLayout === "table" ? t("sale.summary.coursesAccess") : t("sale.courses.title")) : t("sale.preview.products"),
           )}
           {courseSummary ? (
             courseLayout === "table" ? (
@@ -249,7 +249,7 @@ const SaleSummary = ({
               ))}
             </ul>
           ) : (
-            <p className="italic text-muted-foreground">Não selecionado</p>
+            <p className="text-muted-foreground">Não selecionado</p>
           )}
         </div>
       ))}
@@ -260,7 +260,7 @@ const SaleSummary = ({
         <div className="space-y-1.5">
           {heading(3, <CreditCard className="h-3.5 w-3.5" />, "Pagamentos")}
           {configuredPayments.length === 0 ? (
-            <p className="italic text-muted-foreground">Nenhum pagamento configurado</p>
+            <p className="text-muted-foreground">Nenhum pagamento configurado</p>
           ) : (
             <ul className="space-y-2">
               {configuredPayments.map((payment, index) => {
@@ -529,7 +529,7 @@ const SaleSummary = ({
           </div>
         </div>
       ) : (
-        <p className="italic text-muted-foreground">Preencha os pagamentos para calcular</p>
+        <p className="text-muted-foreground">Preencha os pagamentos para calcular</p>
       )}
       </div>
       </>

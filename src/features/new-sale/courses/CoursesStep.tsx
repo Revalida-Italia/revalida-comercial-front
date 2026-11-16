@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { AlertCircle, Check, Copy, RefreshCw, Search, Users } from "lucide-react";
+import { AlertCircle, Calendar, Check, Copy, RefreshCw, Search, Users } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -160,6 +160,10 @@ export function CoursesStep({ catalog, loading, error, onRetry, draft, onChange,
 
   return (
     <section className="min-w-0">
+      <div className="mb-3.5 flex items-baseline justify-between gap-3">
+        <h2 className="text-lg font-bold">{t("sale.courses.title")}</h2>
+        <span className="whitespace-nowrap text-[13px] text-[#5D6F83]">{selectedLabel(items.length)}</span>
+      </div>
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center">
         <label className="relative min-w-0 flex-1">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#7C8A9A]" aria-hidden="true" />
@@ -248,38 +252,6 @@ export function CoursesStep({ catalog, loading, error, onRetry, draft, onChange,
       ) : null}
 
       {!loading && !error ? (
-        <div className="mt-7 border-t border-[rgba(36,56,79,0.10)] pt-6">
-          <h2 className="mb-3 text-lg font-bold">{t("sale.services.title")}</h2>
-          <ul>
-            {SERVICES.map((service) => {
-              const on = draft.services[service.key];
-              return (
-                <li key={service.key} className="flex min-h-[56px] items-center justify-between gap-3 border-t border-[rgba(36,56,79,0.10)] py-2 first:border-t-0">
-                  <span className="font-semibold">{t(service.label)}</span>
-                  <div role="radiogroup" aria-label={t(service.label)} className="flex rounded-md bg-[#EAEFF4] p-[3px]">
-                    {([true, false] as const).map((value) => (
-                      <button
-                        key={String(value)}
-                        type="button"
-                        role="radio"
-                        aria-checked={on === value}
-                        onClick={() => onChange(setService(draft, service.key, value))}
-                        className={cn(
-                          "h-11 min-w-[64px] rounded px-3 text-[13px] font-semibold text-[#52657A]",
-                          on === value && "bg-white text-[#24384F] shadow-[0_1px_2px_rgba(36,56,79,0.08)]",
-                        )}
-                      >
-                        {t(value ? "common.yes" : "common.no")}
-                      </button>
-                    ))}
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-      ) : null}
-
       <div className="mt-7 border-t border-[rgba(36,56,79,0.10)] pt-6">
         <div className="mb-3.5 flex items-baseline justify-between gap-3">
           <h2 className="text-lg font-bold">{t("sale.access.title")}</h2>
@@ -287,6 +259,7 @@ export function CoursesStep({ catalog, loading, error, onRetry, draft, onChange,
         </div>
         {items.length === 0 ? (
           <div className="rounded-md bg-[#F3F6F9] px-3 py-4 text-center text-[#5D6F83]">
+            <Calendar className="mx-auto mb-2 h-7 w-7 text-[#7C8A9A]" aria-hidden="true" />
             <p className="font-semibold text-[#24384F]">{t("sale.access.emptyTitle")}</p>
             <p>{t("sale.access.emptyBody")}</p>
           </div>
@@ -384,16 +357,50 @@ export function CoursesStep({ catalog, loading, error, onRetry, draft, onChange,
           </>
         )}
       </div>
+      ) : null}
+
+      {!loading && !error ? (
+        <div className="mt-7 border-t border-[rgba(36,56,79,0.10)] pt-6">
+          <h2 className="mb-3 text-lg font-bold">{t("sale.services.title")}</h2>
+          <ul>
+            {SERVICES.map((service) => {
+              const on = draft.services[service.key];
+              return (
+                <li key={service.key} className="flex min-h-[56px] items-center justify-between gap-3 border-t border-[rgba(36,56,79,0.10)] py-2 first:border-t-0">
+                  <span className="font-semibold">{t(service.label)}</span>
+                  <div role="radiogroup" aria-label={t(service.label)} className="flex rounded-md bg-[#EAEFF4] p-[3px]">
+                    {([true, false] as const).map((value) => (
+                      <button
+                        key={String(value)}
+                        type="button"
+                        role="radio"
+                        aria-checked={on === value}
+                        onClick={() => onChange(setService(draft, service.key, value))}
+                        className={cn(
+                          "h-11 min-w-[64px] rounded px-3 text-[13px] font-semibold text-[#52657A]",
+                          on === value && "bg-white text-[#24384F] shadow-[0_1px_2px_rgba(36,56,79,0.08)]",
+                        )}
+                      >
+                        {t(value ? "common.yes" : "common.no")}
+                      </button>
+                    ))}
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      ) : null}
 
       <div className="mt-7 flex items-center justify-between gap-3 max-md:hidden">
         <button type="button" onClick={onBack} className="inline-flex h-11 items-center rounded-md bg-white px-4 text-sm font-semibold text-[#2F5679] shadow-[inset_0_0_0_1px_rgba(36,56,79,0.16)]">Voltar</button>
         {reason ? <p id={reasonId} className={cn("flex-1 text-right text-[13px]", moving.tone === "error" ? "text-[#9A3F3F]" : "text-[#5D6F83]")}>{reason}</p> : <span className="flex-1" />}
-        <button type="button" onClick={onNext} disabled={!canNext} aria-describedby={reason ? reasonId : undefined} className="inline-flex h-11 items-center rounded-md bg-[#2F5679] px-4 text-sm font-semibold text-white disabled:bg-[#C9D3DD]">Próximo</button>
+        <button type="button" onClick={onNext} disabled={!canNext} aria-describedby={reason ? reasonId : undefined} className="inline-flex h-11 items-center rounded-md bg-[#2F5679] px-4 text-sm font-semibold text-white disabled:bg-[#C9D3DD] disabled:text-white disabled:opacity-100">Próximo</button>
       </div>
       <div className="fixed inset-x-0 bottom-0 z-30 flex items-center justify-between gap-3 bg-white px-4 py-3 shadow-[0_-6px_20px_rgba(36,56,79,0.08)] md:hidden">
         <button type="button" onClick={onBack} className="inline-flex h-11 items-center text-sm font-semibold text-[#2F5679]">Voltar</button>
         <p className="min-w-0 flex-1 truncate text-[13px] text-[#5D6F83]">{items.length === 0 ? t("sale.preview.noCourses") : reason && !canNext ? reason : selectedLabel(items.length)}</p>
-        <button type="button" onClick={onNext} disabled={!canNext} className="inline-flex h-11 items-center rounded-md bg-[#2F5679] px-4 text-sm font-semibold text-white disabled:bg-[#C9D3DD]">Próximo</button>
+        <button type="button" onClick={onNext} disabled={!canNext} className="inline-flex h-11 items-center rounded-md bg-[#2F5679] px-4 text-sm font-semibold text-white disabled:bg-[#C9D3DD] disabled:text-white disabled:opacity-100">Próximo</button>
       </div>
 
       <AlertDialog open={confirmSame} onOpenChange={setConfirmSame}>
@@ -447,7 +454,12 @@ function ModuleRow({
         <p className="truncate font-semibold"><Highlight text={module.name} query={query} /></p>
         <p className="truncate text-[12.5px] text-[#5D6F83]" title={names.join(", ")}>{line}</p>
       </div>
-      {on ? <span className="shrink-0 text-[12.5px] font-semibold text-[#2F5A43]">{t("sale.courses.wholeModule")}</span> : null}
+      {on ? (
+        <span className="inline-flex shrink-0 items-center gap-1.5 text-[12.5px] font-semibold text-[#2F5A43]">
+          <span className="h-1.5 w-1.5 rounded-full bg-[#7FA88A]" aria-hidden="true" />
+          {t("sale.courses.wholeModule")}
+        </span>
+      ) : null}
     </div>
   );
 }

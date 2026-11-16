@@ -306,12 +306,12 @@ describe("buildRevalidaSummary", () => {
     const summary = buildRevalidaSummary(s, catalog);
     expect(summary.contractors).toBe("1 contratante");
     expect(summary.included).toEqual([
-      "Decreto",
       "Curso Start · 15/10/2026",
       "Preparação para as provas de revalidação · 15/10/2027",
       "Italiano Médico · 15/10/2027",
       "Italiano Quattromani · 15/10/2026",
       "Apostila de Haia",
+      "Decreto",
     ]);
     expect(summary.notIncluded).toEqual(["Tradução juramentada", "Despesas postais"]);
     expect(summary.term).toBe("15/10/2028");

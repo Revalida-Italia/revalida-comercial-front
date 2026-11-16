@@ -66,7 +66,7 @@ export function GenerateButton({
       size="lg"
       className={cn(
         "w-full",
-        blocked && !generating && "cursor-not-allowed opacity-50 disabled:pointer-events-auto disabled:cursor-not-allowed",
+        blocked && !generating && "cursor-not-allowed !bg-[#C9D3DD] !text-white !opacity-100 hover:!bg-[#C9D3DD] disabled:pointer-events-auto disabled:cursor-not-allowed disabled:!bg-[#C9D3DD] disabled:!text-white disabled:!opacity-100",
         className,
       )}
       disabled={blocked}
@@ -88,7 +88,7 @@ export default function ContractSummary(props: ContractSummaryProps) {
   const body = (
     <>
         <h2 className="text-[13px] font-medium text-muted-foreground">{t("contract.summary.title")}</h2>
-        <p className="mt-1 text-[28px] font-bold leading-tight tabular-nums">{props.totalLabel}</p>
+        <p className="mt-1 text-[28px] font-light leading-tight tabular-nums">{props.totalLabel}</p>
         <p className="mt-1 text-sm text-muted-foreground">{props.contractors}</p>
 
         <div className="mt-5 space-y-4">
@@ -152,7 +152,7 @@ export default function ContractSummary(props: ContractSummaryProps) {
             <p className="font-semibold">{props.modelName}</p>
           </div>
           {props.onChangeModel ? (
-            <button type="button" onClick={props.onChangeModel} className="shrink-0 text-sm font-semibold text-primary underline-offset-4 hover:underline">
+            <button type="button" onClick={props.onChangeModel} className="shrink-0 text-[13px] font-semibold text-primary">
               {t("contract.page.switchModel")}
             </button>
           ) : null}
@@ -182,7 +182,7 @@ export function GenerateBar({
 }) {
   const first = issues[0];
   return (
-    <div className="sticky bottom-0 z-10 -mx-3 mt-6 border-t border-border bg-background/95 px-3 py-3 md:-mx-5 md:px-5">
+    <div className="sticky bottom-0 z-10 -mx-3 mt-6 border-t border-border bg-white px-3 py-3 shadow-[0_-6px_20px_rgba(36,56,79,0.08)] md:-mx-5 md:px-5">
       {modelName ? <p className="mb-1 text-[13px] font-semibold text-foreground">{modelName}</p> : null}
       {first && (
         <p className="mb-2 text-[13px] text-muted-foreground">

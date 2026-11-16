@@ -210,19 +210,19 @@ function RegisterSignatureDialog({
   );
 }
 
-const FORM_CARD = "m-0 min-w-0 space-y-10 rounded-lg border-0 bg-card p-6 shadow-[0_4px_24px_rgba(15,40,60,0.07)] sm:p-8";
+const FORM_CARD = "contract-form m-0 min-w-0 space-y-10 rounded-lg border-0 bg-card p-6 shadow-[0_4px_24px_rgba(15,40,60,0.07)] sm:p-8";
 
 function ModelPaper({ name, onChange }: { name: string; onChange: () => void }) {
   return (
-    <div className="flex flex-wrap items-center gap-4 rounded-md bg-[#F6F1E8] p-4">
-      <span className="grid h-11 w-11 place-items-center rounded-md bg-white text-[#2F5679]">
+    <div className="model-paper flex flex-wrap items-center gap-4 rounded-md bg-[#F6F1E8] p-4">
+      <span className="grid h-11 w-11 shrink-0 place-items-center rounded-md bg-white text-[#2F5679]">
         <FileText className="h-5 w-5" aria-hidden="true" />
       </span>
-      <div className="min-w-0 flex-1">
+      <div className="min-w-0 flex-1 basis-40">
         <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">{t("contract.page.modelLabel")}</p>
         <p className="text-lg font-bold leading-tight">{name}</p>
       </div>
-      <Button type="button" variant="outline" onClick={onChange}>{t("contract.page.switchModel")}</Button>
+      <Button type="button" variant="outline" className="model-switch" onClick={onChange}>{t("contract.page.switchModel")}</Button>
     </div>
   );
 }
@@ -412,7 +412,7 @@ function RevalidaBody({
         }
       />
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-        <AlertDialogContent>
+        <AlertDialogContent overlayClassName="bg-[rgba(36,56,79,0.18)]">
           <AlertDialogHeader>
             <AlertDialogTitle>{t("contract.page.confirmTitle")}</AlertDialogTitle>
             <AlertDialogDescription>
@@ -555,7 +555,7 @@ function SchoolBody({
         }
       />
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-        <AlertDialogContent>
+        <AlertDialogContent overlayClassName="bg-[rgba(36,56,79,0.18)]">
           <AlertDialogHeader>
             <AlertDialogTitle>{t("contract.page.confirmTitle")}</AlertDialogTitle>
             <AlertDialogDescription>
@@ -734,7 +734,7 @@ export default function SaleContractPage() {
       {body}
 
       <AlertDialog open={pendingModel !== null} onOpenChange={(open) => !open && setPendingModel(null)}>
-        <AlertDialogContent>
+        <AlertDialogContent overlayClassName="bg-[rgba(36,56,79,0.18)]">
           <AlertDialogHeader>
             <AlertDialogTitle>{t("contract.page.switchTitle")}</AlertDialogTitle>
             <AlertDialogDescription>{t("contract.page.switchBody")}</AlertDialogDescription>
