@@ -35,6 +35,24 @@ describe("i18n", () => {
     expect(tCount("portalAccess.created", 1)).toBe("Acceso creado para 1 alumno");
     expect(tCount("portalAccess.created", 2)).toBe("Acceso creado para 2 alumnos");
     setLocale("pt-BR");
+    const tips = [
+      ["pt-BR", "Ver link", "Ver detalhes", "Arquivar"],
+      ["en", "View link", "View details", "Archive"],
+      ["it", "Vedi link", "Vedi dettagli", "Archivia"],
+      ["es", "Ver enlace", "Ver detalles", "Archivar"],
+    ] as const;
+    for (const [locale, link, details, archive] of tips) {
+      setLocale(locale);
+      expect(t("sales.actions.viewLink")).toBe(link);
+      expect(t("sales.actions.details")).toBe(details);
+      expect(t("sales.actions.archive")).toBe(archive);
+      expect(t("portalAccess.startsOn", { data: "20/08/2026" })).toContain("20/08/2026");
+      expect(t("portalAccess.associate")).not.toMatch(/Associar|Link user|Collega|Asociar/);
+      expect(t("portalAccess.emailTaken")).toMatch(/e-?mail|correo/i);
+      expect(t("portalAccess.granted")).toMatch(/Liberado|Released|Rilasciato/);
+      expect(t("portalAccess.title")).toMatch(/venda|sale|vendita|venta/i);
+    }
+    setLocale("pt-BR");
   });
 
   it("translates the course step in Portuguese, Italian, Spanish and English", () => {

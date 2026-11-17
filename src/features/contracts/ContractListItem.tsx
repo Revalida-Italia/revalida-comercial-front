@@ -25,7 +25,7 @@ import {
 } from "@/services/contractsApi";
 import { cn } from "@/lib/utils";
 import { t } from "@/i18n";
-import { canCreateStudentAccess, canManageSignature, canSendForSignature, type SaleOwnerRef } from "@/features/contracts/access";
+import { canManageSignature, canSendForSignature, type SaleOwnerRef } from "@/features/contracts/access";
 import { sendForSignatureErrorMessage } from "@/features/contracts/contractErrors";
 import { modelName } from "@/features/contracts/contractFormModel";
 import {
@@ -33,7 +33,6 @@ import {
   contractorsLabel,
   formatGeneratedDate,
 } from "@/features/contracts/contractListLabels";
-import SignedContractActions from "@/features/contracts/SignedContractActions";
 import { isSignedContract, knownSignedContractError } from "@/features/contracts/signedContract";
 
 /** The send button follows the signature flag, as before. */
@@ -246,7 +245,6 @@ export default function ContractListItem({ contract, saleId, sale, highlight, on
 
       <div className="flex flex-wrap items-center gap-2">
         {actions}
-        {signed && canCreateStudentAccess() && <SignedContractActions contract={contract} onChanged={onChanged} />}
       </div>
 
       <AlertDialog open={sendOpen} onOpenChange={setSendOpen}>

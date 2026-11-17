@@ -2,7 +2,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { CoursesStep } from "./CoursesStep";
-import { emptyDraft } from "./model";
+import { emptyDraft, toggleModule } from "./model";
 import type { CourseDraft, TeachingCatalog } from "./types";
 
 const catalog: TeachingCatalog = {
@@ -34,6 +34,29 @@ function Harness({ loading = false, error = false, onRetry = vi.fn() }: { loadin
 }
 
 describe("Courses step", () => {
+  it("shows the sold courses without edit controls after a student exists", () => {
+    const draft = toggleModule(emptyDraft("2026-08-20"), catalog.modules[0]);
+    const dated = { ...draft, sharedEnd: "2027-08-20" };
+    render(
+      <CoursesStep
+        catalog={catalog}
+        loading={false}
+        error={false}
+        onRetry={vi.fn()}
+        draft={dated}
+        onChange={vi.fn()}
+        clients={["Billy Willy"]}
+        onBack={vi.fn()}
+        onNext={vi.fn()}
+        locked
+      />,
+    );
+    expect(screen.getByText("Clínica médica")).toBeInTheDocument();
+    expect(screen.getByText(/Para alterar o acesso de um aluno/)).toBeInTheDocument();
+    expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Buscar curso ou módulo")).not.toBeInTheDocument();
+  });
+
   it("toggles a course from the row once and does not offer a chevron", () => {
     render(<Harness />);
     expect(screen.queryByRole("button", { name: /Módulos de/ })).toBeNull();

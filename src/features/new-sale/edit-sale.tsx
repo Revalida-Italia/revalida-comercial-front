@@ -19,6 +19,8 @@ import { buildCommissionBreakdown, normalizeCommissionRate } from "@/services/co
 import { fetchExchangeRates } from "@/services/exchangeRatesApi";
 import { convertToBrl, isDisplayCurrency } from "@/shared/utils/exchange";
 import { getProfile, hasRole } from "@/lib/session";
+import { t } from "@/i18n";
+import { listSaleStudents } from "@/services/contractsApi";
 import {
   DEFAULT_SUBSCRIPTION_CYCLE,
   EMPTY_CUSTOMER,
@@ -32,7 +34,6 @@ import CustomersStep from "./organisms/CustomersStep";
 import PaymentsStep from "./organisms/PaymentsStep";
 import SaleSummary from "@/features/new-sale/organisms/SaleSummary";
 import StepIndicator from "./organisms/StepIndicator";
-import { t } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { listCourseCatalog } from "./courses/catalogApi";
 import { buildCourseSummary } from "./courses/copy";
@@ -85,6 +86,12 @@ const EditSaleFeature = () => {
   });
 
   const legacy = isLegacySale(saleQuery.data?.items, saleQuery.data?.accessMode);
+  const studentsQuery = useQuery({
+    queryKey: ["sale-students", id],
+    queryFn: () => listSaleStudents(id!),
+    enabled: Boolean(id),
+  });
+  const releaseLocked = !legacy && (studentsQuery.data?.length ?? 0) > 0;
 
   const catalogQuery = useQuery({
     queryKey: ["sales", "course-catalog"],
@@ -427,7 +434,13 @@ const EditSaleFeature = () => {
       navigate(`/vendas/${id}`);
     },
     onError: (error) => {
-      toast.error(error instanceof Error ? error.message : "Erro ao atualizar venda.");
+      const code = error instanceof Error ? error.message : "";
+      const apiCode = typeof error === "object" && error && "code" in error ? String((error as { code?: unknown }).code ?? "") : "";
+      if (code === "SALE_RELEASE_LOCKED" || apiCode === "SALE_RELEASE_LOCKED") {
+        toast.error(t("portalAccess.lockedError"));
+        return;
+      }
+      toast.error(code && !/^[A-Z0-9_]+$/.test(code) ? code : "Erro ao atualizar venda.");
     },
   });
 
@@ -492,6 +505,7 @@ const EditSaleFeature = () => {
               onRetry={() => { void catalogQuery.refetch(); }}
               draft={courseDraft}
               onChange={setCourseDraft}
+              locked={releaseLocked}
               clients={filledCustomers.map((customer) => customer.name)}
               onBack={() => setStep(1)}
               onNext={() => setStep(3)}
