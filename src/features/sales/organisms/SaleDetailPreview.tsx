@@ -1,3 +1,5 @@
+import { useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import type { CommissionBreakdownResult } from "@/services/commissionApi";
 import { buildCommissionBreakdown } from "@/services/commissionApi";
 import type { SalePayment, SaleRecord } from "@/services/commercialApi";
@@ -9,11 +11,11 @@ import { isCancelledStatus, type CommissionPayView } from "@/features/sales/util
 import { getSaleCommissionValue, saleAllowsStripeCheckoutLink } from "../utils";
 import SaleSummary from "@/features/new-sale/organisms/SaleSummary";
 import { buildCourseSummary } from "@/features/new-sale/courses/copy";
+import { listCourseCatalog } from "@/features/new-sale/courses/catalogApi";
 import { draftFromItems, readCourseItems, servicesFromRecord } from "@/features/new-sale/courses/model";
 import type { TeachingCatalog } from "@/features/new-sale/courses/types";
 
 const EMPTY_CATALOG: TeachingCatalog = { modules: [], courses: [] };
-import { useMemo } from "react";
 
 type SaleDetailPreviewProps = {
   sale: SaleRecord;
@@ -54,6 +56,12 @@ const SaleDetailPreview = ({
   payingCommissionPaymentId = null,
   onPayCommission,
 }: SaleDetailPreviewProps) => {
+  const catalogQuery = useQuery({
+    queryKey: ["sales", "course-catalog"],
+    queryFn: listCourseCatalog,
+    staleTime: 5 * 60_000,
+  });
+  const catalog = catalogQuery.data ?? EMPTY_CATALOG;
   const clients = sale.clients ?? [];
   const items = sale.items ?? [];
   const payments = sale.payments ?? [];
@@ -68,7 +76,7 @@ const SaleDetailPreview = ({
   const courseSummary = courseItems.length > 0
     ? buildCourseSummary(
       { ...draftFromItems(courseItems, courseItems[0]?.startsAt || ""), services: servicesFromRecord(sale) },
-      EMPTY_CATALOG,
+      catalog,
       clients.map((client) => client.nameCiphertext || ""),
     )
     : undefined;

@@ -23,6 +23,18 @@ describe("i18n", () => {
     expect(t("contract.page.confirmLine.other", { cliente: "Ana", valor: "R$ 10,00", n: 3 })).toBe("Ana · R$ 10,00 · 3 itens inclusos");
     expect(tCount("sales.card.pending", 1)).toBe("1 pendente");
     expect(tCount("sales.card.pending", 5)).toBe("5 pendentes");
+    expect(tCount("portalAccess.created", 1)).toBe("Acesso criado para 1 aluno");
+    expect(tCount("portalAccess.created", 2)).toBe("Acesso criado para 2 alunos");
+    setLocale("en");
+    expect(tCount("portalAccess.created", 1)).toBe("Access created for 1 student");
+    expect(tCount("portalAccess.created", 2)).toBe("Access created for 2 students");
+    setLocale("it");
+    expect(tCount("portalAccess.created", 1)).toBe("Accesso creato per 1 studente");
+    expect(tCount("portalAccess.created", 2)).toBe("Accesso creato per 2 studenti");
+    setLocale("es");
+    expect(tCount("portalAccess.created", 1)).toBe("Acceso creado para 1 alumno");
+    expect(tCount("portalAccess.created", 2)).toBe("Acceso creado para 2 alumnos");
+    setLocale("pt-BR");
   });
 
   it("translates the course step in Portuguese, Italian, Spanish and English", () => {

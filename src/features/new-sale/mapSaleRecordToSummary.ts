@@ -31,7 +31,10 @@ function dateOnly(value?: string | null): string {
 }
 
 /** Props for SaleSummary, derived from the same form shape used to edit a sale. */
-export function saleSummaryPropsFromRecord(sale: SaleRecord): SaleSummaryFromRecordProps {
+export function saleSummaryPropsFromRecord(
+  sale: SaleRecord,
+  catalog: TeachingCatalog = { modules: [], courses: [] },
+): SaleSummaryFromRecordProps {
   const form = mapSaleToForm(sale);
   const items = sale.items ?? [];
   const payments = sale.payments ?? [];
@@ -49,7 +52,7 @@ export function saleSummaryPropsFromRecord(sale: SaleRecord): SaleSummaryFromRec
   const courseSummary = courseItems.length > 0
     ? buildCourseSummary(
       { ...draftFromItems(courseItems, courseItems[0]?.startsAt || ""), services: servicesFromRecord(sale) },
-      { modules: [], courses: [] } satisfies TeachingCatalog,
+      catalog,
       (sale.clients ?? []).map((client) => client.nameCiphertext || ""),
     )
     : undefined;

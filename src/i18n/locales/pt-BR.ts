@@ -516,4 +516,10 @@ export const ptBR = {
       courseStart: "Falta: início do curso",
     },
   },
+  portalAccess: {
+    created: {
+      one: "Acesso criado para {count} aluno",
+      other: "Acesso criado para {count} alunos",
+    },
+  },
 } as const;

@@ -48,8 +48,8 @@ export function itemDetail(item: ListedItem): string {
 }
 
 export type CourseSummaryModel = {
-  rows: Array<{ key: string; title: string; detail: string; period: string; duration: string }>;
-  groups: Array<{ courseId: string; title: string; detail: string }>;
+  rows: Array<{ key: string; title: string; detail: string; names: string; period: string; duration: string }>;
+  groups: Array<{ courseId: string; title: string; detail: string; names: string }>;
   period: string;
   tone: "muted" | "error";
   clientNote: string | null;
@@ -66,6 +66,7 @@ export function buildCourseSummary(draft: CourseDraft, catalog: TeachingCatalog,
       key: item.key,
       title: item.name,
       detail: itemDetail(item),
+      names: item.courseNames.join(", "),
       period: ready ? rangeLabel(item.startsAt, item.endsAt) : "",
       duration: ready ? durationLabel(item.startsAt, item.endsAt, "short") : "",
     };
@@ -74,6 +75,7 @@ export function buildCourseSummary(draft: CourseDraft, catalog: TeachingCatalog,
     courseId: row.key,
     title: row.title,
     detail: row.detail,
+    names: row.names,
   }));
 
   let period = t("sale.preview.noCourses");

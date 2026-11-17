@@ -221,10 +221,14 @@ const SaleListCard = ({ sale }: SaleListCardProps) => {
         )}
       >
         <div className="sale-zone sale-zone-client min-w-0">
-          <h2 id={nameId} title={clientTitle} className="sale-client-name text-[15px] font-semibold leading-snug">
-            {names[0] ?? clientTitle}
-          </h2>
-          {names.slice(1).length > 0 ? <p className="truncate text-[13px] text-muted-foreground">{names.slice(1).join(", ")}</p> : null}
+          <div className="flex min-w-0 items-start gap-1.5">
+            <h2 id={nameId} title={clientTitle} className="sale-client-name min-w-0 text-[15px] font-semibold leading-snug">
+              {names[0] ?? clientTitle}
+            </h2>
+            {names.length > 1 ? (
+              <span className="shrink-0 text-[13px] font-semibold leading-snug text-muted-foreground">+{names.length - 1}</span>
+            ) : null}
+          </div>
           <p title={productName} className="truncate text-[13px] text-muted-foreground">{productName}</p>
         </div>
         {hideStatus ? <span className="sale-zone sale-zone-status" /> : (
@@ -235,7 +239,7 @@ const SaleListCard = ({ sale }: SaleListCardProps) => {
         )}
         <div className="sale-zone sale-zone-seller">
           <p className="sale-zone-label text-[11px] font-semibold uppercase tracking-[0.04em] text-muted-foreground">{t("sales.list.sellerShort")}</p>
-          <p title={meta} className="text-sm">{sellerName}</p>
+          <p title={meta} className="sale-seller-name text-sm">{sellerName}</p>
           <p className="text-[13px] text-muted-foreground">{formatDate(sale.soldAt)}</p>
         </div>
         <div className="sale-zone sale-zone-contract">
