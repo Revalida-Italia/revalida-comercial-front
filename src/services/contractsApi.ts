@@ -266,6 +266,122 @@ export async function provisionCoreStudent(
   });
 }
 
+export interface SaleContractClient {
+  id: string;
+  name: string;
+  email?: string | null;
+  document?: string | null;
+  phone?: string | null;
+  coreUserId?: string | null;
+}
+
+export type SalePortalOutcome = "created" | "associated";
+
+export interface SaleStudent {
+  id: string;
+  saleId: string;
+  coreUserId: string | null;
+  cognitoSub: string | null;
+  name: string;
+  email: string;
+  origin: SalePortalOutcome;
+  createdByUserId: string | null;
+  createdAt: string;
+}
+
+export interface SaleStudentEnrollment {
+  created: number;
+  alreadyEnrolled: number;
+  failed: number;
+}
+
+export const CORE_EXISTING_USER_ID_MISSING = "CORE_EXISTING_USER_ID_MISSING";
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : null;
+}
+
+function readText(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function unwrapStudents(payload: unknown): Record<string, unknown> {
+  let current = asRecord(payload) ?? {};
+  for (let depth = 0; depth < 3; depth += 1) {
+    if (Array.isArray(current.students) || current.student) return current;
+    const data = asRecord(current.data);
+    if (!data) return current;
+    current = data;
+  }
+  return current;
+}
+
+function readOrigin(value: unknown): SalePortalOutcome {
+  return readText(value).toLowerCase() === "associated" ? "associated" : "created";
+}
+
+function readStudent(raw: unknown): SaleStudent | null {
+  const record = asRecord(raw);
+  if (!record) return null;
+  const id = readText(record.id);
+  const email = readText(record.email);
+  if (!id || !email) return null;
+  return {
+    id,
+    saleId: readText(record.saleId),
+    coreUserId: readText(record.coreUserId) || null,
+    cognitoSub: readText(record.cognitoSub) || null,
+    name: readText(record.name),
+    email,
+    origin: readOrigin(record.origin),
+    createdByUserId: readText(record.createdByUserId) || null,
+    createdAt: readText(record.createdAt),
+  };
+}
+
+/** GET /sales/:saleId/students → { success, data: { students } }. */
+export function normalizeSaleStudents(payload: unknown): SaleStudent[] {
+  const root = unwrapStudents(payload);
+  const rows = Array.isArray(root.students) ? root.students : [];
+  return rows.map(readStudent).filter((item): item is SaleStudent => Boolean(item));
+}
+
+export function isExistingUserIdMissing(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const record = error as { code?: unknown; message?: unknown };
+  return record.code === CORE_EXISTING_USER_ID_MISSING || record.message === CORE_EXISTING_USER_ID_MISSING;
+}
+
+export async function listSaleStudents(saleId: string): Promise<SaleStudent[]> {
+  const payload = await apiRequest<unknown>(CORE_API_URL, `/sales/${encodeURIComponent(saleId)}/students`);
+  return normalizeSaleStudents(payload);
+}
+
+export async function createSaleStudent(
+  saleId: string,
+  input: { email: string; name?: string; document?: string; phone?: string },
+): Promise<{ student: SaleStudent | null; enrollments: SaleStudentEnrollment }> {
+  const payload = await apiRequest<unknown>(CORE_API_URL, `/sales/${encodeURIComponent(saleId)}/students`, {
+    method: "POST",
+    body: {
+      email: input.email,
+      ...(input.name?.trim() ? { name: input.name.trim() } : {}),
+      ...(input.document?.trim() ? { document: input.document.trim() } : {}),
+      ...(input.phone?.trim() ? { phone: input.phone.trim() } : {}),
+    },
+  });
+  const root = unwrapStudents(payload);
+  const enrollmentsRecord = asRecord(root.enrollments);
+  return {
+    student: readStudent(root.student),
+    enrollments: {
+      created: Number(enrollmentsRecord?.created ?? 0),
+      alreadyEnrolled: Number(enrollmentsRecord?.alreadyEnrolled ?? 0),
+      failed: Number(enrollmentsRecord?.failed ?? 0),
+    },
+  };
+}
+
 /** POST /contracts/:id/provision-portal-students — empty body; password is never returned. */
 export async function createPortalStudents(
   contractId: string,

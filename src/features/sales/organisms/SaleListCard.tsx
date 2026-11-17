@@ -168,7 +168,7 @@ function paymentCell(sale: SaleRecord) {
 }
 
 const SaleListCard = ({ sale }: SaleListCardProps) => {
-  const wideActions = useMinWidth(1100);
+  const wideActions = useMinWidth(1024);
   const profile = getProfile();
   const isAdmin = hasRole("ADMIN");
   const canMutate = canMutateSales(profile?.role);
@@ -280,13 +280,13 @@ const SaleListCard = ({ sale }: SaleListCardProps) => {
                 <Button
                   type="button"
                   variant="ghost"
-                  className={cn(ACTION, "text-primary", hasHotmartCheckout && "rounded-r-none")}
+                  className={cn(ACTION, "sale-icon-btn text-primary", hasHotmartCheckout && "rounded-r-none")}
                   title={t("sales.actions.viewLinkTitle")}
                   aria-label={t("sales.actions.viewLink")}
                   onClick={() => setViewLinkOpen(true)}
                 >
                   <Eye className="h-4 w-4" aria-hidden="true" />
-                  <span>{t("sales.actions.viewLink")}</span>
+                  <span className="sale-link-long">{t("sales.actions.viewLink")}</span>
                 </Button>
               ) : (
                 <Button

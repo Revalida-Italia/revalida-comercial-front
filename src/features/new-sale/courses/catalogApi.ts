@@ -41,16 +41,32 @@ function readCourse(raw: unknown): CatalogCourse | null {
   return { id, name, thumbnailUrl: imageUrl(record) };
 }
 
-function readGroupingModule(raw: unknown): CatalogModule | null {
+function readCourseRef(item: unknown): { id: string; name: string } | null {
+  if (typeof item === "string" && item.trim()) return { id: item.trim(), name: "" };
+  const record = asRecord(item);
+  if (!record) return null;
+  const id = text(record.id ?? record.courseId);
+  if (!id) return null;
+  return { id, name: text(record.name ?? record.title) };
+}
+
+function readGroupingModule(raw: unknown, extras: CatalogCourse[]): CatalogModule | null {
   const record = asRecord(raw);
   if (!record) return null;
   const id = text(record.id ?? record.moduleId);
   const name = text(record.name ?? record.title);
-  const courseIds = Array.isArray(record.courseIds)
-    ? record.courseIds.map((item) => text(item)).filter(Boolean)
+  const source = Array.isArray(record.courseIds)
+    ? record.courseIds
     : Array.isArray(record.courses)
-      ? record.courses.map((item) => text(asRecord(item)?.id ?? item)).filter(Boolean)
+      ? record.courses
       : [];
+  const courseIds: string[] = [];
+  for (const item of source) {
+    const ref = readCourseRef(item);
+    if (!ref) continue;
+    courseIds.push(ref.id);
+    if (ref.name) extras.push({ id: ref.id, name: ref.name, thumbnailUrl: imageUrl(asRecord(item) ?? {}) });
+  }
   if (!id || !name) return null;
   return { id, name, thumbnailUrl: imageUrl(record), courseIds };
 }
@@ -95,10 +111,13 @@ export function normalizeCatalog(payload: unknown): TeachingCatalog {
   });
 
   if (grouping && courseList) {
-    return {
-      modules: moduleList.map(readGroupingModule).filter((item): item is CatalogModule => Boolean(item)),
-      courses: courseList.map(readCourse).filter((item): item is CatalogCourse => Boolean(item)),
-    };
+    const extras: CatalogCourse[] = [];
+    const modules = moduleList.map((item) => readGroupingModule(item, extras)).filter((item): item is CatalogModule => Boolean(item));
+    const courses = courseList.map(readCourse).filter((item): item is CatalogCourse => Boolean(item));
+    for (const extra of extras) {
+      if (!courses.some((course) => course.id === extra.id)) courses.push(extra);
+    }
+    return { modules, courses };
   }
 
   if (courseList) return invertNestedCourses(courseList);

@@ -42,6 +42,7 @@ export function joinNames(names: string[]): string {
 
 export function itemDetail(item: ListedItem): string {
   if (item.kind === "module") {
+    if (item.courseCount < 1) return "";
     return t(item.courseCount === 1 ? "sale.courses.kindModule.one" : "sale.courses.kindModule.other", { n: item.courseCount });
   }
   return t("sale.courses.kindCourse");
