@@ -277,6 +277,14 @@ export interface SaleContractClient {
 
 export type SalePortalOutcome = "created" | "associated";
 
+export interface SaleStudentRelease {
+  kind: "course" | "module";
+  id: string;
+  name: string;
+  startsAt: string;
+  thumbnailUrl: string | null;
+}
+
 export interface SaleStudent {
   id: string;
   saleId: string;
@@ -287,6 +295,7 @@ export interface SaleStudent {
   origin: SalePortalOutcome;
   createdByUserId: string | null;
   createdAt: string;
+  releases: SaleStudentRelease[];
 }
 
 export interface SaleStudentEnrollment {
@@ -320,6 +329,24 @@ function readOrigin(value: unknown): SalePortalOutcome {
   return readText(value).toLowerCase() === "associated" ? "associated" : "created";
 }
 
+function readRelease(raw: unknown): SaleStudentRelease | null {
+  const record = asRecord(raw);
+  if (!record) return null;
+  const kind = readText(record.kind).toLowerCase();
+  if (kind !== "course" && kind !== "module") return null;
+  const id = readText(record.id);
+  const name = readText(record.name);
+  if (!id || !name) return null;
+  const thumb = readText(record.thumbnailUrl);
+  return {
+    kind,
+    id,
+    name,
+    startsAt: readText(record.startsAt),
+    thumbnailUrl: thumb || null,
+  };
+}
+
 function readStudent(raw: unknown): SaleStudent | null {
   const record = asRecord(raw);
   if (!record) return null;
@@ -336,6 +363,9 @@ function readStudent(raw: unknown): SaleStudent | null {
     origin: readOrigin(record.origin),
     createdByUserId: readText(record.createdByUserId) || null,
     createdAt: readText(record.createdAt),
+    releases: Array.isArray(record.releases)
+      ? record.releases.map(readRelease).filter((item): item is SaleStudentRelease => Boolean(item))
+      : [],
   };
 }
 

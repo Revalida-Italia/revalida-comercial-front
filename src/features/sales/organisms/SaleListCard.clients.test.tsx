@@ -78,16 +78,18 @@ describe("sale list client names and actions", () => {
     expect(line.className).not.toContain("truncate");
   });
 
-  it("keeps Editar, Arquivar and Excluir on the card, with the delete confirmation", async () => {
+  it("shows Link, Ver detalhes and Arquivar in that order, and confirms archive", async () => {
     renderCard(sale(["Maria"]));
 
-    expect(screen.getByRole("link", { name: "Detalhes" })).toHaveAttribute("href", "/vendas/sale_1");
+    const row = document.querySelector(".sale-card-acts");
+    const labels = [...(row?.querySelectorAll(":scope > button, :scope > a") ?? [])].map((el) => el.getAttribute("aria-label"));
+    expect(labels).toEqual(["Link de pagamento", "Ver detalhes", "Arquivar"]);
+    expect(screen.getByRole("link", { name: "Ver detalhes" })).toHaveAttribute("href", "/vendas/sale_1");
+    expect(screen.getByRole("button", { name: "Arquivar" })).toHaveAttribute("aria-label", "Arquivar");
     expect(screen.getByRole("link", { name: "Editar" })).toHaveAttribute("href", "/vendas/sale_1/editar");
-    expect(screen.getByRole("button", { name: "Arquivar" })).toBeInTheDocument();
-    const remove = screen.getByRole("button", { name: "Excluir" });
-    expect(remove.className).toContain("9A3F3F");
+    expect(screen.getByRole("button", { name: "Excluir" }).className).toContain("9A3F3F");
 
-    fireEvent.click(remove);
-    expect(await screen.findByRole("alertdialog", { name: "Excluir venda?" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Arquivar" }));
+    expect(await screen.findByRole("alertdialog", { name: "Arquivar venda?" })).toBeInTheDocument();
   });
 });

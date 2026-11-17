@@ -92,7 +92,7 @@ export const ptBR = {
       whatsappTitle: "WhatsApp",
       whatsappReady: "Enviar link no WhatsApp",
       whatsappMissing: "Gere o link de pagamento antes de enviar.",
-      details: "Detalhes",
+      details: "Ver detalhes",
       more: "Mais ações",
       edit: "Editar",
       archive: "Arquivar",
@@ -540,5 +540,8 @@ export const ptBR = {
     enrollmentsFailed: "O usuário foi associado, mas alguns cursos não puderam ser liberados.",
     document: "Documento",
     phone: "Telefone",
+    released: "Conteúdo liberado",
+    startsOn: "Início em {data}",
+    noContent: "Nenhum curso liberado para este usuário.",
   },
 } as const;

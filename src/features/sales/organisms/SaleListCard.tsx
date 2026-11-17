@@ -1,29 +1,16 @@
-import { useEffect, useState } from "react";
+import { useState, type ReactElement } from "react";
 import { Link } from "react-router-dom";
 import type { SaleRecord } from "@/services/commercialApi";
 import { formatCurrency, formatDate } from "@/shared/utils/format";
 import StripeMark from "@/components/icons/StripeMark";
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { t, tCount, type MessageKey } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { hasRole, getProfile } from "@/lib/session";
+import { isSaleOwner } from "@/features/contracts/access";
 import { canMutateSales } from "@/services/usersApi";
-import {
-  Archive,
-  ChevronDown,
-  Eye,
-  FileText,
-  Link as LinkIcon,
-  MessageCircle,
-  Pencil,
-  Trash2,
-} from "lucide-react";
+import { Archive, Eye, Link as LinkIcon } from "lucide-react";
 import {
   getInstallmentPaymentsProgress,
   getSaleCommissionValue,
@@ -52,18 +39,13 @@ type SaleListCardProps = {
   sale: SaleRecord;
 };
 
-function useMinWidth(px: number): boolean {
-  const query = `(min-width: ${px}px)`;
-  const [matches, setMatches] = useState(() => typeof window.matchMedia === "function" && window.matchMedia(query).matches);
-  useEffect(() => {
-    if (typeof window.matchMedia !== "function") return;
-    const media = window.matchMedia(query);
-    const onChange = () => setMatches(media.matches);
-    onChange();
-    media.addEventListener("change", onChange);
-    return () => media.removeEventListener("change", onChange);
-  }, [query]);
-  return matches;
+function IconTip({ tip, children }: { tip: string; children: ReactElement }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{children}</TooltipTrigger>
+      <TooltipContent>{tip}</TooltipContent>
+    </Tooltip>
+  );
 }
 
 export function SalesListHeader() {
@@ -168,7 +150,6 @@ function paymentCell(sale: SaleRecord) {
 }
 
 const SaleListCard = ({ sale }: SaleListCardProps) => {
-  const wideActions = useMinWidth(1024);
   const profile = getProfile();
   const isAdmin = hasRole("ADMIN");
   const canMutate = canMutateSales(profile?.role);
@@ -207,6 +188,8 @@ const SaleListCard = ({ sale }: SaleListCardProps) => {
   const showCreateLink = canMutate && !hasPaymentLink && !isArchived && !subscriptionCancelled;
   const showWhatsapp = canMutate && !isArchived;
   const showEdit = canMutate && !isArchived;
+  const canArchive = !archiveActions.isArchived && (isAdmin || isSaleOwner(sale));
+  const showMenu = showStripe || hasHotmartCheckout || showWhatsapp || showEdit || (isAdmin && !archiveActions.isArchived);
   const concluded = String(sale.status).toUpperCase() === "CONCLUDED";
   const dotClass = isArchived ? "bg-muted-foreground" : concluded ? "bg-[#7FA88A]" : "bg-[#C9A15A]";
   const statusClass = isArchived ? "text-muted-foreground" : concluded ? "text-[#2F5A43]" : "text-[#8A611F]";
@@ -261,143 +244,118 @@ const SaleListCard = ({ sale }: SaleListCardProps) => {
         </div>
 
         <div className="sale-card-acts">
-          {showStripe ? (
-            <Button
-              type="button"
-              variant="ghost"
-              className={cn(ACTION, "sale-icon-btn")}
-              title={t("sales.actions.stripeTitle")}
-              aria-label={t("sales.actions.stripeName")}
-              onClick={() => setStripeOpen(true)}
-            >
-              <StripeMark className="h-4 w-4" />
-              <span className="sale-link-long">{t("sales.actions.stripe")}</span>
-            </Button>
-          ) : null}
-          {showViewLink || showCreateLink ? (
-            <div className="sale-split inline-flex min-w-0">
-              {showViewLink ? (
+          <TooltipProvider delayDuration={200}>
+            {showViewLink ? (
+              <IconTip tip={t("sales.actions.viewLinkTitle")}>
                 <Button
                   type="button"
                   variant="ghost"
-                  className={cn(ACTION, "sale-icon-btn text-primary", hasHotmartCheckout && "rounded-r-none")}
-                  title={t("sales.actions.viewLinkTitle")}
+                  className={cn(ACTION, "sale-icon-btn text-primary")}
                   aria-label={t("sales.actions.viewLink")}
                   onClick={() => setViewLinkOpen(true)}
                 >
-                  <Eye className="h-4 w-4" aria-hidden="true" />
-                  <span className="sale-link-long">{t("sales.actions.viewLink")}</span>
+                  <LinkIcon className="h-4 w-4" aria-hidden="true" />
                 </Button>
-              ) : (
+              </IconTip>
+            ) : showCreateLink ? (
+              <IconTip tip={hasPayments ? t("sales.actions.createLinkTitle") : t("sales.actions.noPayments")}>
                 <Button
                   type="button"
                   variant="ghost"
-                  className={cn(ACTION, "sale-icon-btn text-primary", hasHotmartCheckout && "rounded-r-none", !hasPayments && "cursor-not-allowed")}
+                  className={cn(ACTION, "sale-icon-btn text-primary", !hasPayments && "cursor-not-allowed")}
                   aria-disabled={!hasPayments}
                   aria-label={t("sales.actions.paymentLink")}
-                  title={hasPayments ? t("sales.actions.createLinkTitle") : t("sales.actions.noPayments")}
                   onClick={() => {
                     if (hasPayments) setCreateLinkOpen(true);
                   }}
                 >
                   <LinkIcon className="h-4 w-4" aria-hidden="true" />
-                  <span className="sale-link-long">{t("sales.actions.paymentLink")}</span>
-                  <span className="sale-link-short">{t("sales.actions.paymentLinkShort")}</span>
                 </Button>
-              )}
-              {hasHotmartCheckout ? (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
+              </IconTip>
+            ) : null}
+            <IconTip tip={t("sales.actions.details")}>
+              <Link
+                to={`/vendas/${sale.id}`}
+                className={cn(ACTION, "sale-icon-btn sale-compact")}
+                aria-label={t("sales.actions.details")}
+              >
+                <Eye className="h-4 w-4" aria-hidden="true" />
+              </Link>
+            </IconTip>
+            {canArchive ? (
+              <IconTip tip={t("sales.actions.archive")}>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className={cn(ACTION, "sale-icon-btn")}
+                  aria-label={t("sales.actions.archive")}
+                  onClick={archiveActions.openArchive}
+                >
+                  <Archive className="h-4 w-4" aria-hidden="true" />
+                </Button>
+              </IconTip>
+            ) : null}
+            {showMenu ? (
+              <details className="relative">
+                <summary
+                  className={cn(ACTION, "sale-compact cursor-pointer list-none px-3")}
+                  aria-label={t("sales.actions.more")}
+                  title={t("sales.actions.more")}
+                >
+                  …
+                </summary>
+                <div className="absolute right-0 z-20 mt-1 min-w-[200px] rounded-md border bg-popover p-1 shadow-md">
+                  {showStripe ? (
+                    <button
                       type="button"
-                      variant="ghost"
-                      className={cn(ACTION, "sale-compact rounded-l-none border-l-0 px-0")}
-                      aria-label={t("sales.actions.otherLinks")}
-                      title={t("sales.actions.otherLinks")}
+                      className="flex w-full items-center gap-2 px-2 py-2 text-left text-sm"
+                      aria-label={t("sales.actions.stripeName")}
+                      onClick={() => setStripeOpen(true)}
                     >
-                      <ChevronDown className="h-4 w-4" aria-hidden="true" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start" className="min-w-[180px] rounded-md p-1.5 shadow-lg">
-                    <DropdownMenuItem
-                      className="gap-2"
+                      <StripeMark className="h-4 w-4" />
+                      {t("sales.actions.stripe")}
+                    </button>
+                  ) : null}
+                  {hasHotmartCheckout ? (
+                    <button
+                      type="button"
+                      className="flex w-full items-center gap-2 px-2 py-2 text-left text-sm"
                       aria-label={t("sales.actions.hotmartOpen")}
-                      onSelect={() => setHotmartOpen(true)}
+                      onClick={() => setHotmartOpen(true)}
                     >
                       <LinkIcon className="h-4 w-4" aria-hidden="true" />
                       {t("sales.actions.hotmart")}
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              ) : null}
-            </div>
-          ) : hasHotmartCheckout ? (
-            <Button
-              type="button"
-              variant="ghost"
-              className={cn(ACTION, "text-primary")}
-              aria-label={t("sales.actions.hotmartOpen")}
-              title={t("sales.actions.hotmart")}
-              onClick={() => setHotmartOpen(true)}
-            >
-              <LinkIcon className="h-4 w-4" aria-hidden="true" />
-              <span className="sale-link-long">{t("sales.actions.hotmart")}</span>
-            </Button>
-          ) : null}
-          {showWhatsapp && wideActions ? (
-            <Button
-              type="button"
-              variant="ghost"
-              className={cn(ACTION, "sale-icon-btn sale-compact px-0", !hasPaymentLink && "cursor-not-allowed")}
-              aria-disabled={!hasPaymentLink}
-              aria-label={t("sales.actions.whatsapp")}
-              title={hasPaymentLink ? t("sales.actions.whatsappReady") : t("sales.actions.whatsappMissing")}
-              onClick={() => {
-                if (hasPaymentLink) setWhatsappOpen(true);
-              }}
-            >
-              <MessageCircle className="h-4 w-4" aria-hidden="true" />
-            </Button>
-          ) : null}
-          <Link
-            to={`/vendas/${sale.id}`}
-            className={cn(ACTION, "sale-compact")}
-            aria-label={t("sales.actions.details")}
-            title={t("sales.actions.details")}
-          >
-            <FileText className="sale-details-icon h-4 w-4" aria-hidden="true" />
-            <span>{t("sales.actions.details")}</span>
-          </Link>
-          <details className="relative">
-            <summary className={cn(ACTION, "sale-compact cursor-pointer list-none px-3")} aria-label={t("sales.actions.more")}>…</summary>
-            <div className="absolute right-0 z-20 mt-1 min-w-[180px] rounded-md border bg-popover p-1 shadow-md">
-              {showWhatsapp && !wideActions ? (
-                <button type="button" className="block w-full px-2 py-2 text-left text-sm" disabled={!hasPaymentLink} onClick={() => { if (hasPaymentLink) setWhatsappOpen(true); }}>
-                  {t("sales.actions.whatsapp")}
-                </button>
-              ) : null}
-              {showEdit ? (
-                <Link to={`/vendas/${sale.id}/editar`} className="block px-2 py-2 text-sm" aria-label={t("sales.actions.edit")}>
-                  {t("sales.actions.edit")}
-                </Link>
-              ) : null}
-              {isAdmin && !archiveActions.isArchived ? (
-                <button type="button" className="block w-full px-2 py-2 text-left text-sm" aria-label={t("sales.actions.archive")} onClick={archiveActions.openArchive}>
-                  {t("sales.actions.archive")}
-                </button>
-              ) : null}
-              {isAdmin && !archiveActions.isArchived ? (
-                <button
-                  type="button"
-                  className="block w-full px-2 py-2 text-left text-sm text-[#9A3F3F]"
-                  aria-label={t("sales.actions.remove")}
-                  onClick={() => { if (!archiveActions.hasPaid) archiveActions.openDelete(); }}
-                >
-                  {t("sales.actions.remove")}
-                </button>
-              ) : null}
-            </div>
-          </details>
+                    </button>
+                  ) : null}
+                  {showWhatsapp ? (
+                    <button
+                      type="button"
+                      className="block w-full px-2 py-2 text-left text-sm disabled:opacity-50"
+                      disabled={!hasPaymentLink}
+                      onClick={() => { if (hasPaymentLink) setWhatsappOpen(true); }}
+                    >
+                      {t("sales.actions.whatsapp")}
+                    </button>
+                  ) : null}
+                  {showEdit ? (
+                    <Link to={`/vendas/${sale.id}/editar`} className="block px-2 py-2 text-sm" aria-label={t("sales.actions.edit")}>
+                      {t("sales.actions.edit")}
+                    </Link>
+                  ) : null}
+                  {isAdmin && !archiveActions.isArchived ? (
+                    <button
+                      type="button"
+                      className="block w-full px-2 py-2 text-left text-sm text-[#9A3F3F]"
+                      aria-label={t("sales.actions.remove")}
+                      onClick={() => { if (!archiveActions.hasPaid) archiveActions.openDelete(); }}
+                    >
+                      {t("sales.actions.remove")}
+                    </button>
+                  ) : null}
+                </div>
+              </details>
+            ) : null}
+          </TooltipProvider>
         </div>
       </article>
 

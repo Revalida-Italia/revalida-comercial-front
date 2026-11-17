@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { UserPlus } from "lucide-react";
+import { Thumb } from "@/features/new-sale/courses/Thumb";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -89,11 +90,32 @@ export default function SalePortalUsers({ saleId }: Props) {
         ) : (
           <ul className="divide-y divide-border/70">
             {students.map((student) => (
-              <li key={student.id} className="grid gap-1 py-2 sm:grid-cols-[1.4fr_1.4fr_.8fr_.8fr] sm:items-center">
-                <p className="text-sm font-medium">{student.name || student.email}</p>
-                <p className="text-sm text-muted-foreground">{student.email}</p>
-                <p className="text-sm">{t(student.origin === "created" ? "portalAccess.outcomeCreated" : "portalAccess.outcomeAssociated")}</p>
-                <p className="text-sm text-muted-foreground">{student.createdAt ? formatDate(student.createdAt) : "—"}</p>
+              <li key={student.id} className="py-2">
+                <div className="grid gap-1 sm:grid-cols-[1.4fr_1.4fr_.8fr_.8fr] sm:items-center">
+                  <p className="text-sm font-medium">{student.name || student.email}</p>
+                  <p className="text-sm text-muted-foreground">{student.email}</p>
+                  <p className="text-sm">{t(student.origin === "created" ? "portalAccess.outcomeCreated" : "portalAccess.outcomeAssociated")}</p>
+                  <p className="text-sm text-muted-foreground">{student.createdAt ? formatDate(student.createdAt) : "—"}</p>
+                </div>
+                {(student.releases ?? []).length > 0 ? (
+                  <ul className="mt-2 space-y-1.5" aria-label={t("portalAccess.released")}>
+                    {(student.releases ?? []).map((release) => (
+                      <li key={`${release.kind}-${release.id}`} className="flex min-w-0 items-center gap-2">
+                        <Thumb src={release.thumbnailUrl} size={release.kind === "module" ? "module" : "course"} />
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium">{release.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {release.startsAt
+                              ? t("portalAccess.startsOn", { data: formatDate(release.startsAt) })
+                              : t("portalAccess.released")}
+                          </p>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="mt-1 text-xs text-muted-foreground">{t("portalAccess.noContent")}</p>
+                )}
               </li>
             ))}
           </ul>

@@ -1,10 +1,15 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { CORE_EXISTING_USER_ID_MISSING } from "@/services/contractsApi";
+import { CORE_EXISTING_USER_ID_MISSING, normalizeSaleStudents } from "@/services/contractsApi";
 import SalePortalUsers from "./SalePortalUsers";
 
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
+vi.mock("@/features/new-sale/courses/Thumb", () => ({
+  Thumb: ({ src, size }: { src: string | null; size: string }) => (
+    <span data-thumb={size} data-src={src ?? ""} />
+  ),
+}));
 vi.mock("@/services/contractsApi", async () => {
   const actual = await vi.importActual<typeof import("@/services/contractsApi")>("@/services/contractsApi");
   return {
@@ -35,7 +40,48 @@ const student = {
   origin: "associated" as const,
   createdByUserId: "admin-1",
   createdAt: "2026-11-16T12:00:00.000Z",
+  releases: [
+    {
+      kind: "module" as const,
+      id: "mod-1",
+      name: "Clínica médica",
+      startsAt: "2026-08-20",
+      thumbnailUrl: "https://cdn.example.test/mod.jpg",
+    },
+    {
+      kind: "course" as const,
+      id: "course-1",
+      name: "Italiano A1",
+      startsAt: "2026-09-01",
+      thumbnailUrl: null,
+    },
+  ],
 };
+
+describe("sale student payload", () => {
+  it("keeps the released courses and modules returned for each student", () => {
+    const [row] = normalizeSaleStudents({
+      success: true,
+      data: {
+        students: [{
+          id: "st-1",
+          email: "go@example.com",
+          name: "Go",
+          origin: "associated",
+          releases: [
+            { kind: "module", id: "mod-1", name: "Clínica médica", startsAt: "2026-08-20", thumbnailUrl: "https://cdn.example.test/mod.jpg" },
+            { kind: "note", id: "x", name: "ignored" },
+            { kind: "course", id: "course-1", name: "Italiano A1", startsAt: "2026-09-01", thumbnailUrl: null },
+          ],
+        }],
+      },
+    });
+    expect(row.releases).toEqual([
+      { kind: "module", id: "mod-1", name: "Clínica médica", startsAt: "2026-08-20", thumbnailUrl: "https://cdn.example.test/mod.jpg" },
+      { kind: "course", id: "course-1", name: "Italiano A1", startsAt: "2026-09-01", thumbnailUrl: null },
+    ]);
+  });
+});
 
 describe("sale portal users", () => {
   beforeEach(() => {
@@ -50,6 +96,13 @@ describe("sale portal users", () => {
     expect(screen.getByText("go@example.com")).toBeInTheDocument();
     expect(screen.getByText("Associado")).toBeInTheDocument();
     expect(screen.getByText("16/11/2026")).toBeInTheDocument();
+    const released = screen.getByRole("list", { name: "Conteúdo liberado" });
+    expect(within(released).getByText("Clínica médica")).toBeInTheDocument();
+    expect(within(released).getByText("Início em 20/08/2026")).toBeInTheDocument();
+    expect(within(released).getByText("Italiano A1")).toBeInTheDocument();
+    expect(within(released).getByText("Início em 01/09/2026")).toBeInTheDocument();
+    expect(released.querySelector("[data-src='https://cdn.example.test/mod.jpg']")).toHaveAttribute("data-thumb", "module");
+    expect(released.querySelector("[data-src='']")).toHaveAttribute("data-thumb", "course");
   });
 
   it("explains when an existing account cannot be linked", async () => {
