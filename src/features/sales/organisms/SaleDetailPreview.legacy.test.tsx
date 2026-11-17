@@ -88,6 +88,40 @@ describe("legacy sale without list fields", () => {
     expect(screen.queryByText("Módulo · 0 cursos")).not.toBeInTheDocument();
   });
 
+  it("uses the course ids saved on the module and hides a zero count", async () => {
+    vi.mocked(listCourseCatalog).mockResolvedValue({
+      modules: [],
+      courses: [
+        { id: "c1", name: "Clínica I", thumbnailUrl: null },
+        { id: "c2", name: "Clínica II", thumbnailUrl: null },
+      ],
+    });
+    const sale = {
+      ...legacySale(),
+      items: [{
+        id: "i1",
+        saleId: "legacy",
+        kind: "module",
+        moduleId: "mod-1",
+        moduleName: "Clínica médica",
+        courseIds: ["c1", "c2"],
+        startsAt: "2026-08-20",
+        endsAt: "2027-08-20",
+      }],
+    } as SaleRecord;
+    renderPreview(sale);
+    expect(await screen.findByText("Módulo · 2 cursos")).toBeInTheDocument();
+    expect(screen.getByText("Clínica I, Clínica II")).toBeInTheDocument();
+
+    vi.mocked(listCourseCatalog).mockResolvedValue({ modules: [], courses: [] });
+    renderPreview({
+      ...sale,
+      items: [{ ...sale.items[0], courseIds: [] }],
+    } as SaleRecord);
+    expect(screen.getAllByText("Clínica médica").length).toBeGreaterThan(0);
+    expect(screen.queryByText(/0 cursos/)).not.toBeInTheDocument();
+  });
+
   it("shows Tradução juramentada as included when the sale saved it as Sim", () => {
     const sale = {
       ...legacySale(),

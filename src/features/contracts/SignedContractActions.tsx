@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { GraduationCap, Loader2 } from "lucide-react";
 import {
@@ -35,10 +35,11 @@ function signerLabel(signer: NonNullable<SaleContract["signers"]>[number]): stri
 export default function SignedContractActions({ contract, onChanged }: Props) {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [failures, setFailures] = useState<CreatePortalStudentsResponse["results"]>([]);
+  const queryClient = useQueryClient();
 
   const createStudentsMutation = useMutation({
     mutationFn: () => createPortalStudents(contract.id),
-    onSuccess: (payload) => {
+    onSuccess: async (payload) => {
       const failed = (payload.results ?? []).filter((result) => result.status === "failed");
       setFailures(failed);
       const created = payload.summary?.created ?? 0;
@@ -52,6 +53,7 @@ export default function SignedContractActions({ contract, onChanged }: Props) {
         );
       }
       if (ok > 0) toast.success(tCount("portalAccess.created", ok));
+      await queryClient.invalidateQueries({ queryKey: ["sale-students", contract.saleId] });
       onChanged?.();
     },
     onError: (error: unknown) => {

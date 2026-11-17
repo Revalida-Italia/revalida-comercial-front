@@ -198,6 +198,19 @@ describe("catalog and contract lines", () => {
       },
     }).modules[0]?.courseIds).toEqual(["c1", "c2"]);
     expect(normalizeCatalog({
+      data: {
+        modules: [{
+          id: "mod-legal",
+          name: "Medicina Legal",
+          courseIds: [{ id: "legal-1", name: "Medicina Legal I" }],
+        }],
+        courses: [],
+      },
+    })).toMatchObject({
+      modules: [{ id: "mod-legal", courseIds: ["legal-1"] }],
+      courses: [{ id: "legal-1", name: "Medicina Legal I" }],
+    });
+    expect(normalizeCatalog({
       courses: [{ id: "start", name: "Curso Start", thumbnailUrl: null, modules: [{ id: "docs", name: "Documentação" }] }],
     }).modules).toEqual([
       { id: "docs", name: "Documentação", thumbnailUrl: null, courseIds: ["start"] },
@@ -216,6 +229,21 @@ describe("catalog and contract lines", () => {
     }], "2026-08-20");
     expect(listItems(draft, [] as never).map((item) => item.name)).toEqual(["Clínica médica"]);
     expect(servicesFromRecord({ translationIncluded: true }).translation).toBe(true);
+    const named = draftFromItems([{
+      kind: "module",
+      moduleId: "other-id",
+      name: "Medicina Legal",
+      courseName: "Medicina Legal",
+      moduleName: "Medicina Legal",
+      startsAt: "2026-08-20",
+      endsAt: "2027-08-20",
+    }], "2026-08-20");
+    const listed = listItems(named, {
+      modules: [{ id: "mod-legal", name: "Medicina Legal", thumbnailUrl: null, courseIds: ["legal-1"] }],
+      courses: [{ id: "legal-1", name: "Medicina Legal I", thumbnailUrl: null }],
+    });
+    expect(listed[0]?.courseCount).toBe(1);
+    expect(listed[0]?.courseNames).toEqual(["Medicina Legal I"]);
   });
 
   it("writes one clause line per item", () => {

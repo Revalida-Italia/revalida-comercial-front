@@ -99,10 +99,14 @@ export function readCourseItems(items: SaleItem[] | undefined): CourseSaleItem[]
     const moduleName = kind === "module" ? (item.moduleName?.trim() || item.name?.trim() || "") : null;
     const name = kind === "module" ? moduleName || "" : courseName;
     if (!name) continue;
+    const courseIds = Array.isArray(item.courseIds)
+      ? item.courseIds.map((id) => id.trim()).filter(Boolean)
+      : undefined;
     out.push({
       kind,
       ...(item.courseId ? { courseId: item.courseId } : {}),
       ...(kind === "module" && item.moduleId ? { moduleId: item.moduleId } : {}),
+      ...(courseIds ? { courseIds } : {}),
       startsAt: (item.startsAt ?? "").slice(0, 10),
       endsAt: (item.endsAt ?? "").slice(0, 10),
       name,
@@ -125,7 +129,10 @@ export function draftFromItems(items: CourseSaleItem[], saleDate: string): Cours
       if (!modules.includes(item.moduleId)) modules.push(item.moduleId);
       const key = moduleKey(item.moduleId);
       perItem[key] = { startsAt: item.startsAt, endsAt: item.endsAt };
-      labels[key] = { name: item.name };
+      labels[key] = {
+        name: item.name,
+        ...(item.courseIds ? { courseIds: item.courseIds } : {}),
+      };
     } else if (item.courseId) {
       if (!courses.includes(item.courseId)) courses.push(item.courseId);
       const key = courseKey(item.courseId);
@@ -204,6 +211,14 @@ export function courseNamesOf(catalog: TeachingCatalog, module: CatalogModule): 
     .filter((name): name is string => Boolean(name));
 }
 
+function moduleRecord(catalog: TeachingCatalog, moduleId: string, savedName?: string): CatalogModule | undefined {
+  const found = moduleById(catalog, moduleId);
+  if (found) return found;
+  const name = savedName?.trim().toLowerCase();
+  if (!name) return undefined;
+  return asCatalog(catalog).modules.find((item) => item.name.trim().toLowerCase() === name);
+}
+
 /** Modules currently selected that contain this course, in catalog order. */
 export function lockingModules(catalog: TeachingCatalog, draft: CourseDraft, courseId: string): CatalogModule[] {
   return asCatalog(catalog).modules.filter((item) => draft.modules.includes(item.id) && (item.courseIds ?? []).includes(courseId));
@@ -249,7 +264,7 @@ export function listItems(draft: CourseDraft, catalog: TeachingCatalog): ListedI
   const rows: ListedItem[] = [];
   const seenModules = new Set<string>();
 
-  const pushModule = (moduleId: string, name: string, courseNames: string[]) => {
+  const pushModule = (moduleId: string, name: string, courseNames: string[], courseCount = courseNames.length) => {
     const key = moduleKey(moduleId);
     seenModules.add(moduleId);
     rows.push({
@@ -258,7 +273,7 @@ export function listItems(draft: CourseDraft, catalog: TeachingCatalog): ListedI
       moduleId,
       name,
       courseName: name,
-      courseCount: courseNames.length,
+      courseCount,
       courseNames,
       ...datesFor(draft, key),
     });
@@ -279,10 +294,15 @@ export function listItems(draft: CourseDraft, catalog: TeachingCatalog): ListedI
   };
 
   for (const moduleId of draft.modules) {
-    const mod = moduleById(catalog, moduleId);
     const saved = draft.labels[moduleKey(moduleId)];
+    const mod = moduleRecord(catalog, moduleId, saved?.name);
     if (!mod && !saved) continue;
-    pushModule(moduleId, mod?.name || saved?.name || "", mod ? courseNamesOf(catalog, mod) : []);
+    const savedIds = saved?.courseIds;
+    const ids = Array.isArray(savedIds) ? savedIds : (mod?.courseIds ?? []);
+    const names = ids
+      .map((id) => courseById(catalog, id)?.name)
+      .filter((name): name is string => Boolean(name));
+    pushModule(moduleId, mod?.name || saved?.name || "", names, ids.length);
   }
   for (const courseId of draft.courses) {
     if (isCourseLocked(catalog, draft, courseId)) continue;

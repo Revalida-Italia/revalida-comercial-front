@@ -46,6 +46,8 @@ export interface SaleItem {
   /** Frozen on the sale. A module line uses both; a whole course leaves `moduleName` empty. */
   courseName?: string | null;
   moduleName?: string | null;
+  /** Courses inside a module, as returned on GET /sales/:id. Empty when the catalog did not load. */
+  courseIds?: string[] | null;
   /** Older payloads. The sale response uses `courseName` and `moduleName`. */
   name?: string | null;
   createdAt: string;

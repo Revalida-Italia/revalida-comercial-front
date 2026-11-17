@@ -17,6 +17,7 @@ import StripeCheckoutLinkDialog from "@/features/sales/organisms/StripeCheckoutL
 import SaleArchiveDeleteActions from "@/features/sales/organisms/SaleArchiveDeleteActions";
 import ViewPaymentLinkDialog from "@/features/sales/organisms/ViewPaymentLinkDialog";
 import SaleContractsPanel from "@/features/contracts/SaleContractsPanel";
+import SalePortalUsers from "@/features/sales/organisms/SalePortalUsers";
 import { canGenerateContracts } from "@/features/contracts/access";
 import { getSaleCommissionValue, getSaleContractValue, getSaleSellerInfo } from "@/features/sales/utils";
 import { saleHasPaymentLink } from "@/features/sales/utils/paymentLink";
@@ -388,6 +389,8 @@ const SaleDetails = () => {
           />
         </CardContent>
       </Card>
+
+      {isAdmin ? <SalePortalUsers saleId={sale.id} /> : null}
 
       {canGenerateContracts() && (
         <SaleContractsPanel saleId={sale.id} sellerId={sale.sellerId} seller={sale.seller} />

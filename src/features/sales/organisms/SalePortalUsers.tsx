@@ -1,0 +1,151 @@
+import { useState, type FormEvent } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { UserPlus } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { t } from "@/i18n";
+import {
+  createSaleStudent,
+  isExistingUserIdMissing,
+  listSaleStudents,
+} from "@/services/contractsApi";
+import { formatDate } from "@/shared/utils/format";
+
+type Props = { saleId: string };
+
+const emptyForm = { email: "", name: "", document: "", phone: "" };
+
+export default function SalePortalUsers({ saleId }: Props) {
+  const queryClient = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const [form, setForm] = useState(emptyForm);
+  const [error, setError] = useState<string | null>(null);
+  const query = useQuery({
+    queryKey: ["sale-students", saleId],
+    queryFn: () => listSaleStudents(saleId),
+  });
+
+  const associate = useMutation({
+    mutationFn: () => createSaleStudent(saleId, form),
+    onSuccess: async (result) => {
+      const origin = result.student?.origin ?? "associated";
+      toast.success(t(origin === "created" ? "portalAccess.createdNow" : "portalAccess.associatedNow"));
+      if (result.enrollments.failed > 0) toast.error(t("portalAccess.enrollmentsFailed"));
+      setOpen(false);
+      setForm(emptyForm);
+      await queryClient.invalidateQueries({ queryKey: ["sale-students", saleId] });
+    },
+    onError: (cause: unknown) => {
+      setError(t(isExistingUserIdMissing(cause) ? "portalAccess.existingUser" : "portalAccess.saveError"));
+    },
+  });
+
+  function submit(event: FormEvent) {
+    event.preventDefault();
+    const email = form.email.trim();
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setError(t("portalAccess.emailInvalid"));
+      return;
+    }
+    setError(null);
+    associate.mutate();
+  }
+
+  const students = query.data ?? [];
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0">
+        <CardTitle className="text-sm">{t("portalAccess.title")}</CardTitle>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          className="gap-1.5"
+          onClick={() => {
+            setError(null);
+            setOpen(true);
+          }}
+        >
+          <UserPlus className="h-4 w-4" aria-hidden="true" />
+          {t("portalAccess.associate")}
+        </Button>
+      </CardHeader>
+      <CardContent>
+        {query.isError ? (
+          <p className="text-sm text-destructive">{t("portalAccess.loadError")}</p>
+        ) : students.length === 0 ? (
+          <p className="text-sm text-muted-foreground">{t("portalAccess.empty")}</p>
+        ) : (
+          <ul className="divide-y divide-border/70">
+            {students.map((student) => (
+              <li key={student.id} className="grid gap-1 py-2 sm:grid-cols-[1.4fr_1.4fr_.8fr_.8fr] sm:items-center">
+                <p className="text-sm font-medium">{student.name || student.email}</p>
+                <p className="text-sm text-muted-foreground">{student.email}</p>
+                <p className="text-sm">{t(student.origin === "created" ? "portalAccess.outcomeCreated" : "portalAccess.outcomeAssociated")}</p>
+                <p className="text-sm text-muted-foreground">{student.createdAt ? formatDate(student.createdAt) : "—"}</p>
+              </li>
+            ))}
+          </ul>
+        )}
+      </CardContent>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent aria-describedby={undefined}>
+          <DialogHeader>
+            <DialogTitle>{t("portalAccess.associate")}</DialogTitle>
+          </DialogHeader>
+          <form className="space-y-3" onSubmit={submit}>
+            <div className="space-y-1.5">
+              <Label htmlFor="sale-student-email">{t("portalAccess.email")}</Label>
+              <Input
+                id="sale-student-email"
+                type="email"
+                value={form.email}
+                onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="sale-student-name">{t("portalAccess.name")}</Label>
+              <Input
+                id="sale-student-name"
+                value={form.name}
+                onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="sale-student-document">{t("portalAccess.document")}</Label>
+              <Input
+                id="sale-student-document"
+                value={form.document}
+                onChange={(event) => setForm((current) => ({ ...current, document: event.target.value }))}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="sale-student-phone">{t("portalAccess.phone")}</Label>
+              <Input
+                id="sale-student-phone"
+                value={form.phone}
+                onChange={(event) => setForm((current) => ({ ...current, phone: event.target.value }))}
+              />
+            </div>
+            {error ? <p className="text-sm text-destructive">{error}</p> : null}
+            <DialogFooter>
+              <Button type="button" variant="ghost" onClick={() => setOpen(false)}>{t("common.cancel")}</Button>
+              <Button type="submit" disabled={associate.isPending}>{t("portalAccess.associate")}</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </Card>
+  );
+}

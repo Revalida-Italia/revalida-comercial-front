@@ -38,6 +38,8 @@ export type CourseSaleItem = {
   name: string;
   courseName: string;
   moduleName?: string | null;
+  /** Present on a saved module. An empty list means the catalog did not load. */
+  courseIds?: string[];
 };
 
 export type DateMode = "same" | "item";
@@ -59,7 +61,7 @@ export type CourseDraft = {
   sharedStart: string;
   sharedEnd: string;
   perItem: Record<string, ItemDates>;
-  labels: Record<string, { name: string; courseName?: string }>;
+  labels: Record<string, { name: string; courseName?: string; courseIds?: string[] }>;
   touched: Record<string, true>;
   editing: Record<string, true>;
   attempted: boolean;
