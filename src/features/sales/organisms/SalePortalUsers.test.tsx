@@ -1,10 +1,14 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { EMAIL_ALREADY_EXISTS, normalizeSaleStudents } from "@/services/contractsApi";
+import type { SaleItem } from "@/services/commercialApi";
 import SalePortalUsers from "./SalePortalUsers";
 
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
+vi.mock("@/features/new-sale/courses/catalogApi", () => ({
+  listCourseCatalog: vi.fn().mockResolvedValue({ modules: [], courses: [] }),
+}));
 vi.mock("@/features/new-sale/courses/Thumb", () => ({
   Thumb: ({ src, size }: { src: string | null; size: string }) => (
     <span data-thumb={size} data-src={src ?? ""} />
@@ -21,11 +25,11 @@ vi.mock("@/services/contractsApi", async () => {
 
 const { listSaleStudents, createSaleStudent } = await import("@/services/contractsApi");
 
-function renderSection() {
+function renderSection(items?: SaleItem[]) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
   return render(
     <QueryClientProvider client={client}>
-      <SalePortalUsers saleId="sale-1" />
+      <SalePortalUsers saleId="sale-1" items={items} />
     </QueryClientProvider>,
   );
 }
@@ -117,6 +121,46 @@ describe("sale portal users", () => {
     expect(screen.getAllByText("Clínica médica")).toHaveLength(1);
     expect(screen.getAllByText("Italiano A1")).toHaveLength(1);
     expect(screen.getAllByRole("list", { name: "Liberado" })).toHaveLength(1);
+  });
+
+  it("reviews the release before the first student and does not warn again afterwards", async () => {
+    vi.mocked(listSaleStudents).mockResolvedValue([]);
+    vi.mocked(createSaleStudent).mockResolvedValue({
+      student: null,
+      enrollments: { created: 1, alreadyEnrolled: 0, failed: 0 },
+    });
+    renderSection([{
+      id: "item-1",
+      saleId: "sale-1",
+      kind: "module",
+      moduleId: "mod-1",
+      moduleName: "Clínica médica",
+      startsAt: "2026-08-20",
+      endsAt: "2027-08-20",
+      createdAt: "2026-11-10T12:00:00.000Z",
+      updatedAt: "2026-11-10T12:00:00.000Z",
+    }]);
+    fireEvent.click(await screen.findByRole("button", { name: "Criar usuário" }));
+    const dialog = await screen.findByRole("dialog", { name: "Criar usuário" });
+    fireEvent.change(within(dialog).getByLabelText("E-mail"), { target: { value: "ana@example.com" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Continuar" }));
+    expect(await within(dialog).findByText(/Confira o que será liberado/)).toBeInTheDocument();
+    expect(within(dialog).getByText("Clínica médica")).toBeInTheDocument();
+    expect(within(dialog).getByText("Início em 20/08/2026")).toBeInTheDocument();
+    expect(createSaleStudent).not.toHaveBeenCalled();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Criar usuário" }));
+    await waitFor(() => expect(createSaleStudent).toHaveBeenCalledWith("sale-1", expect.objectContaining({ email: "ana@example.com" })));
+  });
+
+  it("shows the locked release in the dialog without the first-student warning", async () => {
+    vi.mocked(listSaleStudents).mockResolvedValue([student]);
+    renderSection();
+    await screen.findByText("Go");
+    fireEvent.click(screen.getByRole("button", { name: "Criar usuário" }));
+    const dialog = await screen.findByRole("dialog", { name: "Criar usuário" });
+    expect(within(dialog).getByText("Clínica médica")).toBeInTheDocument();
+    expect(within(dialog).queryByText(/Confira o que será liberado/)).not.toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "Criar usuário" })).toBeInTheDocument();
   });
 
   it("shows an inline error when the email already has an account", async () => {

@@ -11,6 +11,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { t, type MessageKey } from "@/i18n";
+import { formatDate } from "@/shared/utils/format";
 import { cn } from "@/lib/utils";
 import { AccessDateField } from "./AccessDateField";
 import { Thumb } from "./Thumb";
@@ -49,6 +50,8 @@ type Props = {
   clients: string[];
   onBack: () => void;
   onNext: () => void;
+  /** After the first student, courses and dates stay as sold. */
+  locked?: boolean;
 };
 
 const SERVICES: Array<{ key: keyof SaleServices; label: MessageKey }> = [
@@ -103,7 +106,7 @@ function includedLine(catalog: TeachingCatalog, draft: CourseDraft, courseId: st
 const ROW =
   "flex min-h-[52px] w-full items-center gap-3 rounded-[0.375rem] px-2 py-1.5 text-left outline-none cursor-pointer hover:bg-[#F3F6F9] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#2F5679]";
 
-export function CoursesStep({ catalog, loading, error, onRetry, draft, onChange, clients, onBack, onNext }: Props) {
+export function CoursesStep({ catalog, loading, error, onRetry, draft, onChange, clients, onBack, onNext, locked = false }: Props) {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<CatalogFilter>("all");
   const [confirmSame, setConfirmSame] = useState(false);
@@ -160,6 +163,7 @@ export function CoursesStep({ catalog, loading, error, onRetry, draft, onChange,
 
   return (
     <section className="min-w-0">
+      {locked ? <LockedRelease catalog={catalog} items={items} /> : <>
       <div className="mb-3.5 flex items-baseline justify-between gap-3">
         <h2 className="text-lg font-bold">{t("sale.courses.title")}</h2>
         <span className="whitespace-nowrap text-[13px] text-[#5D6F83]">{selectedLabel(items.length)}</span>
@@ -358,6 +362,7 @@ export function CoursesStep({ catalog, loading, error, onRetry, draft, onChange,
         )}
       </div>
       ) : null}
+      </>}
 
       {!loading && !error ? (
         <div className="mt-7 border-t border-[rgba(36,56,79,0.10)] pt-6">
@@ -416,6 +421,40 @@ export function CoursesStep({ catalog, loading, error, onRetry, draft, onChange,
         </AlertDialogContent>
       </AlertDialog>
     </section>
+  );
+}
+
+function thumbOf(catalog: TeachingCatalog, item: ReturnType<typeof listItems>[number]): string | null {
+  if (item.kind === "module" && item.moduleId) {
+    return (catalog.modules ?? []).find((module) => module.id === item.moduleId)?.thumbnailUrl ?? null;
+  }
+  return (catalog.courses ?? []).find((course) => course.id === item.courseId)?.thumbnailUrl ?? null;
+}
+
+function LockedRelease({ catalog, items }: { catalog: TeachingCatalog; items: ReturnType<typeof listItems> }) {
+  return (
+    <div>
+      <h2 className="text-lg font-bold">{t("sale.courses.title")}</h2>
+      <p className="mt-2 max-w-xl text-sm text-[#52657A]">{t("portalAccess.lockedHint")}</p>
+      {items.length === 0 ? (
+        <p className="mt-4 text-sm text-[#5D6F83]">{t("portalAccess.reviewEmpty")}</p>
+      ) : (
+        <ul className="mt-4 space-y-2">
+          {items.map((item) => (
+            <li key={item.key} className="flex min-w-0 items-center gap-3 py-1">
+              <Thumb src={thumbOf(catalog, item)} size="course" />
+              <div className="min-w-0">
+                <p className="truncate font-semibold">{item.name}</p>
+                <p className="text-[12.5px] text-[#5D6F83]">
+                  {t("sale.access.start")} {item.startsAt ? formatDate(item.startsAt) : "—"}
+                  {item.endsAt ? ` · ${t("sale.access.end")} ${formatDate(item.endsAt)}` : ""}
+                </p>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }
 

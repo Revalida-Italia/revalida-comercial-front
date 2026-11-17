@@ -15,6 +15,9 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { t } from "@/i18n";
+import { listCourseCatalog } from "@/features/new-sale/courses/catalogApi";
+import type { TeachingCatalog } from "@/features/new-sale/courses/types";
+import type { SaleItem } from "@/services/commercialApi";
 import {
   createSaleStudent,
   isEmailAlreadyExists,
@@ -24,7 +27,28 @@ import {
 } from "@/services/contractsApi";
 import { formatDate } from "@/shared/utils/format";
 
-type Props = { saleId: string };
+type Props = { saleId: string; items?: SaleItem[] };
+
+function releasesFromSaleItems(items: SaleItem[] | undefined, catalog?: TeachingCatalog): SaleStudentRelease[] {
+  const releases: SaleStudentRelease[] = [];
+  for (const item of items ?? []) {
+    if (item.kind !== "course" && item.kind !== "module") continue;
+    const id = item.kind === "module" ? item.moduleId : item.courseId;
+    const name = item.kind === "module" ? item.moduleName || item.name : item.courseName || item.name;
+    if (!id || !name?.trim()) continue;
+    const cover = item.kind === "module"
+      ? catalog?.modules?.find((module) => module.id === id)?.thumbnailUrl
+      : catalog?.courses?.find((course) => course.id === id)?.thumbnailUrl;
+    releases.push({
+      kind: item.kind,
+      id,
+      name: name.trim(),
+      startsAt: (item.startsAt ?? "").slice(0, 10),
+      thumbnailUrl: cover ?? null,
+    });
+  }
+  return releases;
+}
 
 const emptyForm = { email: "", name: "", document: "", phone: "" };
 
@@ -43,9 +67,10 @@ export function releasesForSale(students: SaleStudent[]): SaleStudentRelease[] {
   return releases;
 }
 
-export default function SalePortalUsers({ saleId }: Props) {
+export default function SalePortalUsers({ saleId, items }: Props) {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
+  const [review, setReview] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [error, setError] = useState<string | null>(null);
   const query = useQuery({
@@ -75,11 +100,22 @@ export default function SalePortalUsers({ saleId }: Props) {
       return;
     }
     setError(null);
+    if (query.isSuccess && (query.data ?? []).length === 0) {
+      setReview(true);
+      return;
+    }
     createUser.mutate();
   }
 
   const students = query.data ?? [];
-  const releases = releasesForSale(students);
+  const fromStudents = releasesForSale(students);
+  const catalogQuery = useQuery({
+    queryKey: ["sales", "course-catalog"],
+    queryFn: listCourseCatalog,
+    enabled: fromStudents.length === 0,
+  });
+  const releases = fromStudents.length > 0 ? fromStudents : releasesFromSaleItems(items, catalogQuery.data);
+  const firstStudent = query.isSuccess && students.length === 0;
 
   return (
     <Card>
@@ -92,6 +128,7 @@ export default function SalePortalUsers({ saleId }: Props) {
           className="gap-1.5"
           onClick={() => {
             setError(null);
+            setReview(false);
             setOpen(true);
           }}
         >
@@ -144,12 +181,34 @@ export default function SalePortalUsers({ saleId }: Props) {
           </div>
         )}
       </CardContent>
-      <Dialog open={open} onOpenChange={setOpen}>
+      <Dialog open={open} onOpenChange={(next) => { setOpen(next); if (!next) setReview(false); }}>
         <DialogContent aria-describedby={undefined}>
           <DialogHeader>
             <DialogTitle>{t("portalAccess.associate")}</DialogTitle>
           </DialogHeader>
+          {review ? (
+            <form
+              className="space-y-3"
+              onSubmit={(event) => {
+                event.preventDefault();
+                createUser.mutate();
+              }}
+            >
+              <ReleaseList releases={releases} />
+              {releases.length === 0 ? <p className="text-sm text-muted-foreground">{t("portalAccess.reviewEmpty")}</p> : null}
+              <p className="text-sm text-[#52657A]">{t("portalAccess.reviewWarning")}</p>
+              <DialogFooter>
+                <Button type="button" variant="ghost" onClick={() => setReview(false)}>{t("portalAccess.reviewBack")}</Button>
+                <Button type="submit" disabled={createUser.isPending}>{t("portalAccess.associate")}</Button>
+              </DialogFooter>
+            </form>
+          ) : (
           <form className="space-y-3" onSubmit={submit}>
+            {!firstStudent ? (
+              releases.length === 0
+                ? <p className="text-sm text-muted-foreground">{t("portalAccess.grantedEmpty")}</p>
+                : <ReleaseList releases={releases} />
+            ) : null}
             <div className="space-y-1.5">
               <Label htmlFor="sale-student-email">{t("portalAccess.email")}</Label>
               <Input
@@ -186,11 +245,34 @@ export default function SalePortalUsers({ saleId }: Props) {
             {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
             <DialogFooter>
               <Button type="button" variant="ghost" onClick={() => setOpen(false)}>{t("common.cancel")}</Button>
-              <Button type="submit" disabled={createUser.isPending}>{t("portalAccess.associate")}</Button>
+              <Button type="submit" disabled={createUser.isPending}>{t(firstStudent ? "portalAccess.continue" : "portalAccess.associate")}</Button>
             </DialogFooter>
           </form>
+          )}
         </DialogContent>
       </Dialog>
     </Card>
+  );
+}
+
+function ReleaseList({ releases }: { releases: SaleStudentRelease[] }) {
+  if (releases.length === 0) return null;
+  return (
+    <div>
+      <h3 className="mb-2 text-sm font-semibold">{t("portalAccess.granted")}</h3>
+      <ul className="space-y-1.5" aria-label={t("portalAccess.granted")}>
+        {releases.map((release) => (
+          <li key={`${release.kind}-${release.id}`} className="flex min-w-0 items-center gap-2">
+            <Thumb src={release.thumbnailUrl} size={release.kind === "module" ? "module" : "course"} />
+            <div className="min-w-0">
+              <p className="truncate text-sm font-medium">{release.name}</p>
+              <p className="text-xs text-muted-foreground">
+                {release.startsAt ? t("portalAccess.startsOn", { data: formatDate(release.startsAt) }) : t("portalAccess.released")}
+              </p>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }

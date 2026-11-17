@@ -390,7 +390,7 @@ const SaleDetails = () => {
         </CardContent>
       </Card>
 
-      {isAdmin ? <SalePortalUsers saleId={sale.id} /> : null}
+      {isAdmin ? <SalePortalUsers saleId={sale.id} items={sale.items} /> : null}
 
       {canGenerateContracts() && (
         <SaleContractsPanel saleId={sale.id} sellerId={sale.sellerId} seller={sale.seller} />
