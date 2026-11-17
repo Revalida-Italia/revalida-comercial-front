@@ -19,12 +19,29 @@ import {
   createSaleStudent,
   isEmailAlreadyExists,
   listSaleStudents,
+  type SaleStudent,
+  type SaleStudentRelease,
 } from "@/services/contractsApi";
 import { formatDate } from "@/shared/utils/format";
 
 type Props = { saleId: string };
 
 const emptyForm = { email: "", name: "", document: "", phone: "" };
+
+/** A sale releases the same courses to every student, so the card shows them once. */
+export function releasesForSale(students: SaleStudent[]): SaleStudentRelease[] {
+  const seen = new Set<string>();
+  const releases: SaleStudentRelease[] = [];
+  for (const student of students) {
+    for (const release of student.releases ?? []) {
+      const key = `${release.kind}:${release.id}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      releases.push(release);
+    }
+  }
+  return releases;
+}
 
 export default function SalePortalUsers({ saleId }: Props) {
   const queryClient = useQueryClient();
@@ -62,6 +79,7 @@ export default function SalePortalUsers({ saleId }: Props) {
   }
 
   const students = query.data ?? [];
+  const releases = releasesForSale(students);
 
   return (
     <Card>
@@ -84,39 +102,46 @@ export default function SalePortalUsers({ saleId }: Props) {
       <CardContent>
         {query.isError ? (
           <p className="text-sm text-destructive">{t("portalAccess.loadError")}</p>
-        ) : students.length === 0 ? (
-          <p className="text-sm text-muted-foreground">{t("portalAccess.empty")}</p>
         ) : (
-          <ul className="divide-y divide-border/70">
-            {students.map((student) => (
-              <li key={student.id} className="py-2">
-                <div className="grid gap-1 sm:grid-cols-[1.4fr_1.6fr_auto] sm:items-center">
-                  <p className="text-sm font-medium">{student.name || student.email}</p>
-                  <p className="text-sm text-muted-foreground">{student.email}</p>
-                  <p className="text-sm text-muted-foreground">{student.createdAt ? formatDate(student.createdAt) : "—"}</p>
-                </div>
-                {(student.releases ?? []).length > 0 ? (
-                  <ul className="mt-2 space-y-1.5" aria-label={t("portalAccess.released")}>
-                    {(student.releases ?? []).map((release) => (
-                      <li key={`${release.kind}-${release.id}`} className="flex min-w-0 items-center gap-2">
-                        <Thumb src={release.thumbnailUrl} size={release.kind === "module" ? "module" : "course"} />
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-medium">{release.name}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {release.startsAt
-                              ? t("portalAccess.startsOn", { data: formatDate(release.startsAt) })
-                              : t("portalAccess.released")}
-                          </p>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="mt-1 text-xs text-muted-foreground">{t("portalAccess.noContent")}</p>
-                )}
-              </li>
-            ))}
-          </ul>
+          <div className="grid gap-4 md:grid-cols-2 md:gap-6">
+            <div className="min-w-0">
+              {students.length === 0 ? (
+                <p className="text-sm text-muted-foreground">{t("portalAccess.empty")}</p>
+              ) : (
+                <ul className="divide-y divide-border/70">
+                  {students.map((student) => (
+                    <li key={student.id} className="py-2">
+                      <p className="text-sm font-medium">{student.name || student.email}</p>
+                      <p className="text-sm text-muted-foreground">{student.email}</p>
+                      <p className="text-xs text-muted-foreground">{student.createdAt ? formatDate(student.createdAt) : "—"}</p>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+            <div className="min-w-0 md:border-l md:border-border/70 md:pl-6">
+              <h3 className="mb-2 text-sm font-semibold">{t("portalAccess.granted")}</h3>
+              {releases.length === 0 ? (
+                <p className="text-sm text-muted-foreground">{t("portalAccess.grantedEmpty")}</p>
+              ) : (
+                <ul className="space-y-1.5" aria-label={t("portalAccess.granted")}>
+                  {releases.map((release) => (
+                    <li key={`${release.kind}-${release.id}`} className="flex min-w-0 items-center gap-2">
+                      <Thumb src={release.thumbnailUrl} size={release.kind === "module" ? "module" : "course"} />
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium">{release.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {release.startsAt
+                            ? t("portalAccess.startsOn", { data: formatDate(release.startsAt) })
+                            : t("portalAccess.released")}
+                        </p>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
         )}
       </CardContent>
       <Dialog open={open} onOpenChange={setOpen}>

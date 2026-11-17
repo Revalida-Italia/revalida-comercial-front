@@ -49,6 +49,8 @@ describe("i18n", () => {
       expect(t("portalAccess.startsOn", { data: "20/08/2026" })).toContain("20/08/2026");
       expect(t("portalAccess.associate")).not.toMatch(/Associar|Link user|Collega|Asociar/);
       expect(t("portalAccess.emailTaken")).toMatch(/e-?mail|correo/i);
+      expect(t("portalAccess.granted")).toMatch(/Liberado|Released|Rilasciato/);
+      expect(t("portalAccess.title")).toMatch(/venda|sale|vendita|venta/i);
     }
     setLocale("pt-BR");
   });

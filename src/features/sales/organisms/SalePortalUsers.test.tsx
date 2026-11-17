@@ -97,13 +97,26 @@ describe("sale portal users", () => {
     expect(screen.queryByText("Associado")).not.toBeInTheDocument();
     expect(screen.queryByText("Criado")).not.toBeInTheDocument();
     expect(screen.getByText("16/11/2026")).toBeInTheDocument();
-    const released = screen.getByRole("list", { name: "Conteúdo liberado" });
+    const released = screen.getByRole("list", { name: "Liberado" });
+    expect(screen.getByRole("heading", { name: "Liberado" })).toBeInTheDocument();
     expect(within(released).getByText("Clínica médica")).toBeInTheDocument();
     expect(within(released).getByText("Início em 20/08/2026")).toBeInTheDocument();
     expect(within(released).getByText("Italiano A1")).toBeInTheDocument();
     expect(within(released).getByText("Início em 01/09/2026")).toBeInTheDocument();
     expect(released.querySelector("[data-src='https://cdn.example.test/mod.jpg']")).toHaveAttribute("data-thumb", "module");
     expect(released.querySelector("[data-src='']")).toHaveAttribute("data-thumb", "course");
+  });
+
+  it("shows the sale release once when every student has the same courses", async () => {
+    vi.mocked(listSaleStudents).mockResolvedValue([
+      student,
+      { ...student, id: "st-2", name: "Lia", email: "lia@example.com" },
+    ]);
+    renderSection();
+    expect(await screen.findByText("Lia")).toBeInTheDocument();
+    expect(screen.getAllByText("Clínica médica")).toHaveLength(1);
+    expect(screen.getAllByText("Italiano A1")).toHaveLength(1);
+    expect(screen.getAllByRole("list", { name: "Liberado" })).toHaveLength(1);
   });
 
   it("shows an inline error when the email already has an account", async () => {
