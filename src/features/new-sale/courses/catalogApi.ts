@@ -22,10 +22,14 @@ function asRecord(value: unknown): Record<string, unknown> | null {
 }
 
 function unwrap(payload: unknown): Record<string, unknown> | null {
-  const record = asRecord(payload);
-  if (!record) return null;
-  const data = asRecord(record.data);
-  return data ?? record;
+  let current = asRecord(payload);
+  for (let depth = 0; current && depth < 4; depth += 1) {
+    if (Array.isArray(current.modules) || Array.isArray(current.courses)) return current;
+    const data = asRecord(current.data);
+    if (!data) return current;
+    current = data;
+  }
+  return current;
 }
 
 function readCourse(raw: unknown): CatalogCourse | null {

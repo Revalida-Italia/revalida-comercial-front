@@ -1,12 +1,23 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import { describe, expect, it } from "vitest";
+import type { ReactNode } from "react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { SaleRecord } from "@/services/commercialApi";
 import { draftFromItems, readCourseItems, servicesFromRecord } from "@/features/new-sale/courses/model";
 import { buildCourseSummary } from "@/features/new-sale/courses/copy";
 import SaleDetailPreview from "./SaleDetailPreview";
 import SaleListCard from "./SaleListCard";
+
+vi.mock("@/features/new-sale/courses/catalogApi", () => ({
+  listCourseCatalog: vi.fn(),
+}));
+
+const { listCourseCatalog } = await import("@/features/new-sale/courses/catalogApi");
+
+beforeEach(() => {
+  vi.mocked(listCourseCatalog).mockResolvedValue({ modules: [], courses: [] });
+});
 
 /** A legacy sale as the staging API can send it: no lists and no service flags. */
 function legacySale(): SaleRecord {
@@ -23,18 +34,22 @@ function legacySale(): SaleRecord {
   } as SaleRecord;
 }
 
+function renderPreview(sale: SaleRecord, extra?: ReactNode) {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(
+    <QueryClientProvider client={client}>
+      <MemoryRouter>
+        <SaleDetailPreview sale={sale} readOnly />
+        {extra}
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+}
+
 describe("legacy sale without list fields", () => {
   it("renders the detail and the list card when items, payments, clients and services are missing", () => {
     const sale = legacySale();
-    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    render(
-      <QueryClientProvider client={client}>
-        <MemoryRouter>
-          <SaleDetailPreview sale={sale} readOnly />
-          <SaleListCard sale={sale} />
-        </MemoryRouter>
-      </QueryClientProvider>,
-    );
+    renderPreview(sale, <SaleListCard sale={sale} />);
 
     expect(screen.getAllByText("Ana Vendedora").length).toBeGreaterThan(0);
     expect(screen.getByText("Nenhum cliente adicionado")).toBeInTheDocument();
@@ -42,18 +57,35 @@ describe("legacy sale without list fields", () => {
   });
 
   it("renders a course item even when the catalog and its course ids are missing", () => {
+    vi.mocked(listCourseCatalog).mockResolvedValue({ modules: [], courses: [] });
     const sale = {
       ...legacySale(),
       items: [{ id: "i1", saleId: "legacy", kind: "module", moduleId: "mod-1", moduleName: "Clínica médica", startsAt: "2026-08-20", endsAt: "2027-08-20" }],
     } as SaleRecord;
 
-    render(
-      <MemoryRouter>
-        <SaleDetailPreview sale={sale} readOnly />
-      </MemoryRouter>,
-    );
+    renderPreview(sale);
 
     expect(screen.getByText("Clínica médica")).toBeInTheDocument();
+  });
+
+  it("lists the module courses from the published catalog", async () => {
+    vi.mocked(listCourseCatalog).mockResolvedValue({
+      modules: [{ id: "mod-1", name: "Clínica médica", thumbnailUrl: null, courseIds: ["c1", "c2"] }],
+      courses: [
+        { id: "c1", name: "Clínica I", thumbnailUrl: null },
+        { id: "c2", name: "Clínica II", thumbnailUrl: null },
+      ],
+    });
+    const sale = {
+      ...legacySale(),
+      items: [{ id: "i1", saleId: "legacy", kind: "module", moduleId: "mod-1", moduleName: "Clínica médica", startsAt: "2026-08-20", endsAt: "2027-08-20" }],
+    } as SaleRecord;
+
+    renderPreview(sale);
+
+    expect(await screen.findByText("Módulo · 2 cursos")).toBeInTheDocument();
+    expect(screen.getByText("Clínica I, Clínica II")).toBeInTheDocument();
+    expect(screen.queryByText("Módulo · 0 cursos")).not.toBeInTheDocument();
   });
 
   it("shows Tradução juramentada as included when the sale saved it as Sim", () => {
@@ -71,11 +103,7 @@ describe("legacy sale without list fields", () => {
 
     expect(summary.notIncluded).not.toContain("Tradução juramentada");
     expect(summary.notIncluded).toContain("Apostila de Haia");
-    render(
-      <MemoryRouter>
-        <SaleDetailPreview sale={sale} readOnly />
-      </MemoryRouter>,
-    );
+    renderPreview(sale);
     expect(screen.getByText("Clínica médica")).toBeInTheDocument();
   });
 });

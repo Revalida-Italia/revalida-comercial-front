@@ -186,6 +186,18 @@ describe("catalog and contract lines", () => {
       courses: [{ id: "start", name: "Curso Start", thumbnailUrl: null }],
     });
     expect(normalizeCatalog({
+      success: true,
+      data: {
+        data: {
+          modules: [{ id: "mod-1", name: "Clínica médica", thumbnailUrl: null, courseIds: ["c1", "c2"] }],
+          courses: [
+            { id: "c1", name: "Clínica I", thumbnailUrl: null },
+            { id: "c2", name: "Clínica II", thumbnailUrl: null },
+          ],
+        },
+      },
+    }).modules[0]?.courseIds).toEqual(["c1", "c2"]);
+    expect(normalizeCatalog({
       courses: [{ id: "start", name: "Curso Start", thumbnailUrl: null, modules: [{ id: "docs", name: "Documentação" }] }],
     }).modules).toEqual([
       { id: "docs", name: "Documentação", thumbnailUrl: null, courseIds: ["start"] },

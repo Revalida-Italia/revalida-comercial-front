@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { createPortalStudents, type SaleContract } from "@/services/contractsApi";
+import { tCount } from "@/i18n";
 import {
   isSignedContract,
   knownSignedContractError,
@@ -50,7 +51,7 @@ export default function SignedContractActions({ contract, onChanged }: Props) {
             : `Não foi possível criar o acesso de ${failed.length} alunos.`,
         );
       }
-      if (ok > 0) toast.success(`Acesso criado para ${ok} aluno(s).`);
+      if (ok > 0) toast.success(tCount("portalAccess.created", ok));
       onChanged?.();
     },
     onError: (error: unknown) => {

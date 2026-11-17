@@ -140,4 +140,10 @@ export const it = {
       available: "Disponibile dal {start} al {end}.",
     },
   },
+  portalAccess: {
+    created: {
+      one: "Accesso creato per {count} studente",
+      other: "Accesso creato per {count} studenti",
+    },
+  },
 };

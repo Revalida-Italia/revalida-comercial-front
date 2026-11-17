@@ -80,7 +80,7 @@ describe("SignedContractActions", () => {
     fireEvent.click(screen.getByRole("button", { name: "Criar acesso dos alunos" }));
     fireEvent.click(await screen.findByRole("button", { name: "Criar acesso" }));
     await waitFor(() => expect(createPortalStudents).toHaveBeenCalledWith("ct_1"));
-    await waitFor(() => expect(toast.success).toHaveBeenCalledWith("Acesso criado para 2 aluno(s)."));
+    await waitFor(() => expect(toast.success).toHaveBeenCalledWith("Acesso criado para 2 alunos"));
   });
 
   it("shows failures in Portuguese and never the raw error text", async () => {

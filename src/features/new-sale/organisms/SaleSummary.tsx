@@ -210,6 +210,7 @@ const SaleSummary = ({
                           <td className="py-3 pr-2">
                             <p className="font-semibold">{row.title}</p>
                             <p className="text-[12.5px] text-muted-foreground">{row.detail}</p>
+                            {row.names ? <p className="text-[12.5px] text-muted-foreground">{row.names}</p> : null}
                           </td>
                           <td className="whitespace-nowrap py-3 pr-2 tabular-nums">{row.period}</td>
                           <td className="hidden whitespace-nowrap py-3 tabular-nums sm:table-cell">{row.duration}</td>
@@ -233,6 +234,7 @@ const SaleSummary = ({
                   <div key={group.courseId}>
                     <p className="font-medium leading-tight">{group.title}</p>
                     {group.detail ? <p className="text-xs text-muted-foreground">{group.detail}</p> : null}
+                    {group.names ? <p className="text-xs text-muted-foreground">{group.names}</p> : null}
                   </div>
                 ))}
                 {courseSummary.groups.length > 0 ? (
