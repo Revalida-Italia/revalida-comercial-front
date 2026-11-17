@@ -143,6 +143,137 @@ export async function completeNewPasswordChallenge(input: {
   });
 }
 
+type AuthMessageResponse = {
+  message?: string;
+};
+
+type AuthApiErrorBody = {
+  statusCode?: number;
+  code?: string;
+  message?: string;
+};
+
+export class AuthApiError extends Error {
+  readonly status: number;
+  readonly code?: string;
+
+  constructor(status: number, message: string, code?: string) {
+    super(message);
+    this.name = "AuthApiError";
+    this.status = status;
+    this.code = code;
+  }
+}
+
+async function postPublicAuth<T>(path: string, body: unknown): Promise<T> {
+  if (!AUTH_API_URL) {
+    throw new Error("VITE_AUTH_API_URL nao configurada.");
+  }
+
+  const base = AUTH_API_URL.endsWith("/") ? AUTH_API_URL.slice(0, -1) : AUTH_API_URL;
+  const url = `${base}${path.startsWith("/") ? path : `/${path}`}`;
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    let message = `Erro HTTP ${response.status}`;
+    let code: string | undefined;
+
+    try {
+      const payload = (await response.json()) as AuthApiErrorBody;
+      code = payload.code;
+      message = payload.message ?? payload.code ?? message;
+    } catch {
+      // keep default message
+    }
+
+    throw new AuthApiError(response.status, message, code);
+  }
+
+  if (response.status === 204) {
+    return undefined as T;
+  }
+
+  return (await response.json()) as T;
+}
+
+/** POST /auth/forgot-password — resposta opaca (sempre sucesso se o e-mail for válido). */
+export async function requestPasswordReset(email: string): Promise<AuthMessageResponse> {
+  return postPublicAuth<AuthMessageResponse>("/auth/forgot-password", {
+    email: email.trim().toLowerCase(),
+  });
+}
+
+/** POST /auth/reset-password — confirma código (Cognito ou legacy via auth-api). */
+export async function confirmPasswordReset(input: {
+  email: string;
+  code: string;
+  newPassword: string;
+}): Promise<AuthMessageResponse> {
+  return postPublicAuth<AuthMessageResponse>("/auth/reset-password", {
+    email: input.email.trim().toLowerCase(),
+    code: input.code.trim(),
+    newPassword: input.newPassword,
+  });
+}
+
+export function getPasswordResetErrorMessage(error: unknown): string {
+  if (!(error instanceof Error)) {
+    return "Nao foi possivel concluir. Tente novamente.";
+  }
+
+  const status = error instanceof AuthApiError ? error.status : undefined;
+  const code = error instanceof AuthApiError ? error.code : undefined;
+
+  if (status === 429 || code === "RATE_LIMITED") {
+    return "Muitas tentativas. Tente novamente em alguns minutos.";
+  }
+
+  if (status === 503 || code === "PROVIDER_UNAVAILABLE") {
+    return "Nao foi possivel concluir. Tente mais tarde.";
+  }
+
+  if (code === "INVALID_RESET_CODE") {
+    return "Codigo invalido ou expirado. Solicite um novo codigo.";
+  }
+
+  if (status === 400 || code === "INVALID_REQUEST") {
+    return "Dados invalidos. Verifique o e-mail, o codigo e a senha (minimo 8 caracteres).";
+  }
+
+  return "Nao foi possivel concluir. Tente novamente.";
+}
+
+const PASSWORD_RESET_EMAIL_KEY = "sales-flow.password-reset.email.v1";
+
+export function persistResetEmail(email: string) {
+  try {
+    sessionStorage.setItem(PASSWORD_RESET_EMAIL_KEY, email.trim().toLowerCase());
+  } catch {
+    // ignore storage failures
+  }
+}
+
+export function readPersistedResetEmail(): string {
+  try {
+    return sessionStorage.getItem(PASSWORD_RESET_EMAIL_KEY) ?? "";
+  } catch {
+    return "";
+  }
+}
+
+export function clearPersistedResetEmail() {
+  try {
+    sessionStorage.removeItem(PASSWORD_RESET_EMAIL_KEY);
+  } catch {
+    // ignore
+  }
+}
+
 interface ResolveProfileFallback {
   email?: string;
   role?: UserRole;

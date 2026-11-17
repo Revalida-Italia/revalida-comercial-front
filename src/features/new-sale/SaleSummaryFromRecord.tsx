@@ -5,10 +5,17 @@ import { t } from "@/i18n";
 import { displayPhone } from "@/features/contracts/contractFormModel";
 import SaleSummary from "@/features/new-sale/organisms/SaleSummary";
 import { saleQueryOptions } from "./saleQuery";
+import { listCourseCatalog } from "./courses/catalogApi";
 import { saleSummaryPropsFromRecord } from "./mapSaleRecordToSummary";
 
 export default function SaleSummaryFromRecord({ saleId }: { saleId: string }) {
   const saleQuery = useQuery(saleQueryOptions(saleId));
+  const catalogQuery = useQuery({
+    queryKey: ["sales", "course-catalog"],
+    queryFn: listCourseCatalog,
+    staleTime: 5 * 60_000,
+    enabled: Boolean(saleId),
+  });
 
   if (!saleId) return null;
 
@@ -33,7 +40,7 @@ export default function SaleSummaryFromRecord({ saleId }: { saleId: string }) {
     );
   }
 
-  const props = saleSummaryPropsFromRecord(saleQuery.data);
+  const props = saleSummaryPropsFromRecord(saleQuery.data, catalogQuery.data ?? { modules: [], courses: [] });
   return (
     <SaleSummary
       {...props}

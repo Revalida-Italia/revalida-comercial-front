@@ -14,27 +14,33 @@ import {
   type CreateSaleCustomer,
   type SaleStatus,
 } from "@/services/commercialApi";
-import { listProducts } from "@/services/productsApi";
 import { listUsers, searchUsers } from "@/services/usersApi";
 import { buildCommissionBreakdown, normalizeCommissionRate } from "@/services/commissionApi";
 import { fetchExchangeRates } from "@/services/exchangeRatesApi";
 import { convertToBrl, isDisplayCurrency } from "@/shared/utils/exchange";
 import { getProfile, hasRole } from "@/lib/session";
+import { t } from "@/i18n";
+import { listSaleStudents } from "@/services/contractsApi";
 import {
   DEFAULT_SUBSCRIPTION_CYCLE,
   EMPTY_CUSTOMER,
   EMPTY_PAYMENT,
   MAX_INSTALLMENTS,
-  STEP_LABELS,
 } from "./constants";
 import { brlAmountForSave, mapSaleToForm } from "./mapSaleToForm";
-import type { SaleItemDraft, SalePaymentDraft } from "./types";
+import type { SalePaymentDraft } from "./types";
 import ConfirmStep from "./organisms/ConfirmStep";
 import CustomersStep from "./organisms/CustomersStep";
 import PaymentsStep from "./organisms/PaymentsStep";
-import ProductStep from "./organisms/ProductStep";
 import SaleSummary from "@/features/new-sale/organisms/SaleSummary";
 import StepIndicator from "./organisms/StepIndicator";
+import { cn } from "@/lib/utils";
+import { listCourseCatalog } from "./courses/catalogApi";
+import { buildCourseSummary } from "./courses/copy";
+import { todayIso } from "./courses/dates";
+import { CoursesStep } from "./courses/CoursesStep";
+import { LegacyProductsStep } from "./courses/LegacyProductsStep";
+import { continueState, draftFromItems, emptyDraft, isLegacySale, readCourseItems, toCourseSaleItems } from "./courses/model";
 
 type PaymentValueLike = {
   amount: string | number;
@@ -59,7 +65,7 @@ const EditSaleFeature = () => {
   const [step, setStep] = useState(() => parseStep(searchParams.get("step")));
   const [initialized, setInitialized] = useState(false);
   const [customers, setCustomers] = useState<CreateSaleCustomer[]>([{ ...EMPTY_CUSTOMER }]);
-  const [saleItemsDraft, setSaleItemsDraft] = useState<SaleItemDraft[]>([{ productId: "", releaseDate: "", notes: "" }]);
+  const [courseDraft, setCourseDraft] = useState(() => emptyDraft(todayIso()));
   const [payments, setPayments] = useState<SalePaymentDraft[]>([{ ...EMPTY_PAYMENT }]);
   const [status, setStatus] = useState<SaleStatus>("PENDING");
   const [soldAt, setSoldAt] = useState("");
@@ -79,9 +85,21 @@ const EditSaleFeature = () => {
     enabled: Boolean(id),
   });
 
-  const productsQuery = useQuery({
-    queryKey: ["products"],
-    queryFn: listProducts,
+  const legacy = isLegacySale(saleQuery.data?.items, saleQuery.data?.accessMode);
+  const studentsQuery = useQuery({
+    queryKey: ["sale-students", id],
+    queryFn: () => listSaleStudents(id!),
+    enabled: Boolean(id),
+  });
+  const releaseLocked = !legacy && (studentsQuery.data?.length ?? 0) > 0;
+
+  const catalogQuery = useQuery({
+    queryKey: ["sales", "course-catalog"],
+    queryFn: listCourseCatalog,
+    enabled: saleQuery.isSuccess && !legacy && step >= 2,
+    staleTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
+    retry: false,
   });
 
   const gatewayFeesQuery = useQuery({
@@ -123,7 +141,18 @@ const EditSaleFeature = () => {
 
     const form = mapSaleToForm(saleQuery.data);
     setCustomers(form.customers);
-    setSaleItemsDraft(form.items);
+    if (!isLegacySale(saleQuery.data.items, saleQuery.data.accessMode)) {
+      const next = draftFromItems(readCourseItems(saleQuery.data.items), form.soldAt || todayIso());
+      setCourseDraft({
+        ...next,
+        services: {
+          translation: saleQuery.data.translationIncluded === true,
+          apostille: saleQuery.data.apostilleIncluded === true,
+          postal: saleQuery.data.postalExpensesIncluded === true,
+          decree: saleQuery.data.decreeIncluded === true,
+        },
+      });
+    }
     setPayments(form.payments.length > 0 ? form.payments : [{ ...EMPTY_PAYMENT }]);
     setStatus(form.status);
     setSoldAt(form.soldAt);
@@ -154,28 +183,27 @@ const EditSaleFeature = () => {
     return 0;
   }, [profile, saleQuery.data]);
 
-  const selectedSaleItems = useMemo(
-    () => saleItemsDraft
-      .filter((item) => item.productId && item.releaseDate)
+  const catalog = useMemo(() => catalogQuery.data ?? { modules: [], courses: [] }, [catalogQuery.data]);
+  const courseItems = useMemo(() => toCourseSaleItems(courseDraft, catalog), [courseDraft, catalog]);
+  const courseGate = useMemo(() => continueState(courseDraft, catalog), [courseDraft, catalog]);
+  const legacyItems = useMemo(
+    () => (saleQuery.data?.items ?? [])
+      .filter((item) => item.productId && !item.courseId && item.kind !== "course" && item.kind !== "module")
       .map((item) => ({
-        productId: item.productId,
-        releaseDate: item.releaseDate,
-        notes: item.notes?.trim() || undefined,
+        productId: item.productId as string,
+        releaseDate: (item.releaseDate ?? "").slice(0, 10),
+        ...(item.notes?.trim() ? { notes: item.notes.trim() } : {}),
       })),
-    [saleItemsDraft],
+    [saleQuery.data],
   );
-
-  const hasDuplicateProducts = useMemo(() => {
-    const ids = saleItemsDraft.map((item) => item.productId).filter(Boolean);
-    return new Set(ids).size !== ids.length;
-  }, [saleItemsDraft]);
-
-  const saleSummaryItems = useMemo(
-    () => selectedSaleItems.map((item) => ({
-      productName: productsQuery.data?.find((product) => product.id === item.productId)?.name ?? "Produto não identificado",
-      releaseDate: item.releaseDate,
-    })),
-    [selectedSaleItems, productsQuery.data],
+  const legacySummary = useMemo(
+    () => (saleQuery.data?.items ?? [])
+      .filter((item) => item.productId)
+      .map((item) => ({
+        productName: item.product?.name?.trim() || "Produto não identificado",
+        releaseDate: (item.releaseDate ?? "").slice(0, 10),
+      })),
+    [saleQuery.data],
   );
 
   const filledCustomers = useMemo(
@@ -247,9 +275,11 @@ const EditSaleFeature = () => {
   );
 
   const canGoStep2 = filledCustomers.length > 0;
-  const canGoStep3 = selectedSaleItems.length > 0
-    && selectedSaleItems.length === saleItemsDraft.length
-    && !hasDuplicateProducts;
+  const canGoStep3 = legacy ? legacyItems.length > 0 : courseGate.ok;
+  const courseSummary = useMemo(
+    () => buildCourseSummary(courseDraft, catalog, filledCustomers.map((customer) => customer.name)),
+    [courseDraft, catalog, filledCustomers],
+  );
 
   const hasValidPayments = payments.length > 0
     && payments.every((payment) => {
@@ -279,18 +309,6 @@ const EditSaleFeature = () => {
 
   function removeCustomer(index: number) {
     setCustomers((prev) => prev.filter((_, i) => i !== index));
-  }
-
-  function updateSaleItem(index: number, field: keyof SaleItemDraft, value: string) {
-    setSaleItemsDraft((prev) => prev.map((item, i) => (i === index ? { ...item, [field]: value } : item)));
-  }
-
-  function addSaleItem() {
-    setSaleItemsDraft((prev) => [...prev, { productId: "", releaseDate: "", notes: "" }]);
-  }
-
-  function removeSaleItem(index: number) {
-    setSaleItemsDraft((prev) => prev.filter((_, i) => i !== index));
   }
 
   function setPaymentGateway(index: number, gateway: string, generatePaymentLink: boolean) {
@@ -353,10 +371,11 @@ const EditSaleFeature = () => {
     mutationFn: async () => {
       if (!id) throw new Error("ID da venda não informado.");
       if (configuredPayments.length === 0) throw new Error("Adicione pelo menos um pagamento válido.");
-      if (selectedSaleItems.length === 0 || selectedSaleItems.length !== saleItemsDraft.length) {
-        throw new Error("Adicione pelo menos um módulo com data de liberação.");
+      if (legacy) {
+        if (legacyItems.length === 0) throw new Error("Esta venda não tem produtos.");
+      } else if (!courseGate.ok || courseItems.length === 0) {
+        throw new Error("Escolha os cursos e o período de acesso.");
       }
-      if (hasDuplicateProducts) throw new Error("Não é permitido selecionar o mesmo módulo mais de uma vez.");
 
       if (needsExchangeRates && !exchangeRatesQuery.data?.rates) {
         throw new Error("Cotação indisponível para converter o pagamento para BRL.");
@@ -376,7 +395,13 @@ const EditSaleFeature = () => {
           telefone: c.telefone,
           ...(c.email ? { email: c.email } : {}),
         })),
-        items: selectedSaleItems,
+        items: legacy ? legacyItems : courseItems,
+        ...(!legacy ? {
+          translationIncluded: courseDraft.services.translation,
+          apostilleIncluded: courseDraft.services.apostille,
+          postalExpensesIncluded: courseDraft.services.postal,
+          decreeIncluded: courseDraft.services.decree,
+        } : {}),
         payments: payments
           .filter((payment) => Number(payment.amount) > 0 && payment.gateway && payment.paymentType)
           .map((payment) => {
@@ -409,7 +434,13 @@ const EditSaleFeature = () => {
       navigate(`/vendas/${id}`);
     },
     onError: (error) => {
-      toast.error(error instanceof Error ? error.message : "Erro ao atualizar venda.");
+      const code = error instanceof Error ? error.message : "";
+      const apiCode = typeof error === "object" && error && "code" in error ? String((error as { code?: unknown }).code ?? "") : "";
+      if (code === "SALE_RELEASE_LOCKED" || apiCode === "SALE_RELEASE_LOCKED") {
+        toast.error(t("portalAccess.lockedError"));
+        return;
+      }
+      toast.error(code && !/^[A-Z0-9_]+$/.test(code) ? code : "Erro ao atualizar venda.");
     },
   });
 
@@ -430,22 +461,23 @@ const EditSaleFeature = () => {
     );
   }
 
+  const stepLabels = ["Clientes", legacy ? "Produto" : t("sale.steps.coursesServices"), "Pagamentos", "Resumo"];
+
   return (
-    <div className="space-y-6">
+    <div className={cn("space-y-6", step === 2 && !legacy && "max-md:pb-24")}>
       <div className="flex items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-foreground">Editar venda</h1>
-          <p className="text-muted-foreground">Atualize clientes, produtos, pagamentos e status.</p>
         </div>
         <Button asChild variant="outline" size="sm">
           <Link to={`/vendas/${id}`}><ArrowLeft className="mr-1 h-4 w-4" />Voltar ao detalhe</Link>
         </Button>
       </div>
 
-      <StepIndicator labels={STEP_LABELS} step={step} />
+      <StepIndicator labels={stepLabels} step={step} />
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
-        <div>
+      <div className="grid min-w-0 items-start gap-6 min-[1181px]:grid-cols-[minmax(0,1fr)_300px]">
+        <div className="min-w-0">
           {step === 1 && (
             <CustomersStep
               customers={customers}
@@ -457,17 +489,24 @@ const EditSaleFeature = () => {
             />
           )}
 
-          {step === 2 && (
-            <ProductStep
-              products={productsQuery.data ?? []}
-              productsLoading={productsQuery.isLoading}
-              items={saleItemsDraft}
-              hasDuplicateProducts={hasDuplicateProducts}
-              canGoNext={canGoStep3}
-              showNotes
-              onUpdateItem={updateSaleItem}
-              onAddItem={addSaleItem}
-              onRemoveItem={removeSaleItem}
+          {step === 2 && legacy && (
+            <LegacyProductsStep
+              items={(saleQuery.data.items ?? []).filter((item) => item.productId)}
+              onBack={() => setStep(1)}
+              onNext={() => setStep(3)}
+            />
+          )}
+
+          {step === 2 && !legacy && (
+            <CoursesStep
+              catalog={catalog}
+              loading={(catalogQuery.isLoading || catalogQuery.isFetching) && !catalogQuery.data}
+              error={catalogQuery.isError}
+              onRetry={() => { void catalogQuery.refetch(); }}
+              draft={courseDraft}
+              onChange={setCourseDraft}
+              locked={releaseLocked}
+              clients={filledCustomers.map((customer) => customer.name)}
               onBack={() => setStep(1)}
               onNext={() => setStep(3)}
             />
@@ -499,7 +538,9 @@ const EditSaleFeature = () => {
           {step === 4 && (
             <ConfirmStep
               filledCustomers={filledCustomers}
-              saleItems={saleSummaryItems}
+              saleItems={legacy ? legacySummary : []}
+              courseSummary={legacy ? undefined : courseSummary}
+              onEditStep={legacy ? undefined : setStep}
               configuredPayments={configuredPayments}
               commissionBreakdown={commissionBreakdown}
               estimatedCommission={commissionBreakdown.totalCommission}
@@ -527,15 +568,17 @@ const EditSaleFeature = () => {
           )}
         </div>
 
-        <div className="hidden lg:block">
-          <Card className="sticky top-6">
+        <div className="max-md:hidden">
+          <Card className="min-[1181px]:sticky min-[1181px]:top-6">
             <CardHeader className="pb-3">
               <CardTitle className="text-base">Prévia da venda</CardTitle>
             </CardHeader>
             <CardContent>
               <SaleSummary
                 filledCustomers={filledCustomers}
-                saleItems={saleSummaryItems}
+                saleItems={legacy ? legacySummary : []}
+                courseSummary={legacy ? undefined : courseSummary}
+                courseLayout="compact"
                 configuredPayments={configuredPayments}
                 commissionBreakdown={commissionBreakdown}
                 estimatedCommission={commissionBreakdown.totalCommission}

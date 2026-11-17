@@ -87,7 +87,7 @@ const SalesFiltersCard = ({
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             id="search"
-            placeholder="Buscar por nome, email ou documento..."
+            placeholder={t("sales.list.search")}
             value={searchTerm}
             onChange={(e) => onSearchTermChange(e.target.value)}
             className="h-10 border-border/80 bg-background pl-10 shadow-sm outline-none focus:border-primary/40 focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0"
@@ -152,7 +152,7 @@ const SalesFiltersCard = ({
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 id="search"
-                placeholder="Pesquisa por nome, email ou documento..."
+                placeholder={t("sales.list.search")}
                 value={searchTerm}
                 onChange={(e) => onSearchTermChange(e.target.value)}
                 className="pl-10"

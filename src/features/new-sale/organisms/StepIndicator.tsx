@@ -1,3 +1,5 @@
+import { Check } from "lucide-react";
+
 type StepIndicatorProps = {
   labels: string[];
   step: number;
@@ -22,9 +24,9 @@ const StepIndicator = ({ labels, step }: StepIndicatorProps) => (
                     : "border-2 border-muted text-muted-foreground"
               }`}
             >
-              {isDone ? "\u2713" : n}
+              {isDone ? <Check className="h-4 w-4" aria-hidden="true" /> : n}
             </div>
-            <span className={`text-sm ${isActive ? "font-medium text-foreground" : "text-muted-foreground"}`}>
+            <span className={`text-sm ${isActive ? "font-medium text-foreground" : "hidden text-muted-foreground md:inline"}`}>
               {label}
             </span>
           </div>

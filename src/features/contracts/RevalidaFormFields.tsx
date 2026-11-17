@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Plus, Trash2 } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Pencil, Plus, Trash2 } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -17,7 +18,8 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { t } from "@/i18n";
-import type { RevalidaProduct, RevalidaProductCode } from "@/services/contractsApi";
+import type { CourseContractItem, RevalidaProduct, RevalidaProductCode } from "@/services/contractsApi";
+import { durationLabel, rangeLabel } from "@/features/new-sale/courses/copy";
 import { isoToDisplay } from "@/features/contracts/contractDates";
 import { DateField } from "@/features/contracts/DateField";
 import {
@@ -52,6 +54,8 @@ type Props = {
   update: (change: (draft: RevalidaFormState) => RevalidaFormState) => void;
   catalog: RevalidaProduct[];
   form: FormControl;
+  courseItems?: CourseContractItem[];
+  saleId?: string;
 };
 
 function capitalize(text: string): string {
@@ -120,7 +124,7 @@ function ProfessionField({
   const fieldId = `${base}-profession`;
   const error = form.error(fieldId);
   return (
-    <div className="sm:col-span-2">
+    <div className="contract-span">
       <Label className="mb-1.5 block text-sm font-medium">{t("contract.party.profession")}</Label>
       <SegmentedChoice<ProfessionChoice>
         label={t("contract.party.profession")}
@@ -208,8 +212,8 @@ function PartyFields({
           )}
         </div>
       )}
-      <div className="grid min-w-0 gap-4 sm:grid-cols-2 [&>*]:min-w-0">
-        {text("fullName", t("contract.party.fullName"), { className: "sm:col-span-2", autoComplete: "name" })}
+      <div className="contract-fields grid min-w-0">
+        {text("fullName", t("contract.party.fullName"), { className: "contract-span", autoComplete: "name" })}
         {text("document", t("contract.party.document"))}
         {text("nationality", t("contract.party.nationality"))}
         <ProfessionField party={party} base={base} patch={patch} form={form} />
@@ -246,7 +250,7 @@ function PeriodFields({
   const releaseError = form.error(releaseId);
   const durationError = form.error(durationId);
   return (
-    <Expand className="mt-3 grid min-w-0 gap-4 sm:grid-cols-2 [&>*]:min-w-0">
+    <Expand className="mt-3 contract-fields grid min-w-0">
       <Field id={releaseId} label={t("contract.included.release")} error={releaseError}>
         <DateField
           id={releaseId}
@@ -283,7 +287,7 @@ function PeriodFields({
   );
 }
 
-export default function RevalidaFormFields({ state, update, catalog, form }: Props) {
+export default function RevalidaFormFields({ state, update, catalog, form, courseItems, saleId }: Props) {
   const inclusionError = form.error(INCLUDED_FIELD_ID);
   const suggestion = suggestTermEnd(state);
   const termError = form.error("contract-term-end");
@@ -322,9 +326,54 @@ export default function RevalidaFormFields({ state, update, catalog, form }: Pro
       </section>
 
       <section aria-labelledby="contract-included-title">
-        <SectionHeading number={2} title={t("contract.sections.included")} id="contract-included-title" />
+        {courseItems && courseItems.length > 0 ? (
+          <div className="mb-4 flex items-baseline justify-between gap-3">
+            <h2 id="contract-included-title" className="flex items-baseline gap-3 text-lg font-semibold text-foreground">
+              <span className="text-sm font-medium tabular-nums text-muted-foreground">2</span>
+              {t("contract.sections.included")}
+            </h2>
+            {saleId ? (
+              <Link
+                to={`/vendas/${saleId}/editar?step=2`}
+                className="inline-flex h-11 items-center gap-1 text-[13px] font-semibold text-primary"
+              >
+                <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
+                {t("contract.included.editInSale")}
+              </Link>
+            ) : null}
+          </div>
+        ) : (
+          <SectionHeading number={2} title={t("contract.sections.included")} id="contract-included-title" />
+        )}
         <div className="border-t border-border/60">
-          {PRODUCT_ORDER.map((code) => {
+          {courseItems && courseItems.length > 0 ? (
+            <table className="w-full border-collapse text-[13.5px]">
+              <thead>
+                <tr className="text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+                  <th className="pb-2 pr-2 font-semibold">{t("sale.summary.item")}</th>
+                  <th className="pb-2 pr-2 font-semibold">{t("contract.included.available")}</th>
+                  <th className="hidden pb-2 font-semibold sm:table-cell">{t("sale.access.duration")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {courseItems.map((item) => (
+                  <tr key={`${item.kind}-${item.courseId}-${item.moduleId ?? ""}`} className="border-t border-border/60 align-top">
+                    <td className="py-3 pr-2">
+                      <p className="font-semibold">{item.kind === "module" ? (item.moduleName || item.courseName) : item.courseName}</p>
+                      <p className="text-[12.5px] text-muted-foreground">
+                        {item.kind === "course"
+                          ? t("sale.courses.wholeCourse")
+                          : t("sale.courses.moduleOf", { curso: item.courseName })}
+                      </p>
+                    </td>
+                    <td className="whitespace-nowrap py-3 pr-2 tabular-nums">{rangeLabel(item.startsAt, item.endsAt)}</td>
+                    <td className="hidden whitespace-nowrap py-3 tabular-nums sm:table-cell">{durationLabel(item.startsAt, item.endsAt, "short")}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : null}
+          {courseItems && courseItems.length > 0 ? null : PRODUCT_ORDER.map((code) => {
             const product = catalog.find((p) => p.code === code);
             const p = state.products[code];
             const toggleId = `contract-product-${code}-toggle`;
@@ -386,14 +435,16 @@ export default function RevalidaFormFields({ state, update, catalog, form }: Pro
           ))}
 
           <div className="flex min-h-[56px] items-center justify-between gap-4 border-b border-border/60 py-2">
-            <label htmlFor="contract-decree-toggle" className="cursor-pointer text-[15px] font-semibold">
-              {t("contract.included.decree")}
-            </label>
-            <Switch
-              id="contract-decree-toggle"
-              checked={state.decreeOn}
+            <span className="text-[15px] font-semibold">{t("contract.included.decree")}</span>
+            <SegmentedChoice
+              label={t("contract.included.decree")}
+              value={state.decreeOn ? "yes" : "no"}
+              onChange={(value) => update((s) => ({ ...s, decreeOn: value === "yes" }))}
               disabled={form.disabled}
-              onCheckedChange={(checked) => update((s) => ({ ...s, decreeOn: checked }))}
+              options={[
+                { value: "yes", label: t("common.yes") },
+                { value: "no", label: t("common.no") },
+              ]}
             />
           </div>
         </div>
@@ -402,7 +453,7 @@ export default function RevalidaFormFields({ state, update, catalog, form }: Pro
 
       <section aria-labelledby="contract-term-title">
         <SectionHeading number={3} title={t("contract.sections.term")} id="contract-term-title" />
-        <div className="grid min-w-0 gap-4 sm:grid-cols-2 [&>*]:min-w-0">
+        <div className="contract-fields grid min-w-0">
           <Field id="contract-term-start" label={t("contract.term.start")} error={termStartError}>
             <DateField
               id="contract-term-start"
@@ -427,7 +478,7 @@ export default function RevalidaFormFields({ state, update, catalog, form }: Pro
             />
           </Field>
         </div>
-        {suggestion && suggestion !== state.termEnd && (
+        {!(courseItems && courseItems.length > 0) && suggestion && suggestion !== state.termEnd && (
           <p className="mt-2 text-[13px] text-muted-foreground">
             {t("contract.term.suggested", { date: isoToDisplay(suggestion) })} ·{" "}
             <button
@@ -440,6 +491,10 @@ export default function RevalidaFormFields({ state, update, catalog, form }: Pro
             </button>
           </p>
         )}
+        {courseItems && courseItems.length > 0 && state.termEnd && state.termStart && state.termEnd > state.termStart
+          && courseItems.every((item) => !item.endsAt || state.termEnd >= item.endsAt) ? (
+          <p className="mt-2 text-[13px] text-muted-foreground">{t("contract.term.coversAll")}</p>
+        ) : null}
       </section>
     </>
   );
@@ -460,7 +515,7 @@ export function RevalidaSignaturesSection({
   return (
     <section aria-labelledby="contract-signatures-title">
       <SectionHeading number={number} title={t("contract.sections.signatures")} id="contract-signatures-title" />
-      <div className="grid min-w-0 gap-4 sm:grid-cols-2 [&>*]:min-w-0">
+      <div className="contract-fields grid min-w-0">
         <TextField
           id="contract-reference-city"
           label={t("contract.signatures.city")}

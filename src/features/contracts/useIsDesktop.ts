@@ -29,3 +29,8 @@ export function useIsDesktop(): boolean {
 export function useContractRail(): boolean {
   return useMediaQuery(CONTRACT_RAIL_QUERY);
 }
+
+/** From the width where the contract form and the summary sit side by side. */
+export function useContractSplit(): boolean {
+  return useMediaQuery("(min-width: 768px)");
+}

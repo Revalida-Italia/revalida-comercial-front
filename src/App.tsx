@@ -19,6 +19,8 @@ import AdminCostsCalendar from "@/pages/AdminCostsCalendar";
 import AdminTreasury from "@/pages/AdminTreasury";
 import BillingCalendar from "@/pages/BillingCalendar";
 import FirstAccess from "@/pages/FirstAccess";
+import ForgotPassword from "@/pages/ForgotPassword";
+import ResetPassword from "@/pages/ResetPassword";
 import PaymentCancel from "./pages/payment-return/PaymentCancel";
 import PaymentSuccess from "./pages/payment-return/PaymentSuccess";
 import SaleDetails from "./pages/SaleDetails";
@@ -34,6 +36,7 @@ import {
   RequireSalesMutationAccess,
   RequireSalesViewAccess,
 } from "./components/RouteGuards";
+import { SaleRouteBoundary } from "./components/SaleRouteBoundary";
 import NewSale from "./pages/NewSale";
 import SaleContract from "./pages/SaleContract";
 import Templates from "./pages/Templates";
@@ -49,6 +52,8 @@ const App = () => (
         <Routes>
           <Route path="/" element={<Login />} />
           <Route path="/primeiro-acesso" element={<FirstAccess />} />
+          <Route path="/recuperar-senha" element={<ForgotPassword />} />
+          <Route path="/redefinir-senha" element={<ResetPassword />} />
           {/* Stripe return URLs. Public: the buyer has no comercial session. */}
           <Route path="/sales/payment/success" element={<PaymentSuccess />} />
           <Route path="/sales/payment/cancel" element={<PaymentCancel />} />
@@ -57,16 +62,16 @@ const App = () => (
               <Route element={<RequireSalesViewAccess />}>
                 <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/vendas" element={<Navigate to="/dashboard" replace />} />
-                <Route path="/vendas/:id" element={<SaleDetails />} />
+                <Route path="/vendas/:id" element={<SaleRouteBoundary><SaleDetails /></SaleRouteBoundary>} />
               </Route>
 
               <Route element={<RequireContractAccess />}>
-                <Route path="/vendas/:id/contrato" element={<SaleContract />} />
+                <Route path="/vendas/:id/contrato" element={<SaleRouteBoundary><SaleContract /></SaleRouteBoundary>} />
               </Route>
 
               <Route element={<RequireSalesMutationAccess />}>
                 <Route path="/nova-venda" element={<NewSale />} />
-                <Route path="/vendas/:id/editar" element={<EditSale />} />
+                <Route path="/vendas/:id/editar" element={<SaleRouteBoundary><EditSale /></SaleRouteBoundary>} />
                 <Route path="/templates" element={<Templates />} />
               </Route>
 
