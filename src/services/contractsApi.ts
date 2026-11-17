@@ -305,6 +305,7 @@ export interface SaleStudentEnrollment {
 }
 
 export const CORE_EXISTING_USER_ID_MISSING = "CORE_EXISTING_USER_ID_MISSING";
+export const EMAIL_ALREADY_EXISTS = "EMAIL_ALREADY_EXISTS";
 
 function asRecord(value: unknown): Record<string, unknown> | null {
   return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : null;
@@ -380,6 +381,12 @@ export function isExistingUserIdMissing(error: unknown): boolean {
   if (!error || typeof error !== "object") return false;
   const record = error as { code?: unknown; message?: unknown };
   return record.code === CORE_EXISTING_USER_ID_MISSING || record.message === CORE_EXISTING_USER_ID_MISSING;
+}
+
+export function isEmailAlreadyExists(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const record = error as { code?: unknown; message?: unknown };
+  return record.code === EMAIL_ALREADY_EXISTS || record.message === EMAIL_ALREADY_EXISTS;
 }
 
 export async function listSaleStudents(saleId: string): Promise<SaleStudent[]> {

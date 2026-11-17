@@ -17,7 +17,7 @@ import { Label } from "@/components/ui/label";
 import { t } from "@/i18n";
 import {
   createSaleStudent,
-  isExistingUserIdMissing,
+  isEmailAlreadyExists,
   listSaleStudents,
 } from "@/services/contractsApi";
 import { formatDate } from "@/shared/utils/format";
@@ -36,18 +36,17 @@ export default function SalePortalUsers({ saleId }: Props) {
     queryFn: () => listSaleStudents(saleId),
   });
 
-  const associate = useMutation({
+  const createUser = useMutation({
     mutationFn: () => createSaleStudent(saleId, form),
     onSuccess: async (result) => {
-      const origin = result.student?.origin ?? "associated";
-      toast.success(t(origin === "created" ? "portalAccess.createdNow" : "portalAccess.associatedNow"));
+      toast.success(t("portalAccess.createdNow"));
       if (result.enrollments.failed > 0) toast.error(t("portalAccess.enrollmentsFailed"));
       setOpen(false);
       setForm(emptyForm);
       await queryClient.invalidateQueries({ queryKey: ["sale-students", saleId] });
     },
     onError: (cause: unknown) => {
-      setError(t(isExistingUserIdMissing(cause) ? "portalAccess.existingUser" : "portalAccess.saveError"));
+      setError(t(isEmailAlreadyExists(cause) ? "portalAccess.emailTaken" : "portalAccess.saveError"));
     },
   });
 
@@ -59,7 +58,7 @@ export default function SalePortalUsers({ saleId }: Props) {
       return;
     }
     setError(null);
-    associate.mutate();
+    createUser.mutate();
   }
 
   const students = query.data ?? [];
@@ -91,10 +90,9 @@ export default function SalePortalUsers({ saleId }: Props) {
           <ul className="divide-y divide-border/70">
             {students.map((student) => (
               <li key={student.id} className="py-2">
-                <div className="grid gap-1 sm:grid-cols-[1.4fr_1.4fr_.8fr_.8fr] sm:items-center">
+                <div className="grid gap-1 sm:grid-cols-[1.4fr_1.6fr_auto] sm:items-center">
                   <p className="text-sm font-medium">{student.name || student.email}</p>
                   <p className="text-sm text-muted-foreground">{student.email}</p>
-                  <p className="text-sm">{t(student.origin === "created" ? "portalAccess.outcomeCreated" : "portalAccess.outcomeAssociated")}</p>
                   <p className="text-sm text-muted-foreground">{student.createdAt ? formatDate(student.createdAt) : "—"}</p>
                 </div>
                 {(student.releases ?? []).length > 0 ? (
@@ -160,10 +158,10 @@ export default function SalePortalUsers({ saleId }: Props) {
                 onChange={(event) => setForm((current) => ({ ...current, phone: event.target.value }))}
               />
             </div>
-            {error ? <p className="text-sm text-destructive">{error}</p> : null}
+            {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
             <DialogFooter>
               <Button type="button" variant="ghost" onClick={() => setOpen(false)}>{t("common.cancel")}</Button>
-              <Button type="submit" disabled={associate.isPending}>{t("portalAccess.associate")}</Button>
+              <Button type="submit" disabled={createUser.isPending}>{t("portalAccess.associate")}</Button>
             </DialogFooter>
           </form>
         </DialogContent>

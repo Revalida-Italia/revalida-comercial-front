@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { CORE_EXISTING_USER_ID_MISSING, normalizeSaleStudents } from "@/services/contractsApi";
+import { EMAIL_ALREADY_EXISTS, normalizeSaleStudents } from "@/services/contractsApi";
 import SalePortalUsers from "./SalePortalUsers";
 
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
@@ -88,13 +88,14 @@ describe("sale portal users", () => {
     vi.clearAllMocks();
   });
 
-  it("keeps Associar usuário available and lists created or linked students", async () => {
+  it("keeps Criar usuário available and lists students already stored, including an older linked row", async () => {
     vi.mocked(listSaleStudents).mockResolvedValue([student]);
     renderSection();
-    expect(await screen.findByRole("button", { name: "Associar usuário" })).toBeEnabled();
+    expect(await screen.findByRole("button", { name: "Criar usuário" })).toBeEnabled();
     expect(screen.getByText("Go")).toBeInTheDocument();
     expect(screen.getByText("go@example.com")).toBeInTheDocument();
-    expect(screen.getByText("Associado")).toBeInTheDocument();
+    expect(screen.queryByText("Associado")).not.toBeInTheDocument();
+    expect(screen.queryByText("Criado")).not.toBeInTheDocument();
     expect(screen.getByText("16/11/2026")).toBeInTheDocument();
     const released = screen.getByRole("list", { name: "Conteúdo liberado" });
     expect(within(released).getByText("Clínica médica")).toBeInTheDocument();
@@ -105,17 +106,17 @@ describe("sale portal users", () => {
     expect(released.querySelector("[data-src='']")).toHaveAttribute("data-thumb", "course");
   });
 
-  it("explains when an existing account cannot be linked", async () => {
+  it("shows an inline error when the email already has an account", async () => {
     vi.mocked(listSaleStudents).mockResolvedValue([student]);
     vi.mocked(createSaleStudent).mockRejectedValue(
-      Object.assign(new Error(CORE_EXISTING_USER_ID_MISSING), { code: CORE_EXISTING_USER_ID_MISSING, status: 400 }),
+      Object.assign(new Error(EMAIL_ALREADY_EXISTS), { code: EMAIL_ALREADY_EXISTS, status: 409 }),
     );
     renderSection();
-    fireEvent.click(await screen.findByRole("button", { name: "Associar usuário" }));
-    const dialog = await screen.findByRole("dialog");
+    fireEvent.click(await screen.findByRole("button", { name: "Criar usuário" }));
+    const dialog = await screen.findByRole("dialog", { name: "Criar usuário" });
     fireEvent.change(within(dialog).getByLabelText("E-mail"), { target: { value: "lia@example.com" } });
-    fireEvent.click(within(dialog).getByRole("button", { name: "Associar usuário" }));
-    expect(await within(dialog).findByText("Esse e-mail já tem uma conta, mas não deu para associá-la a esta venda.")).toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Criar usuário" }));
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent("Já existe uma conta com este e-mail. Use outro e-mail.");
     expect(createSaleStudent).toHaveBeenCalledWith("sale-1", expect.objectContaining({ email: "lia@example.com" }));
   });
 });
