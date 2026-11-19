@@ -556,14 +556,33 @@ export function buildRevalidaSummary(
 
 // ---- Escola de Italiano -------------------------------------------------
 
-/** What the Escola de Italiano contract lists as included, in print order. */
+/**
+ * Included lines of the Italian school contract, in print order.
+ * That template has none. Revalida products stay on the Revalida contract only.
+ */
 export function schoolIncludedLabels(): string[] {
-  return [
-    t("contract.schoolIncluded.start"),
-    t("contract.schoolIncluded.quattromani"),
-    t("contract.schoolIncluded.examPreparation"),
-    t("contract.schoolIncluded.medicalItalian"),
-  ];
+  return [];
+}
+
+/** Numbered sections of the school form. The included section is omitted when it has no lines. */
+export function schoolSectionNumbers(): {
+  students: number;
+  includedSection: number | null;
+  course: number;
+  payment: number;
+  signatures: number;
+  notes: number;
+} {
+  const included = schoolIncludedLabels();
+  let n = 1;
+  return {
+    students: n++,
+    includedSection: included.length > 0 ? n++ : null,
+    course: n++,
+    payment: n++,
+    signatures: n++,
+    notes: n++,
+  };
 }
 
 export function newStudent(): SchoolStudent {

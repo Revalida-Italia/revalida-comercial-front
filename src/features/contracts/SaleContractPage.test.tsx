@@ -477,13 +477,15 @@ describe("Gerar contrato page", () => {
     for (const gone of ["Data de nascimento", "Local de nascimento", "Endereço completo", "Passaporte"]) {
       expect(screen.queryByText(gone)).toBeNull();
     }
-    const included = screen.getByRole("region", { name: /O que está incluso/ });
-    expect(within(included).getAllByRole("listitem").map((item) => item.textContent)).toEqual([
-      "Curso Start",
-      "Italiano Quattromani",
-      "Preparação para as provas de revalidação",
-      "Italiano Médico",
-    ]);
+    expect(screen.queryByRole("region", { name: /O que está incluso/ })).toBeNull();
+    for (const gone of ["Curso Start", "Italiano Quattromani", "Preparação para as provas de revalidação", "Italiano Médico"]) {
+      expect(screen.queryByText(gone)).toBeNull();
+    }
+    expect(screen.getByRole("heading", { name: /^1\s+Estudantes$/ })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /^2\s+Curso$/ })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /^3\s+Pagamento$/ })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /^4\s+Assinaturas$/ })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /^5\s+Observações$/ })).toBeInTheDocument();
     const section = document.getElementById("contract-section-payment") as HTMLElement;
     await waitFor(() => expect(within(section).getAllByText(/^€\s*480,00$/)).toHaveLength(5));
     expect(section.textContent).toMatch(/Total\s*€\s*2\.400,00/);
@@ -517,13 +519,10 @@ describe("Gerar contrato page", () => {
     const resumo = screen.getByRole("complementary", { name: "Resumo" });
     expect(within(resumo).getByText("2 estudantes")).toBeInTheDocument();
     expect(within(resumo).getByText("4 meses a partir de 11/01/2027")).toBeInTheDocument();
-    const includedHeading = within(resumo).getByRole("heading", { name: "Incluso" });
-    expect(within(includedHeading.nextElementSibling as HTMLElement).getAllByRole("listitem").map((item) => item.textContent)).toEqual([
-      "Curso Start",
-      "Italiano Quattromani",
-      "Preparação para as provas de revalidação",
-      "Italiano Médico",
-    ]);
+    expect(within(resumo).queryByRole("heading", { name: "Incluso" })).toBeNull();
+    for (const gone of ["Curso Start", "Italiano Quattromani", "Preparação para as provas de revalidação", "Italiano Médico"]) {
+      expect(within(resumo).queryByText(gone)).toBeNull();
+    }
     await confirmRegister();
     await waitFor(() => expect(generateContract).toHaveBeenCalledTimes(1));
     const [, payload, productType] = vi.mocked(generateContract).mock.calls[0] as [string, Record<string, unknown>, string];
