@@ -5,7 +5,7 @@ import { t } from "@/i18n";
 import type { SchoolContractPayload, SchoolStudent } from "@/services/contractsApi";
 import { DateField } from "@/features/contracts/DateField";
 import { formatCpf } from "@/features/contracts/cpf";
-import { formatPhone, newStudent, schoolIncludedLabels } from "@/features/contracts/contractFormModel";
+import { formatPhone, newStudent, schoolIncludedLabels, schoolSectionNumbers } from "@/features/contracts/contractFormModel";
 import { Field, SectionHeading, errorId, type FormControl } from "@/features/contracts/contractFormParts";
 
 type Props = {
@@ -140,11 +140,13 @@ export default function SchoolFormFields({ payload, update, form }: Props) {
   const setCourse = (change: Partial<SchoolContractPayload["course"]>) =>
     update((p) => ({ ...p, course: { ...p.course, ...change } }));
   const now = new Date().getFullYear();
+  const sections = schoolSectionNumbers();
+  const included = schoolIncludedLabels();
 
   return (
     <>
       <section aria-labelledby="contract-student-title">
-        <SectionHeading number={1} title={t("contract.sections.students")} id="contract-student-title" />
+        <SectionHeading number={sections.students} title={t("contract.sections.students")} id="contract-student-title" />
         <div className="divide-y divide-border/60">
           {payload.students.map((student, index) => (
             <StudentFields
@@ -170,19 +172,21 @@ export default function SchoolFormFields({ payload, update, form }: Props) {
         </Button>
       </section>
 
-      <section aria-labelledby="contract-school-included-title">
-        <SectionHeading number={2} title={t("contract.sections.included")} id="contract-school-included-title" />
-        <ul className="divide-y divide-border/60 border-y border-border/60">
-          {schoolIncludedLabels().map((item) => (
-            <li key={item} className="py-3.5 text-[15px] font-semibold">
-              {item}
-            </li>
-          ))}
-        </ul>
-      </section>
+      {sections.includedSection != null && (
+        <section aria-labelledby="contract-school-included-title">
+          <SectionHeading number={sections.includedSection} title={t("contract.sections.included")} id="contract-school-included-title" />
+          <ul className="divide-y divide-border/60 border-y border-border/60">
+            {included.map((item) => (
+              <li key={item} className="py-3.5 text-[15px] font-semibold">
+                {item}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <section aria-labelledby="contract-course-title">
-        <SectionHeading number={3} title={t("contract.sections.course")} id="contract-course-title" />
+        <SectionHeading number={sections.course} title={t("contract.sections.course")} id="contract-course-title" />
         <div className="grid min-w-0 gap-4 sm:grid-cols-2 [&>*]:min-w-0">
           {text(
             "contract-school-durationMonths",

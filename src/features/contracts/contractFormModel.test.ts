@@ -6,6 +6,7 @@ import {
   buildSchoolPayload,
   buildSchoolSummaryRows,
   schoolIncludedLabels,
+  schoolSectionNumbers,
   createInitialRevalidaState,
   DEFAULT_CONTRACT_CITY,
   displayPhone,
@@ -409,13 +410,16 @@ describe("Escola", () => {
     expect(buildSchoolPayload(school({ notes: "Sala 2" })).includeNotesInContract).toBe(false);
   });
 
-  it("lists what is included in the school contract", () => {
-    expect(schoolIncludedLabels()).toEqual([
-      "Curso Start",
-      "Italiano Quattromani",
-      "Preparação para as provas de revalidação",
-      "Italiano Médico",
-    ]);
+  it("includes nothing from the Revalida catalog in the school contract", () => {
+    expect(schoolIncludedLabels()).toEqual([]);
+    expect(schoolSectionNumbers()).toEqual({
+      students: 1,
+      includedSection: null,
+      course: 2,
+      payment: 3,
+      signatures: 4,
+      notes: 5,
+    });
   });
 
   it("summarizes students and course", () => {
