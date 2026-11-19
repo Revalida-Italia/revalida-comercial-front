@@ -334,12 +334,6 @@ export const ptBR = {
       phone: "Telefone",
       fallbackName: "estudante {n}",
     },
-    schoolIncluded: {
-      start: "Curso Start",
-      quattromani: "Italiano Quattromani",
-      examPreparation: "Preparação para as provas de revalidação",
-      medicalItalian: "Italiano Médico",
-    },
     course: {
       months: "Duração (meses)",
       start: "Início",
