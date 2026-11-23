@@ -4,6 +4,7 @@ import { addMonthsIso, isoToDisplay } from "@/features/contracts/contractDates";
 import type {
   ContractPaymentPhase,
   ContractProductType,
+  CourseContractItem,
   RevalidaContractPayload,
   RevalidaGeneratePayload,
   RevalidaProduct,
@@ -153,7 +154,7 @@ export function createInitialRevalidaState(prefill: RevalidaContractPayload): Re
     };
   }
   return {
-    parties: prefill.parties.map((party) => {
+    parties: (prefill.parties ?? []).map((party) => {
       const profession = party.profession?.trim() || DEFAULT_PROFESSION;
       return {
         key: newPartyKey(),
@@ -282,7 +283,7 @@ export function schoolFormFromPrefill<
 >(prefill: T): Omit<T, "referenceCity" | "includeNotesInContract"> & { referenceCity: string; includeNotesInContract: boolean } {
   return {
     ...prefill,
-    students: prefill.students.map((student) => ({
+    students: (prefill.students ?? []).map((student) => ({
       ...student,
       phone: formatPhone(student.phone ?? ""),
       cpf: formatCpf(student.cpf ?? ""),
@@ -366,6 +367,7 @@ export function validateRevalidaForm(
   state: RevalidaFormState,
   catalog: RevalidaProduct[],
   payment: PaymentContext,
+  courseItems?: CourseContractItem[],
 ): FormIssue[] {
   const { issues, add } = issueList();
   const required = t("contract.errors.required");
@@ -386,11 +388,12 @@ export function validateRevalidaForm(
     }
   });
 
-  if (!hasInclusion(state)) {
+  const courseMode = Boolean(courseItems && courseItems.length > 0);
+  if (!courseMode && !hasInclusion(state)) {
     add(INCLUDED_FIELD_ID, t("contract.errors.inclusion"), t("contract.errors.inclusion"));
   }
 
-  for (const code of PRODUCT_ORDER) {
+  if (!courseMode) for (const code of PRODUCT_ORDER) {
     const p = state.products[code];
     if (!p.selected) continue;
     const name = productName(code, catalog);
@@ -409,16 +412,24 @@ export function validateRevalidaForm(
   if (!state.termEnd) {
     add("contract-term-end", t("contract.errors.termMissing"), t("contract.missing.termEnd"));
   } else {
-    const release = latestRelease(state);
     const termStart = state.termStart;
     if (termStart && state.termEnd <= termStart) {
       add("contract-term-end", t("contract.errors.termAfter", { date: isoToDisplay(termStart) }), checkTermEnd);
-    } else if (release && state.termEnd <= release) {
-      add("contract-term-end", t("contract.errors.afterRelease"), checkTermEnd);
+    } else if (courseMode) {
+      const ends = (courseItems ?? []).map((item) => item.endsAt).filter(Boolean).sort();
+      const maxEnd = ends[ends.length - 1] ?? "";
+      if (maxEnd && state.termEnd < maxEnd) {
+        add("contract-term-end", t("contract.errors.termBeforePeriod", { date: isoToDisplay(maxEnd) }), checkTermEnd);
+      }
     } else {
-      const suggestion = suggestTermEnd(state);
-      if (suggestion && state.termEnd < suggestion) {
-        add("contract-term-end", t("contract.errors.termBeforePeriod", { date: isoToDisplay(suggestion) }), checkTermEnd);
+      const release = latestRelease(state);
+      if (release && state.termEnd <= release) {
+        add("contract-term-end", t("contract.errors.afterRelease"), checkTermEnd);
+      } else {
+        const suggestion = suggestTermEnd(state);
+        if (suggestion && state.termEnd < suggestion) {
+          add("contract-term-end", t("contract.errors.termBeforePeriod", { date: isoToDisplay(suggestion) }), checkTermEnd);
+        }
       }
     }
   }
@@ -448,7 +459,7 @@ export function buildSchoolPayload(payload: SchoolContractPayload): SchoolGenera
   const sent = withoutPayment(payload);
   return {
     ...sent,
-    students: payload.students.map((student) => {
+    students: (payload.students ?? []).map((student) => {
       const next: SchoolStudent = {
         fullName: student.fullName.trim(),
         nationality: student.nationality.trim(),
@@ -475,7 +486,49 @@ export interface BuiltPayload {
 export function buildRevalidaPayload(
   prefill: RevalidaContractPayload,
   state: RevalidaFormState,
+  courseItems?: CourseContractItem[],
 ): BuiltPayload {
+  if (courseItems && courseItems.length > 0) {
+    const prefillParties = new Map((prefill.parties ?? []).map((party) => [party.id, party]));
+    const parties = state.parties.map((party) => {
+      const original = party.id ? prefillParties.get(party.id) : undefined;
+      return {
+        ...(original ?? {}),
+        id: party.id ?? party.key,
+        fullName: party.fullName.trim(),
+        document: party.document.trim(),
+        profession: party.profession.trim(),
+        email: party.email.trim(),
+        phone: party.phone.trim(),
+        nationality: party.nationality.trim() || null,
+      };
+    });
+    const payload: RevalidaGeneratePayload = {
+      ...withoutPayment(prefill),
+      parties,
+      decreeIncluded: state.decreeOn,
+      accessMode: "courses",
+      products: [],
+      courseItems: courseItems.map((item) => ({
+        kind: item.kind,
+        courseId: item.courseId,
+        moduleId: item.kind === "module" ? (item.moduleId ?? null) : null,
+        courseName: item.courseName,
+        moduleName: item.kind === "module" ? (item.moduleName ?? null) : null,
+        startsAt: item.startsAt,
+        endsAt: item.endsAt,
+      })),
+      expenses: { ...state.extras },
+      contractStartDate: state.termStart || null,
+      contractEndDate: state.termEnd || null,
+      contractDurationMonths: null,
+      referenceCity: state.referenceCity.trim(),
+      notes: state.notes.trim() ? state.notes.trim() : null,
+      includeNotesInContract: state.includeNotesInContract === true,
+    };
+    return { payload, sentProductCodes: [] };
+  }
+
   const sentProducts: RevalidaProductSelection[] = [];
   for (const code of PRODUCT_ORDER) {
     const p = state.products[code];
@@ -489,7 +542,7 @@ export function buildRevalidaPayload(
     });
   }
 
-  const prefillParties = new Map(prefill.parties.map((party) => [party.id, party]));
+  const prefillParties = new Map((prefill.parties ?? []).map((party) => [party.id, party]));
   const parties = state.parties.map((party) => {
     const original = party.id ? prefillParties.get(party.id) : undefined;
     return {
@@ -532,10 +585,13 @@ export interface SummaryContent {
 export function buildRevalidaSummary(
   state: RevalidaFormState,
   catalog: RevalidaProduct[],
+  courseItems?: CourseContractItem[],
 ): SummaryContent {
   const included: string[] = [];
-  if (state.decreeOn) included.push(t("contract.summary.decree"));
-  for (const code of PRODUCT_ORDER) {
+  if (courseItems && courseItems.length > 0) {
+    for (const item of courseItems) included.push(item.kind === "module" ? (item.moduleName || item.courseName || "") : (item.courseName || ""));
+  }
+  if (!courseItems?.length) for (const code of PRODUCT_ORDER) {
     const p = state.products[code];
     if (!p.selected) continue;
     const name = productName(code, catalog);
@@ -545,6 +601,7 @@ export function buildRevalidaSummary(
   for (const key of EXTRA_KEYS) {
     (state.extras[key] ? included : notIncluded).push(extraLabel(key));
   }
+  if (state.decreeOn) included.push(t("contract.summary.decree"));
   return {
     contractors: tCount("contract.summary.contractors", state.parties.length),
     included,
@@ -637,7 +694,7 @@ export function validateSchoolForm(
 
 export function buildSchoolSummaryRows(payload: SchoolContractPayload): Array<{ label: string; value: string }> {
   const rows: Array<{ label: string; value: string }> = [];
-  const names = payload.students.map((s) => s.fullName.trim()).filter(Boolean);
+  const names = (payload.students ?? []).map((s) => s.fullName.trim()).filter(Boolean);
   if (names.length > 0) {
     rows.push({
       label: t("contract.summary.student"),

@@ -1,8 +1,11 @@
 /**
  * Minimal i18n: every user-visible string of a translated screen comes from a locale file.
  * Keys are English dot paths; values may have {placeholders}.
- * The app ships pt-BR only; a new locale is another file with the same shape.
+ * pt-BR is the app default. it, es and en cover the course-release screens.
  */
+import { en } from "./locales/en";
+import { es } from "./locales/es";
+import { it } from "./locales/it";
 import { ptBR } from "./locales/pt-BR";
 
 export type Messages = typeof ptBR;
@@ -14,11 +17,28 @@ type Leaves<T, Prefix extends string = ""> = {
 export type MessageKey = Leaves<Messages>;
 export type MessageVars = Record<string, string | number>;
 
-const LOCALES: Record<string, Messages> = { "pt-BR": ptBR };
+const LOCALES: Record<string, Messages> = {
+  "pt-BR": ptBR,
+  pt: ptBR,
+  it: it as Messages,
+  es: es as Messages,
+  en: en as Messages,
+};
+let localeName = "pt-BR";
 let current: Messages = ptBR;
 
 export function setLocale(locale: string): void {
-  current = LOCALES[locale] ?? ptBR;
+  localeName = LOCALES[locale] ? locale : "pt-BR";
+  current = LOCALES[localeName];
+}
+
+export function getLocale(): string {
+  return localeName;
+}
+
+/** pt, it and es use day/month/year. English uses month/day/year. */
+export function dateOrder(): "dmy" | "mdy" {
+  return localeName === "en" || localeName.startsWith("en-") ? "mdy" : "dmy";
 }
 
 function lookup(messages: Messages, key: string): string | undefined {

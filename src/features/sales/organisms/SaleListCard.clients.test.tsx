@@ -57,15 +57,16 @@ describe("sale list client names and actions", () => {
     clearSession();
   });
 
-  it("shows every client name on the card, with the full line on the title and the count in the cell", () => {
-    renderCard(sale(["Maria", "João", "Ana"]));
+  it("shows the first client and a count, with every name on the title", () => {
+    renderCard(sale(["QA Cliente Um", "QA Cliente Dois", "Ana"]));
 
-    const line = screen.getByTitle("Maria, João, Ana");
-    expect(line).toHaveTextContent("Maria");
-    expect(line).toHaveTextContent("+2");
-    expect(line).not.toHaveTextContent("João");
-    expect(screen.getByText("Clientes")).toBeInTheDocument();
-    expect(screen.getByText("3")).toBeInTheDocument();
+    const line = screen.getByTitle("QA Cliente Um, QA Cliente Dois, Ana");
+    expect(line).toHaveTextContent("QA Cliente Um");
+    expect(line.className).toContain("sale-client-name");
+    expect(line.className).not.toContain("truncate");
+    expect(screen.getByText("+2")).toBeInTheDocument();
+    expect(screen.queryByText(/QA Clie…/)).not.toBeInTheDocument();
+    expect(screen.queryByText("QA Cliente Dois, Ana")).not.toBeInTheDocument();
   });
 
   it("shows a single client name in the header line", () => {
@@ -73,19 +74,22 @@ describe("sale list client names and actions", () => {
     const line = screen.getByTitle("Maria");
     expect(line).toHaveTextContent("Maria");
     expect(line).not.toHaveTextContent("+");
+    expect(line.className).toContain("sale-client-name");
+    expect(line.className).not.toContain("truncate");
   });
 
-  it("keeps Editar, Arquivar and Excluir on the card, with the delete confirmation", async () => {
+  it("shows Link, Ver detalhes and Arquivar in that order, and confirms archive", async () => {
     renderCard(sale(["Maria"]));
 
-    expect(screen.getByRole("link", { name: "Detalhes" })).toHaveAttribute("href", "/vendas/sale_1");
+    const row = document.querySelector(".sale-card-acts");
+    const labels = [...(row?.querySelectorAll(":scope > button, :scope > a") ?? [])].map((el) => el.getAttribute("aria-label"));
+    expect(labels).toEqual(["Link de pagamento", "Ver detalhes", "Arquivar"]);
+    expect(screen.getByRole("link", { name: "Ver detalhes" })).toHaveAttribute("href", "/vendas/sale_1");
+    expect(screen.getByRole("button", { name: "Arquivar" })).toHaveAttribute("aria-label", "Arquivar");
     expect(screen.getByRole("link", { name: "Editar" })).toHaveAttribute("href", "/vendas/sale_1/editar");
-    expect(screen.getByRole("button", { name: "Arquivar" })).toBeInTheDocument();
-    const remove = screen.getByRole("button", { name: "Excluir" });
-    expect(remove.className).toContain("9A3F3F");
-    expect(remove.className).not.toContain("border-destructive");
+    expect(screen.getByRole("button", { name: "Excluir" }).className).toContain("9A3F3F");
 
-    fireEvent.click(remove);
-    expect(await screen.findByRole("alertdialog", { name: "Excluir venda?" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Arquivar" }));
+    expect(await screen.findByRole("alertdialog", { name: "Arquivar venda?" })).toBeInTheDocument();
   });
 });
