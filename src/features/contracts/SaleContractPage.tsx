@@ -38,6 +38,7 @@ import {
   buildSchoolPayload,
   buildSchoolSummaryRows,
   schoolIncludedLabels,
+  schoolSectionNumbers,
   createInitialRevalidaState,
   modelName,
   partyLabel,
@@ -507,6 +508,7 @@ function SchoolBody({
   };
 
   const rows = buildSchoolSummaryRows(payload);
+  const sections = schoolSectionNumbers();
 
   return (
     <>
@@ -519,16 +521,16 @@ function SchoolBody({
             <ModelPaper name={modelName} onChange={onSwitchModel} />
             <SchoolFormFields payload={payload} update={update} form={form} />
             <ContractPaymentSection
-              number={4}
+              number={sections.payment}
               saleId={saleId}
               phases={payload.phases}
               total={total}
               currency={currency}
               error={feedback.errorFor("contract-section-payment")}
             />
-            <SchoolSignaturesSection number={5} payload={payload} update={update} form={form} />
+            <SchoolSignaturesSection number={sections.signatures} payload={payload} update={update} form={form} />
             <ObservationsSection
-              number={6}
+              number={sections.notes}
               value={payload.notes ?? ""}
               included={payload.includeNotesInContract === true}
               disabled={generating}
