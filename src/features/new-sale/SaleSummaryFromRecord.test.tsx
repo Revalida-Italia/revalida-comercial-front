@@ -202,7 +202,7 @@ describe("SaleSummaryFromRecord", () => {
     expect(await screen.findByText("Ana Lima")).toBeInTheDocument();
     expect(screen.getByText("+55 (11) 97777-0000")).toBeInTheDocument();
     expect(screen.queryByText("11977770000")).toBeNull();
-    expect(screen.getByText("Liberação: 20/10/2026")).toBeInTheDocument();
+    expect(screen.getByText("Liberação em 20/10/2026")).toBeInTheDocument();
     expect(screen.getByText("Vencimento: 20/10/2026")).toBeInTheDocument();
     expect(screen.getAllByText(/R\$\s*1\.500,00/).length).toBeGreaterThan(0);
     expect(screen.queryByText("Nenhum pagamento configurado")).toBeNull();

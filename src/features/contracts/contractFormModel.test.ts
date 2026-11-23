@@ -137,7 +137,7 @@ describe("validateRevalidaForm", () => {
     const issues = validateRevalidaForm(s, catalog, { phases: [] });
     expect(issues.map((i) => i.summary)).toEqual([
       "Escolha pelo menos um produto ou serviço.",
-      "Falta: fim da vigência",
+      "Falta: fim do acesso",
       "Cadastre o pagamento da venda para gerar o contrato.",
       "Falta: cidade da assinatura",
     ]);
@@ -307,12 +307,12 @@ describe("buildRevalidaSummary", () => {
     const summary = buildRevalidaSummary(s, catalog);
     expect(summary.contractors).toBe("1 contratante");
     expect(summary.included).toEqual([
-      "Decreto",
       "Curso Start · 15/10/2026",
       "Preparação para as provas de revalidação · 15/10/2027",
       "Italiano Médico · 15/10/2027",
       "Italiano Quattromani · 15/10/2026",
       "Apostila de Haia",
+      "Decreto",
     ]);
     expect(summary.notIncluded).toEqual(["Tradução juramentada", "Despesas postais"]);
     expect(summary.term).toBe("15/10/2028");

@@ -81,6 +81,26 @@ export interface RevalidaProductSelection {
   endDate?: string | null;
 }
 
+/** Course line copied from the sale. Names are the ones frozen at sale time. */
+export interface CourseContractItem {
+  kind: "course" | "module";
+  courseId: string | null;
+  moduleId?: string | null;
+  courseName: string | null;
+  moduleName?: string | null;
+  startsAt: string;
+  endsAt: string;
+}
+
+/** One contract the seller can generate. `name` is what the screen shows. */
+export interface ContractModelInfo {
+  productType: "PROGRAMA_REVALIDA_ITALIA" | "ESCOLA_DE_ITALIANO";
+  templateId: string;
+  name: string;
+  language: "pt" | "it" | "es" | "en";
+  version: string;
+}
+
 /** One installment line of the sale. A card installment line ("12 x R$ 1.000") has `installments` > 1. */
 export interface ContractPaymentPhase {
   number: number;
@@ -111,7 +131,10 @@ export interface RevalidaContractPayload {
   parties: RevalidaContractParty[];
   /** Adds Annex A to the contract. */
   decreeIncluded: boolean;
+  /** `courses` replaces the fixed product list with `courseItems`. Absent stays the legacy form. */
+  accessMode?: "legacy" | "courses";
   products?: RevalidaProductSelection[];
+  courseItems?: CourseContractItem[];
   expenses: {
     translationsIncluded: boolean;
     apostillesIncluded: boolean;
@@ -131,6 +154,7 @@ export interface RevalidaContractPayload {
   notes?: string | null;
   /** Absent means the notes stay off the contract. */
   includeNotesInContract?: boolean | null;
+  contractModel?: ContractModelInfo | null;
 }
 
 export interface SchoolStudent {
@@ -160,6 +184,7 @@ export interface SchoolContractPayload {
   notes?: string | null;
   /** Absent means the notes stay off the contract. */
   includeNotesInContract?: boolean | null;
+  contractModel?: ContractModelInfo | null;
 }
 
 export type ContractFormPayload = RevalidaContractPayload | SchoolContractPayload;
@@ -175,6 +200,15 @@ export async function listContractModules(): Promise<ContractModule[]> {
 
 export async function listRevalidaProducts(): Promise<RevalidaProduct[]> {
   return apiRequest(CORE_API_URL, "/contracts/revalida-products");
+}
+
+export async function listContractModels(): Promise<ContractModelInfo[]> {
+  const payload = await apiRequest<{ models?: ContractModelInfo[] } | ContractModelInfo[]>(
+    CORE_API_URL,
+    "/contracts/models",
+  );
+  if (Array.isArray(payload)) return payload;
+  return payload.models ?? [];
 }
 
 export async function listSaleContracts(saleId: string): Promise<SaleContract[]> {
@@ -230,6 +264,159 @@ export async function provisionCoreStudent(
     method: "POST",
     body: body ?? {},
   });
+}
+
+export interface SaleContractClient {
+  id: string;
+  name: string;
+  email?: string | null;
+  document?: string | null;
+  phone?: string | null;
+  coreUserId?: string | null;
+}
+
+export type SalePortalOutcome = "created" | "associated";
+
+export interface SaleStudentRelease {
+  kind: "course" | "module";
+  id: string;
+  name: string;
+  startsAt: string;
+  thumbnailUrl: string | null;
+}
+
+export interface SaleStudent {
+  id: string;
+  saleId: string;
+  coreUserId: string | null;
+  cognitoSub: string | null;
+  name: string;
+  email: string;
+  origin: SalePortalOutcome;
+  createdByUserId: string | null;
+  createdAt: string;
+  releases: SaleStudentRelease[];
+}
+
+export interface SaleStudentEnrollment {
+  created: number;
+  alreadyEnrolled: number;
+  failed: number;
+}
+
+export const CORE_EXISTING_USER_ID_MISSING = "CORE_EXISTING_USER_ID_MISSING";
+export const EMAIL_ALREADY_EXISTS = "EMAIL_ALREADY_EXISTS";
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : null;
+}
+
+function readText(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function unwrapStudents(payload: unknown): Record<string, unknown> {
+  let current = asRecord(payload) ?? {};
+  for (let depth = 0; depth < 3; depth += 1) {
+    if (Array.isArray(current.students) || current.student) return current;
+    const data = asRecord(current.data);
+    if (!data) return current;
+    current = data;
+  }
+  return current;
+}
+
+function readOrigin(value: unknown): SalePortalOutcome {
+  return readText(value).toLowerCase() === "associated" ? "associated" : "created";
+}
+
+function readRelease(raw: unknown): SaleStudentRelease | null {
+  const record = asRecord(raw);
+  if (!record) return null;
+  const kind = readText(record.kind).toLowerCase();
+  if (kind !== "course" && kind !== "module") return null;
+  const id = readText(record.id);
+  const name = readText(record.name);
+  if (!id || !name) return null;
+  const thumb = readText(record.thumbnailUrl);
+  return {
+    kind,
+    id,
+    name,
+    startsAt: readText(record.startsAt),
+    thumbnailUrl: thumb || null,
+  };
+}
+
+function readStudent(raw: unknown): SaleStudent | null {
+  const record = asRecord(raw);
+  if (!record) return null;
+  const id = readText(record.id);
+  const email = readText(record.email);
+  if (!id || !email) return null;
+  return {
+    id,
+    saleId: readText(record.saleId),
+    coreUserId: readText(record.coreUserId) || null,
+    cognitoSub: readText(record.cognitoSub) || null,
+    name: readText(record.name),
+    email,
+    origin: readOrigin(record.origin),
+    createdByUserId: readText(record.createdByUserId) || null,
+    createdAt: readText(record.createdAt),
+    releases: Array.isArray(record.releases)
+      ? record.releases.map(readRelease).filter((item): item is SaleStudentRelease => Boolean(item))
+      : [],
+  };
+}
+
+/** GET /sales/:saleId/students → { success, data: { students } }. */
+export function normalizeSaleStudents(payload: unknown): SaleStudent[] {
+  const root = unwrapStudents(payload);
+  const rows = Array.isArray(root.students) ? root.students : [];
+  return rows.map(readStudent).filter((item): item is SaleStudent => Boolean(item));
+}
+
+export function isExistingUserIdMissing(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const record = error as { code?: unknown; message?: unknown };
+  return record.code === CORE_EXISTING_USER_ID_MISSING || record.message === CORE_EXISTING_USER_ID_MISSING;
+}
+
+export function isEmailAlreadyExists(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const record = error as { code?: unknown; message?: unknown };
+  return record.code === EMAIL_ALREADY_EXISTS || record.message === EMAIL_ALREADY_EXISTS;
+}
+
+export async function listSaleStudents(saleId: string): Promise<SaleStudent[]> {
+  const payload = await apiRequest<unknown>(CORE_API_URL, `/sales/${encodeURIComponent(saleId)}/students`);
+  return normalizeSaleStudents(payload);
+}
+
+export async function createSaleStudent(
+  saleId: string,
+  input: { email: string; name?: string; document?: string; phone?: string },
+): Promise<{ student: SaleStudent | null; enrollments: SaleStudentEnrollment }> {
+  const payload = await apiRequest<unknown>(CORE_API_URL, `/sales/${encodeURIComponent(saleId)}/students`, {
+    method: "POST",
+    body: {
+      email: input.email,
+      ...(input.name?.trim() ? { name: input.name.trim() } : {}),
+      ...(input.document?.trim() ? { document: input.document.trim() } : {}),
+      ...(input.phone?.trim() ? { phone: input.phone.trim() } : {}),
+    },
+  });
+  const root = unwrapStudents(payload);
+  const enrollmentsRecord = asRecord(root.enrollments);
+  return {
+    student: readStudent(root.student),
+    enrollments: {
+      created: Number(enrollmentsRecord?.created ?? 0),
+      alreadyEnrolled: Number(enrollmentsRecord?.alreadyEnrolled ?? 0),
+      failed: Number(enrollmentsRecord?.failed ?? 0),
+    },
+  };
 }
 
 /** POST /contracts/:id/provision-portal-students — empty body; password is never returned. */

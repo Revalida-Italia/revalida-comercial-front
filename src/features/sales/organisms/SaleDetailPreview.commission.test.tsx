@@ -1,4 +1,5 @@
 import type { ComponentProps } from "react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
@@ -90,10 +91,13 @@ function cancelledSubscription(): SaleRecord {
 }
 
 function renderPreview(record: SaleRecord, props: Partial<ComponentProps<typeof SaleDetailPreview>> = {}) {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
-    <MemoryRouter>
-      <SaleDetailPreview sale={record} readOnly {...props} />
-    </MemoryRouter>,
+    <QueryClientProvider client={client}>
+      <MemoryRouter>
+        <SaleDetailPreview sale={record} readOnly {...props} />
+      </MemoryRouter>
+    </QueryClientProvider>,
   );
 }
 

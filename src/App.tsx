@@ -36,6 +36,7 @@ import {
   RequireSalesMutationAccess,
   RequireSalesViewAccess,
 } from "./components/RouteGuards";
+import { SaleRouteBoundary } from "./components/SaleRouteBoundary";
 import NewSale from "./pages/NewSale";
 import SaleContract from "./pages/SaleContract";
 import Templates from "./pages/Templates";
@@ -61,16 +62,16 @@ const App = () => (
               <Route element={<RequireSalesViewAccess />}>
                 <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/vendas" element={<Navigate to="/dashboard" replace />} />
-                <Route path="/vendas/:id" element={<SaleDetails />} />
+                <Route path="/vendas/:id" element={<SaleRouteBoundary><SaleDetails /></SaleRouteBoundary>} />
               </Route>
 
               <Route element={<RequireContractAccess />}>
-                <Route path="/vendas/:id/contrato" element={<SaleContract />} />
+                <Route path="/vendas/:id/contrato" element={<SaleRouteBoundary><SaleContract /></SaleRouteBoundary>} />
               </Route>
 
               <Route element={<RequireSalesMutationAccess />}>
                 <Route path="/nova-venda" element={<NewSale />} />
-                <Route path="/vendas/:id/editar" element={<EditSale />} />
+                <Route path="/vendas/:id/editar" element={<SaleRouteBoundary><EditSale /></SaleRouteBoundary>} />
                 <Route path="/templates" element={<Templates />} />
               </Route>
 

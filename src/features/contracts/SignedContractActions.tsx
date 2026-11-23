@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { GraduationCap, Loader2 } from "lucide-react";
 import {
@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { createPortalStudents, type SaleContract } from "@/services/contractsApi";
+import { tCount } from "@/i18n";
 import {
   isSignedContract,
   knownSignedContractError,
@@ -34,13 +35,16 @@ function signerLabel(signer: NonNullable<SaleContract["signers"]>[number]): stri
 export default function SignedContractActions({ contract, onChanged }: Props) {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [failures, setFailures] = useState<CreatePortalStudentsResponse["results"]>([]);
+  const queryClient = useQueryClient();
 
   const createStudentsMutation = useMutation({
     mutationFn: () => createPortalStudents(contract.id),
-    onSuccess: (payload) => {
-      const failed = payload.results.filter((result) => result.status === "failed");
+    onSuccess: async (payload) => {
+      const failed = (payload.results ?? []).filter((result) => result.status === "failed");
       setFailures(failed);
-      const ok = payload.summary.created + payload.summary.alreadyExists;
+      const created = payload.summary?.created ?? 0;
+      const already = payload.summary?.alreadyExists ?? 0;
+      const ok = created + already;
       if (failed.length > 0) {
         toast.error(
           failed.length === 1
@@ -48,7 +52,8 @@ export default function SignedContractActions({ contract, onChanged }: Props) {
             : `Não foi possível criar o acesso de ${failed.length} alunos.`,
         );
       }
-      if (ok > 0) toast.success(`Acesso criado para ${ok} aluno(s).`);
+      if (ok > 0) toast.success(tCount("portalAccess.created", ok));
+      await queryClient.invalidateQueries({ queryKey: ["sale-students", contract.saleId] });
       onChanged?.();
     },
     onError: (error: unknown) => {
