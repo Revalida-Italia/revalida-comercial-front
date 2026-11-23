@@ -26,6 +26,20 @@
 html {
   scrollbar-width: thin;
   scrollbar-color: rgba(80,100,130,0.18) transparent;
+  height: 100%;
+}
+body,
+#root {
+  height: 100%;
+}
+/* Recharts leaves #recharts_measurement_span on document.body (outside #root)
+   at top:-20000px. That absolute box makes the document scroll past the shell. */
+#recharts_measurement_span {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
 }
 
 @layer base {
@@ -74,8 +88,8 @@ html {
     --warning: 38 92% 55%;
     --warning-foreground: 0 0% 10%;
 
-    --font-display: 'Inter', sans-serif;
-    --font-body: 'Inter', sans-serif;
+    --font-display: "Plus Jakarta Sans", sans-serif;
+    --font-body: "Plus Jakarta Sans", sans-serif;
   }
 
   .dark {
@@ -116,6 +130,11 @@ html {
   body {
     @apply bg-background text-foreground;
     font-family: var(--font-body);
+    background-color: hsl(var(--background));
+  }
+  html.app-shell,
+  html.app-shell body {
+    overflow: hidden;
   }
   h1, h2, h3 {
     font-family: var(--font-display);
@@ -144,66 +163,126 @@ html {
 .sale-list {
   container-name: sales;
   container-type: inline-size;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
+.sale-list-head,
 .sale-card {
   display: grid;
-  gap: 14px;
-  grid-template-areas: "head" "clients" "meta" "nums" "acts";
   min-width: 0;
+  gap: 8px 10px;
+  grid-template-areas: "client status" "seller contract" "payments payments" "acts acts";
+  grid-template-columns: 1fr 1fr;
 }
-.sale-card-head { grid-area: head; min-width: 0; }
-.sale-card-clients { grid-area: clients; min-width: 0; }
-.sale-card-meta { grid-area: meta; min-width: 0; }
-.sale-card-nums {
-  grid-area: nums;
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px 16px;
-  min-width: 0;
+.sale-link-short { display: none; }
+.sale-card {
+  min-height: 0;
+  align-items: start;
 }
+.sale-list-head { display: none; }
+.sale-zone { min-width: 0; }
+.sale-zone-client { grid-area: client; }
+.sale-zone-seller { grid-area: seller; }
+.sale-zone-contract { grid-area: contract; }
+.sale-zone-payments { grid-area: payments; }
+.sale-zone-status { grid-area: status; justify-self: end; }
 .sale-card-acts {
   grid-area: acts;
   display: flex;
   align-items: center;
   gap: 6px;
-  flex-wrap: nowrap;
   min-width: 0;
-  overflow: visible;
+  border-top: 1px solid hsl(var(--border));
+  padding-top: 8px;
 }
-.sale-wide-label { display: none; }
-.sale-compact {
-  width: 36px;
-  height: 36px;
-  padding: 0;
-  justify-content: center;
+.sale-card-acts .sale-action { height: 44px; }
+.sale-money { white-space: nowrap; }
+.sale-client-name {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: break-word;
+  white-space: normal;
 }
-.sale-link-short { display: none; }
-.sale-pay-value { white-space: normal; overflow: visible; line-height: 1.25; }
-@container sales (min-width: 620px) {
-  .sale-card-nums { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.sale-zone-label { display: block; }
+.contract-form { container-type: inline-size; container-name: contract; }
+.contract-fields { display: grid; gap: 1rem; min-width: 0; grid-template-columns: minmax(0, 1fr); }
+.contract-fields > * { min-width: 0; }
+.contract-span { grid-column: 1 / -1; }
+.model-paper { container-type: inline-size; container-name: model; }
+@container model (max-width: 380px) {
+  .model-switch { flex: 1 0 100%; justify-content: center; }
 }
-@container sales (min-width: 1320px) {
+@container contract (min-width: 400px) {
+  .contract-fields { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+}
+@container sales (min-width: 700px) {
+  .sale-list-head,
   .sale-card {
-    grid-template-columns: minmax(220px, 1fr) minmax(320px, 520px) max-content;
-    column-gap: 20px;
-    grid-template-areas: "head nums acts" "clients clients clients" "meta meta meta";
+    grid-template-columns: minmax(0, 0.9fr) minmax(6rem, 0.7fr) minmax(0, 1.15fr) minmax(0, 1.15fr) minmax(6rem, 0.75fr) max-content;
+    grid-template-areas: "client seller contract payments status acts";
     align-items: center;
+    column-gap: 0;
   }
-  .sale-card-nums { grid-template-columns: 5.5rem minmax(10.5rem, 1.7fr) minmax(6.5rem, 1fr) minmax(8.75rem, 1.2fr); }
-  .sale-card-acts { justify-content: flex-end; overflow: visible; }
-  .sale-wide-label { display: inline; }
-  .sale-compact { width: auto; height: 36px; padding: 0 10px; }
+  .sale-card { height: auto; min-height: 72px; max-height: 90px; border-radius: 0.5rem; }
+  .sale-list-head { display: grid; padding: 0 16px; }
+  .sale-list-head > span { padding-left: 10px; }
+  .sale-list-head > span:nth-child(4),
+  .sale-list-head > span:nth-child(5) { white-space: nowrap; }
+  .sale-list-head > span:first-child { padding-left: 0; }
+  .sale-zone-payments p { white-space: nowrap; }
+  .sale-zone { min-width: 0; overflow: hidden; padding: 0 10px; }
+  .sale-zone-seller,
+  .sale-zone-seller p,
+  .sale-client-name,
+  .sale-seller-name { overflow-wrap: break-word; white-space: normal; }
+  .sale-seller-name {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
+  }
+  .sale-zone-client { padding-left: 0; }
+  .sale-zone-label { display: none; }
+  .sale-zone-status { justify-self: start; }
+  .sale-card-acts { border-top: 0; padding-top: 0; padding-right: 0; justify-content: flex-end; flex-wrap: nowrap; }
+  .sale-card-acts .sale-action,
+  .sale-card-acts > a.sale-action,
+  .sale-card-acts > details > summary {
+    width: 36px;
+    min-width: 36px;
+    max-width: 36px;
+    height: 36px;
+    padding: 0;
+    flex: 0 0 36px;
+    justify-content: center;
+    overflow: hidden;
+  }
+  .sale-card-acts .sale-action > span,
+  .sale-card-acts > a.sale-action > span { display: none; }
+  .sale-details-icon { display: block; }
+  .sale-zone + .sale-zone { box-shadow: inset 1px 0 0 hsl(var(--border)); }
+  .sale-icon-btn { width: 36px; padding: 0; justify-content: center; }
+  .sale-link-long, .sale-link-short { display: none; }
 }
-@media (max-width: 767px) {
-  .sale-card-acts { flex-wrap: nowrap; gap: 2px; overflow: visible; }
-  .sale-card-acts .sale-action { height: 44px; flex-shrink: 1; }
-  .sale-card-acts .sale-compact { width: 44px; min-width: 40px; padding: 0; }
-  .sale-card-acts .sale-split { flex-shrink: 1; min-width: 0; }
-  .sale-link-long { display: none; }
-  .sale-link-short { display: inline; }
-}
-@container sales (max-width: 400px) {
-  .sale-card-acts { gap: 2px; }
-  .sale-card-acts .sale-compact { width: 40px; min-width: 40px; height: 40px; }
-  .sale-card-acts .sale-action { height: 40px; padding-left: 6px; padding-right: 6px; }
+@container sales (min-width: 1100px) {
+  .sale-list-head,
+  .sale-card {
+    grid-template-columns: minmax(0, 0.8fr) minmax(0, 0.7fr) minmax(0, 1.2fr) minmax(0, 1.2fr) minmax(0, 0.85fr) max-content;
+  }
+  .sale-card { height: 72px; max-height: none; }
+  .sale-client-name,
+  .sale-seller-name {
+    display: block;
+    -webkit-line-clamp: unset;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .sale-zone { padding: 0 14px; }
+  .sale-zone-client { padding-left: 0; }
+  .sale-list-head > span { padding-left: 14px; }
+  .sale-list-head > span:first-child { padding-left: 0; }
 }

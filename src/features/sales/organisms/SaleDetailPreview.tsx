@@ -1,3 +1,5 @@
+import { useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import type { CommissionBreakdownResult } from "@/services/commissionApi";
 import { buildCommissionBreakdown } from "@/services/commissionApi";
 import type { SalePayment, SaleRecord } from "@/services/commercialApi";
@@ -8,7 +10,12 @@ import { readStripePaymentMethod } from "@/features/sales/utils/stripePaymentMet
 import { isCancelledStatus, type CommissionPayView } from "@/features/sales/utils/commissionStatus";
 import { getSaleCommissionValue, saleAllowsStripeCheckoutLink } from "../utils";
 import SaleSummary from "@/features/new-sale/organisms/SaleSummary";
-import { useMemo } from "react";
+import { buildCourseSummary } from "@/features/new-sale/courses/copy";
+import { listCourseCatalog } from "@/features/new-sale/courses/catalogApi";
+import { draftFromItems, readCourseItems, servicesFromRecord } from "@/features/new-sale/courses/model";
+import type { TeachingCatalog } from "@/features/new-sale/courses/types";
+
+const EMPTY_CATALOG: TeachingCatalog = { modules: [], courses: [] };
 
 type SaleDetailPreviewProps = {
   sale: SaleRecord;
@@ -49,19 +56,38 @@ const SaleDetailPreview = ({
   payingCommissionPaymentId = null,
   onPayCommission,
 }: SaleDetailPreviewProps) => {
-  const filledCustomers: FilledSaleCustomer[] = sale.clients.map((client) => ({
+  const catalogQuery = useQuery({
+    queryKey: ["sales", "course-catalog"],
+    queryFn: listCourseCatalog,
+    staleTime: 5 * 60_000,
+  });
+  const catalog = catalogQuery.data ?? EMPTY_CATALOG;
+  const clients = sale.clients ?? [];
+  const items = sale.items ?? [];
+  const payments = sale.payments ?? [];
+  const filledCustomers: FilledSaleCustomer[] = clients.map((client) => ({
     name: client.nameCiphertext || "Sem nome",
     document: client.documentCiphertext || undefined,
     telefone: client.telefone || "-",
     email: client.email || undefined,
   }));
 
-  const saleItems = sale.items.map((item) => ({
-    productName: item.product?.name || "Produto não identificado",
-    releaseDate: item.releaseDate?.slice(0, 10) ?? "",
-  }));
+  const courseItems = readCourseItems(items);
+  const courseSummary = courseItems.length > 0
+    ? buildCourseSummary(
+      { ...draftFromItems(courseItems, courseItems[0]?.startsAt || ""), services: servicesFromRecord(sale) },
+      catalog,
+      clients.map((client) => client.nameCiphertext || ""),
+    )
+    : undefined;
+  const saleItems = courseSummary
+    ? []
+    : items.map((item) => ({
+      productName: item.product?.name || "Produto não identificado",
+      releaseDate: item.releaseDate?.slice(0, 10) ?? "",
+    }));
 
-  const configuredPayments: ConfiguredSalePayment[] = sale.payments.map((payment) => ({
+  const configuredPayments: ConfiguredSalePayment[] = payments.map((payment) => ({
     id: payment.id,
     status: payment.status,
     paymentDate: payment.paymentDate?.slice(0, 10) ?? undefined,
@@ -114,10 +140,10 @@ const SaleDetailPreview = ({
       totalCommission,
       payments: breakdown.payments.map((payment, index) => ({
         ...payment,
-        commissionAmount: toNumberOrZero(sale.payments[index]?.commission?.amount),
+        commissionAmount: toNumberOrZero(payments[index]?.commission?.amount),
       })),
     };
-  }, [configuredPayments, commissionRate, sale.payments, totalCommission]);
+  }, [configuredPayments, commissionRate, payments, totalCommission]);
 
   const getFeeRate = (gateway: string, paymentType: string) => {
     const payment = configuredPayments.find((item) => item.gateway === gateway && item.paymentType === paymentType);
@@ -130,6 +156,8 @@ const SaleDetailPreview = ({
     <SaleSummary
       filledCustomers={filledCustomers}
       saleItems={saleItems}
+      courseSummary={courseSummary}
+      courseLayout={courseSummary ? "compact" : undefined}
       configuredPayments={configuredPayments}
       commissionBreakdown={commissionBreakdown}
       estimatedCommission={totalCommission}

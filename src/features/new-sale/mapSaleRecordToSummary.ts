@@ -6,6 +6,9 @@ import { getPaymentGrossValue, isMonthlySubscriptionPayment } from "@/shared/uti
 import { getSaleCommissionValue } from "@/features/sales/utils";
 import { mapSaleToForm } from "./mapSaleToForm";
 import type { ConfiguredSalePayment, FilledSaleCustomer, SaleSummaryItem } from "./types";
+import { buildCourseSummary, type CourseSummaryModel } from "./courses/copy";
+import { draftFromItems, readCourseItems, servicesFromRecord } from "./courses/model";
+import type { TeachingCatalog } from "./courses/types";
 
 export type SaleSummaryFromRecordProps = {
   filledCustomers: FilledSaleCustomer[];
@@ -19,6 +22,8 @@ export type SaleSummaryFromRecordProps = {
   getFeeRate: (gateway: string, paymentType: string) => number;
   paymentGrossValue: (payment: { amount: string | number; paymentType: string; totalInstallments?: string | number }) => number;
   subscriptionMonthLabelMode: "compact";
+  courseSummary?: CourseSummaryModel;
+  courseLayout?: "compact" | "table";
 };
 
 function dateOnly(value?: string | null): string {
@@ -26,7 +31,10 @@ function dateOnly(value?: string | null): string {
 }
 
 /** Props for SaleSummary, derived from the same form shape used to edit a sale. */
-export function saleSummaryPropsFromRecord(sale: SaleRecord): SaleSummaryFromRecordProps {
+export function saleSummaryPropsFromRecord(
+  sale: SaleRecord,
+  catalog: TeachingCatalog = { modules: [], courses: [] },
+): SaleSummaryFromRecordProps {
   const form = mapSaleToForm(sale);
   const items = sale.items ?? [];
   const payments = sale.payments ?? [];
@@ -40,7 +48,16 @@ export function saleSummaryPropsFromRecord(sale: SaleRecord): SaleSummaryFromRec
       email: customer.email?.trim() || undefined,
     }));
 
-  const saleItems: SaleSummaryItem[] = form.items
+  const courseItems = readCourseItems(items);
+  const courseSummary = courseItems.length > 0
+    ? buildCourseSummary(
+      { ...draftFromItems(courseItems, courseItems[0]?.startsAt || ""), services: servicesFromRecord(sale) },
+      catalog,
+      (sale.clients ?? []).map((client) => client.nameCiphertext || ""),
+    )
+    : undefined;
+
+  const saleItems: SaleSummaryItem[] = courseSummary ? [] : form.items
     .filter((item) => item.productId)
     .map((item) => {
       const source = items.find((candidate) => candidate.productId === item.productId && dateOnly(candidate.releaseDate) === item.releaseDate)
@@ -139,5 +156,7 @@ export function saleSummaryPropsFromRecord(sale: SaleRecord): SaleSummaryFromRec
       configuredPayments.find((payment) => payment.gateway === gateway && payment.paymentType === paymentType)?.feeRate ?? 0,
     paymentGrossValue: (payment) => getPaymentGrossValue(payment, configuredPayments),
     subscriptionMonthLabelMode: "compact",
+    courseSummary,
+    courseLayout: courseSummary ? "table" : undefined,
   };
 }

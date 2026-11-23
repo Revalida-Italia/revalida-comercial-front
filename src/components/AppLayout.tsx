@@ -11,6 +11,11 @@ const AppLayout = () => {
   const location = useLocation();
 
   useEffect(() => {
+    document.documentElement.classList.add("app-shell");
+    return () => document.documentElement.classList.remove("app-shell");
+  }, []);
+
+  useEffect(() => {
     setMenuOpen(false);
   }, [location.pathname]);
 

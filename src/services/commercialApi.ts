@@ -34,9 +34,22 @@ export interface SaleClient {
 export interface SaleItem {
   id: string;
   saleId: string;
-  productId: string;
-  releaseDate: string;
+  /** Generic product kept for sales made before courses. */
+  productId?: string | null;
+  releaseDate?: string | null;
   notes?: string | null;
+  kind?: "course" | "module" | null;
+  courseId?: string | null;
+  moduleId?: string | null;
+  startsAt?: string | null;
+  endsAt?: string | null;
+  /** Frozen on the sale. A module line uses both; a whole course leaves `moduleName` empty. */
+  courseName?: string | null;
+  moduleName?: string | null;
+  /** Courses inside a module, as returned on GET /sales/:id. Empty when the catalog did not load. */
+  courseIds?: string[] | null;
+  /** Older payloads. The sale response uses `courseName` and `moduleName`. */
+  name?: string | null;
   createdAt: string;
   updatedAt: string;
   product?: {
@@ -155,6 +168,19 @@ export interface SaleRecord {
   exchangeRateDate?: string | null;
   exchangeRateSource?: string | null;
   status: string;
+  /** `legacy` keeps generic products. `courses` is a sale of published courses. */
+  accessMode?: "legacy" | "courses" | null;
+  translationIncluded?: boolean | null;
+  apostilleIncluded?: boolean | null;
+  postalExpensesIncluded?: boolean | null;
+  decreeIncluded?: boolean | null;
+  /** Some responses nest the four flags. Columns on the sale are the usual shape. */
+  services?: {
+    translationIncluded?: boolean | null;
+    apostilleIncluded?: boolean | null;
+    postalExpensesIncluded?: boolean | null;
+    decreeIncluded?: boolean | null;
+  } | null;
   soldAt?: string | null;
   asaasSubscriptionId?: string | null;
   hotmartCheckoutLink?: string | null;
@@ -221,11 +247,26 @@ export interface CreateSaleClient {
   email?: string;
 }
 
-export interface CreateSaleItem {
-  productId: string;
-  releaseDate: string;
-  notes?: string;
-}
+export type CreateSaleItem =
+  | {
+    productId: string;
+    releaseDate: string;
+    notes?: string;
+  }
+  | {
+    kind: "course";
+    courseId: string;
+    startsAt: string;
+    endsAt: string;
+  }
+  | {
+    kind: "module";
+    moduleId: string;
+    /** Set when this API still stores the module under one course. */
+    courseId?: string;
+    startsAt: string;
+    endsAt: string;
+  };
 
 export type BillingType = "PIX" | "BOLETO" | "CREDIT_CARD" | "UNDEFINED";
 
@@ -264,6 +305,10 @@ export interface CreateSaleInput {
   clients: CreateSaleClient[];
   items: CreateSaleItem[];
   payments: CreateSalePayment[];
+  translationIncluded?: boolean;
+  apostilleIncluded?: boolean;
+  postalExpensesIncluded?: boolean;
+  decreeIncluded?: boolean;
 }
 
 export type SaleStatus = "PENDING" | "CONCLUDED" | "ARCHIVED";
@@ -277,11 +322,7 @@ export interface UpdateSaleClient {
   email?: string;
 }
 
-export interface UpdateSaleItem {
-  productId: string;
-  releaseDate: string;
-  notes?: string;
-}
+export type UpdateSaleItem = CreateSaleItem;
 
 export interface UpdateSalePayment {
   /** Amount as entered, in the sale's originalCurrency (EUR/USD); `amount` is in reais. */
@@ -311,6 +352,10 @@ export interface UpdateSaleInput {
   clients?: UpdateSaleClient[];
   items?: UpdateSaleItem[];
   payments?: UpdateSalePayment[];
+  translationIncluded?: boolean;
+  apostilleIncluded?: boolean;
+  postalExpensesIncluded?: boolean;
+  decreeIncluded?: boolean;
 }
 
 interface ListWrapper<T> {
@@ -438,6 +483,13 @@ function normalizeSalePayment(payment: SalePayment): SalePayment {
   };
 }
 
+function serviceFlag(
+  sale: SaleRecord,
+  key: "translationIncluded" | "apostilleIncluded" | "postalExpensesIncluded" | "decreeIncluded",
+): boolean {
+  return sale.services?.[key] === true || sale[key] === true;
+}
+
 function normalizeSaleRecord(sale: SaleRecord): SaleRecord {
   const payments = (Array.isArray(sale.payments) ? sale.payments : []).map(normalizeSalePayment);
   const commissionsFromPayments = payments
@@ -449,6 +501,10 @@ function normalizeSaleRecord(sale: SaleRecord): SaleRecord {
     clients: Array.isArray(sale.clients) ? sale.clients : [],
     items: Array.isArray(sale.items) ? sale.items : [],
     payments,
+    translationIncluded: serviceFlag(sale, "translationIncluded"),
+    apostilleIncluded: serviceFlag(sale, "apostilleIncluded"),
+    postalExpensesIncluded: serviceFlag(sale, "postalExpensesIncluded"),
+    decreeIncluded: serviceFlag(sale, "decreeIncluded"),
     commissions: Array.isArray(sale.commissions) && sale.commissions.length > 0
       ? sale.commissions
       : commissionsFromPayments,
@@ -714,7 +770,7 @@ function mergePaymentLinkIntoSale(
 ): SaleRecord {
   return {
     ...sale,
-    payments: sale.payments.map((item) => (
+    payments: (sale.payments ?? []).map((item) => (
       item.id === paymentId
         ? {
           ...item,
@@ -737,7 +793,7 @@ export async function createAsaasPaymentLinkForSale(
   input: AsaasPaymentLinkInput,
 ): Promise<CreateAsaasPaymentLinkResult> {
   const sale = await getSaleById(saleId);
-  const payment = sale.payments.find((item) => item.id === paymentId);
+  const payment = (sale.payments ?? []).find((item) => item.id === paymentId);
 
   if (!payment) {
     throw new Error("Pagamento não encontrado.");

@@ -5,7 +5,6 @@ import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { createSale, listGatewayFees, type BillingType, type CreateSaleCustomer } from "@/services/commercialApi";
 import { createAsaasPaymentLinkForSale } from "@/services/commercialApi";
-import { listProducts } from "@/services/productsApi";
 import { buildCommissionBreakdown, normalizeCommissionRate } from "@/services/commissionApi";
 import { fetchExchangeRates } from "@/services/exchangeRatesApi";
 import { convertToBrl, isDisplayCurrency } from "@/shared/utils/exchange";
@@ -16,15 +15,20 @@ import {
   EMPTY_CUSTOMER,
   EMPTY_PAYMENT,
   MAX_INSTALLMENTS,
-  STEP_LABELS,
 } from "./constants";
-import type { SaleItemDraft, SalePaymentDraft } from "./types";
+import type { SalePaymentDraft } from "./types";
 import ConfirmStep from "./organisms/ConfirmStep";
 import CustomersStep from "./organisms/CustomersStep";
 import PaymentsStep from "./organisms/PaymentsStep";
-import ProductStep from "./organisms/ProductStep";
 import SaleSummary from "@/features/new-sale/organisms/SaleSummary";
 import StepIndicator from "./organisms/StepIndicator";
+import { t } from "@/i18n";
+import { cn } from "@/lib/utils";
+import { listCourseCatalog } from "./courses/catalogApi";
+import { buildCourseSummary } from "./courses/copy";
+import { todayIso } from "./courses/dates";
+import { CoursesStep } from "./courses/CoursesStep";
+import { continueState, emptyDraft, toCourseSaleItems } from "./courses/model";
 
 type PaymentValueLike = {
   amount: string | number;
@@ -41,7 +45,7 @@ const NewSaleFeature = () => {
 
   const [customers, setCustomers] = useState<CreateSaleCustomer[]>([{ ...EMPTY_CUSTOMER }]);
 
-  const [saleItemsDraft, setSaleItemsDraft] = useState<SaleItemDraft[]>([{ productId: "", releaseDate: "", notes: "" }]);
+  const [courseDraft, setCourseDraft] = useState(() => emptyDraft(todayIso()));
 
   const [payments, setPayments] = useState<SalePaymentDraft[]>([{ ...EMPTY_PAYMENT }]);
 
@@ -50,9 +54,13 @@ const NewSaleFeature = () => {
     [payments],
   );
 
-  const productsQuery = useQuery({
-    queryKey: ["products"],
-    queryFn: listProducts,
+  const catalogQuery = useQuery({
+    queryKey: ["sales", "course-catalog"],
+    queryFn: listCourseCatalog,
+    enabled: step >= 2,
+    staleTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
+    retry: false,
   });
 
   const gatewayFeesQuery = useQuery({
@@ -68,28 +76,9 @@ const NewSaleFeature = () => {
     staleTime: 5 * 60_000,
   });
 
-  const selectedSaleItems = useMemo(
-    () => saleItemsDraft
-      .filter((item) => item.productId && item.releaseDate)
-      .map((item) => ({
-        productId: item.productId,
-        releaseDate: item.releaseDate,
-      })),
-    [saleItemsDraft],
-  );
-
-  const hasDuplicateProducts = useMemo(() => {
-    const ids = saleItemsDraft.map((item) => item.productId).filter(Boolean);
-    return new Set(ids).size !== ids.length;
-  }, [saleItemsDraft]);
-
-  const saleSummaryItems = useMemo(
-    () => selectedSaleItems.map((item) => ({
-      productName: productsQuery.data?.find((product) => product.id === item.productId)?.name ?? "Produto não identificado",
-      releaseDate: item.releaseDate,
-    })),
-    [selectedSaleItems, productsQuery.data],
-  );
+  const catalog = useMemo(() => catalogQuery.data ?? { modules: [], courses: [] }, [catalogQuery.data]);
+  const courseItems = useMemo(() => toCourseSaleItems(courseDraft, catalog), [courseDraft, catalog]);
+  const courseGate = useMemo(() => continueState(courseDraft, catalog), [courseDraft, catalog]);
 
   const commissionRate = useMemo(() => {
     const profileAny = profile as unknown as Record<string, unknown> | null;
@@ -122,6 +111,11 @@ const NewSaleFeature = () => {
         email: c.email?.trim() || undefined,
       })),
     [customers],
+  );
+
+  const courseSummary = useMemo(
+    () => buildCourseSummary(courseDraft, catalog, filledCustomers.map((customer) => customer.name)),
+    [courseDraft, catalog, filledCustomers],
   );
 
   function getFeeRate(gateway: string, paymentType: string): number {
@@ -189,9 +183,7 @@ const NewSaleFeature = () => {
   const estimatedCommission = commissionBreakdown.totalCommission;
 
   const canGoStep2 = filledCustomers.length > 0;
-  const canGoStep3 = selectedSaleItems.length > 0
-    && selectedSaleItems.length === saleItemsDraft.length
-    && !hasDuplicateProducts;
+  const canGoStep3 = courseGate.ok;
 
   const hasValidPayments = payments.length > 0
     && payments.every((payment) => {
@@ -230,18 +222,6 @@ const NewSaleFeature = () => {
 
   function removeCustomer(index: number) {
     setCustomers((prev) => prev.filter((_, i) => i !== index));
-  }
-
-  function updateSaleItem(index: number, field: keyof SaleItemDraft, value: string) {
-    setSaleItemsDraft((prev) => prev.map((item, i) => (i === index ? { ...item, [field]: value } : item)));
-  }
-
-  function addSaleItem() {
-    setSaleItemsDraft((prev) => [...prev, { productId: "", releaseDate: "", notes: "" }]);
-  }
-
-  function removeSaleItem(index: number) {
-    setSaleItemsDraft((prev) => prev.filter((_, i) => i !== index));
   }
 
   function setPaymentGateway(index: number, gateway: string, generatePaymentLink: boolean) {
@@ -324,12 +304,8 @@ const NewSaleFeature = () => {
         throw new Error("Adicione pelo menos um pagamento valido.");
       }
 
-      if (selectedSaleItems.length === 0 || selectedSaleItems.length !== saleItemsDraft.length) {
-        throw new Error("Adicione pelo menos um modulo com data de liberacao.");
-      }
-
-      if (hasDuplicateProducts) {
-        throw new Error("Nao e permitido selecionar o mesmo modulo mais de uma vez.");
+      if (!courseGate.ok || courseItems.length === 0) {
+        throw new Error("Escolha os cursos e o período de acesso.");
       }
 
       if (needsExchangeRates && !exchangeRatesQuery.data?.rates) {
@@ -352,7 +328,11 @@ const NewSaleFeature = () => {
           telefone: c.telefone,
           ...(c.email ? { email: c.email } : {}),
         })),
-        items: selectedSaleItems,
+        items: courseItems,
+        translationIncluded: courseDraft.services.translation,
+        apostilleIncluded: courseDraft.services.apostille,
+        postalExpensesIncluded: courseDraft.services.postal,
+        decreeIncluded: courseDraft.services.decree,
         payments: configuredPayments.map((payment) => ({
           gateway: payment.gateway,
           type: payment.paymentType,
@@ -412,7 +392,7 @@ const NewSaleFeature = () => {
       }
       setStep(1);
       setCustomers([{ ...EMPTY_CUSTOMER }]);
-      setSaleItemsDraft([{ productId: "", releaseDate: "", notes: "" }]);
+      setCourseDraft(emptyDraft(todayIso()));
       setPayments([{ ...EMPTY_PAYMENT }]);
     },
     onError: (error) => {
@@ -420,17 +400,18 @@ const NewSaleFeature = () => {
     },
   });
 
+  const stepLabels = ["Clientes", t("sale.steps.coursesServices"), "Pagamentos", "Resumo"];
+
   return (
-    <div className="space-y-6">
+    <div className={cn("space-y-6", step === 2 && "max-md:pb-24")}>
       <div>
         <h1 className="text-3xl font-bold text-foreground">Nova venda</h1>
-        <p className="text-muted-foreground">Preencha as informações passo a passo.</p>
       </div>
 
-      <StepIndicator labels={STEP_LABELS} step={step} />
+      <StepIndicator labels={stepLabels} step={step} />
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
-        <div>
+      <div className="grid min-w-0 items-start gap-6 min-[1181px]:grid-cols-[minmax(0,1fr)_300px]">
+        <div className="min-w-0">
           {step === 1 && (
             <CustomersStep
               customers={customers}
@@ -443,15 +424,14 @@ const NewSaleFeature = () => {
           )}
 
           {step === 2 && (
-            <ProductStep
-              products={productsQuery.data ?? []}
-              productsLoading={productsQuery.isLoading}
-              items={saleItemsDraft}
-              hasDuplicateProducts={hasDuplicateProducts}
-              canGoNext={canGoStep3}
-              onUpdateItem={updateSaleItem}
-              onAddItem={addSaleItem}
-              onRemoveItem={removeSaleItem}
+            <CoursesStep
+              catalog={catalog}
+              loading={(catalogQuery.isLoading || catalogQuery.isFetching) && !catalogQuery.data}
+              error={catalogQuery.isError}
+              onRetry={() => { void catalogQuery.refetch(); }}
+              draft={courseDraft}
+              onChange={setCourseDraft}
+              clients={filledCustomers.map((customer) => customer.name)}
               onBack={() => setStep(1)}
               onNext={() => setStep(3)}
             />
@@ -483,12 +463,14 @@ const NewSaleFeature = () => {
           {step === 4 && (
             <ConfirmStep
               filledCustomers={filledCustomers}
-              saleItems={saleSummaryItems}
+              saleItems={[]}
               configuredPayments={configuredPayments}
               commissionBreakdown={commissionBreakdown}
               estimatedCommission={estimatedCommission}
               currency="BRL"
               careerPlanName={profile?.careerPlan?.name}
+              courseSummary={courseSummary}
+              onEditStep={setStep}
               canSubmit={canSubmit}
               isSaving={mutation.isPending}
               onBack={() => setStep(3)}
@@ -499,15 +481,17 @@ const NewSaleFeature = () => {
           )}
         </div>
 
-        <div className="hidden lg:block">
-          <Card className="sticky top-6">
+        <div className="max-md:hidden">
+          <Card className="min-[1181px]:sticky min-[1181px]:top-6">
             <CardHeader className="pb-3">
               <CardTitle className="text-base">Prévia da venda</CardTitle>
             </CardHeader>
             <CardContent>
               <SaleSummary
                 filledCustomers={filledCustomers}
-                saleItems={saleSummaryItems}
+                saleItems={[]}
+                courseSummary={courseSummary}
+                courseLayout="compact"
                 configuredPayments={configuredPayments}
                 commissionBreakdown={commissionBreakdown}
                 estimatedCommission={estimatedCommission}

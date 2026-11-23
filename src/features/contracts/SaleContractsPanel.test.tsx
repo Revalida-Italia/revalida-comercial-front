@@ -285,7 +285,7 @@ describe("Contratos list", () => {
     expect(toast.success).not.toHaveBeenCalled();
   });
 
-  it("Assinado: Baixar contrato primary, plus Criar acesso dos alunos, and no password text", async () => {
+  it("Assinado: Baixar contrato primary, without Criar acesso dos alunos or password text", async () => {
     vi.mocked(listSaleContracts).mockResolvedValue([contract("c1", { status: "SIGNED", signedContract: { id: "sc" } })]);
     vi.mocked(downloadSignedContractPdf).mockResolvedValue();
     renderPanel();
@@ -293,7 +293,7 @@ describe("Contratos list", () => {
     expect(within(item).getByText("Assinado")).toBeInTheDocument();
     fireEvent.click(within(item).getByRole("button", { name: "Baixar contrato" }));
     await waitFor(() => expect(downloadSignedContractPdf).toHaveBeenCalledWith("c1"));
-    expect(within(item).getByRole("button", { name: "Criar acesso dos alunos" })).toBeInTheDocument();
+    expect(within(item).queryByRole("button", { name: "Criar acesso dos alunos" })).toBeNull();
     expect(item.textContent).not.toMatch(/senha|Primeironome|core|@\d{4}/i);
   });
 
