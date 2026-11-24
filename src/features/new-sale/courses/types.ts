@@ -11,6 +11,8 @@ export type CatalogModule = {
   name: string;
   thumbnailUrl: string | null;
   courseIds: string[];
+  /** Only an explicit true is offered on a new sale. */
+  visibleInCommercial?: boolean;
 };
 
 export type TeachingCatalog = {

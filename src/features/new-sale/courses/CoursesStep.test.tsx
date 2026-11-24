@@ -7,7 +7,10 @@ import type { CourseDraft, TeachingCatalog } from "./types";
 
 const catalog: TeachingCatalog = {
   modules: [
-    { id: "mod-clinic", name: "Clínica médica", thumbnailUrl: null, courseIds: ["clinic-1", "pedia"] },
+    { id: "mod-clinic", name: "Clínica médica", thumbnailUrl: null, courseIds: ["clinic-1", "pedia"], visibleInCommercial: true },
+    { id: "pri-a", name: "PRI", thumbnailUrl: null, courseIds: ["pedia"], visibleInCommercial: true },
+    { id: "pri-b", name: "PRI", thumbnailUrl: null, courseIds: ["clinic-1"], visibleInCommercial: true },
+    { id: "hidden", name: "Módulo interno", thumbnailUrl: null, courseIds: ["start"], visibleInCommercial: false },
   ],
   courses: [
     { id: "start", name: "Curso Start", thumbnailUrl: "https://example.test/broken.jpg" },
@@ -16,11 +19,21 @@ const catalog: TeachingCatalog = {
   ],
 };
 
-function Harness({ loading = false, error = false, onRetry = vi.fn() }: { loading?: boolean; error?: boolean; onRetry?: () => void }) {
+function Harness({
+  loading = false,
+  error = false,
+  onRetry = vi.fn(),
+  source = catalog,
+}: {
+  loading?: boolean;
+  error?: boolean;
+  onRetry?: () => void;
+  source?: TeachingCatalog;
+}) {
   const [draft, setDraft] = useState<CourseDraft>(() => emptyDraft("2026-08-20"));
   return (
     <CoursesStep
-      catalog={loading || error ? { modules: [], courses: [] } : catalog}
+      catalog={loading || error ? { modules: [], courses: [] } : source}
       loading={loading}
       error={error}
       onRetry={onRetry}
@@ -57,28 +70,48 @@ describe("Courses step", () => {
     expect(screen.queryByLabelText("Buscar curso ou módulo")).not.toBeInTheDocument();
   });
 
-  it("toggles a course from the row once and does not offer a chevron", () => {
+  it("selects a module and keeps its courses inside the row", () => {
     render(<Harness />);
     expect(screen.queryByRole("button", { name: /Módulos de/ })).toBeNull();
-    const course = screen.getByRole("checkbox", { name: /Curso Start/ });
-    fireEvent.click(course);
-    expect(course).toHaveAttribute("aria-checked", "true");
-    fireEvent.click(course);
-    expect(course).toHaveAttribute("aria-checked", "false");
-    fireEvent.keyDown(course, { key: " " });
-    expect(course).toHaveAttribute("aria-checked", "true");
+    expect(screen.queryByRole("checkbox", { name: /^Curso Start/ })).toBeNull();
+    expect(screen.queryByText("Módulo interno")).toBeNull();
+    expect(screen.getAllByRole("checkbox", { name: /PRI/ })).toHaveLength(1);
+    const module = screen.getByRole("checkbox", { name: /Clínica médica/ });
+    expect(module).toHaveTextContent("Clínica Médica I");
+    expect(module).toHaveTextContent("Pediatria");
+    fireEvent.click(module);
+    expect(module).toHaveAttribute("aria-checked", "true");
+    expect(screen.getAllByText("1 item escolhido").length).toBeGreaterThan(0);
+    fireEvent.click(module);
+    expect(module).toHaveAttribute("aria-checked", "false");
+    fireEvent.keyDown(module, { key: " " });
+    expect(module).toHaveAttribute("aria-checked", "true");
   });
 
-  it("locks a course that belongs to a selected module", () => {
+  it("finds a module by a course inside it and does not list that course alone", () => {
     render(<Harness />);
-    fireEvent.click(screen.getByRole("checkbox", { name: /Clínica médica/ }));
-    const included = screen.getAllByRole("checkbox", { name: /Pediatria/ }).find((item) => item.getAttribute("aria-disabled") === "true" || item.textContent?.startsWith("Pediatria")) ?? screen.getAllByRole("checkbox", { name: /Pediatria/ })[1];
-    expect(included).toHaveAttribute("aria-checked", "true");
-    expect(included).toHaveAttribute("aria-disabled", "true");
-    expect(screen.getAllByText("Incluso no módulo Clínica médica").length).toBeGreaterThan(0);
-    fireEvent.click(included);
-    expect(included).toHaveAttribute("aria-checked", "true");
-    expect(screen.getAllByText("1 item escolhido").length).toBeGreaterThan(0);
+    fireEvent.change(screen.getByLabelText("Buscar curso ou módulo"), { target: { value: "Pediatria" } });
+    expect(screen.getByRole("checkbox", { name: /Clínica médica/ })).toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: /PRI/ })).toBeInTheDocument();
+    expect(screen.queryByRole("checkbox", { name: /^Pediatria/ })).toBeNull();
+    fireEvent.change(screen.getByLabelText("Buscar curso ou módulo"), { target: { value: "Curso Start" } });
+    expect(screen.queryByRole("checkbox")).toBeNull();
+    expect(screen.getByText("Nada encontrado para “Curso Start”")).toBeInTheDocument();
+  });
+
+  it("explains when no module is available for sale", () => {
+    render(
+      <Harness
+        source={{
+          modules: [{ id: "hidden", name: "Módulo interno", thumbnailUrl: null, courseIds: ["start"], visibleInCommercial: false }],
+          courses: [{ id: "start", name: "Curso Start", thumbnailUrl: null }],
+        }}
+      />,
+    );
+    expect(screen.getByText("Nenhum módulo liberado para venda")).toBeInTheDocument();
+    expect(screen.getByText(/Quando a equipe liberar um módulo/)).toBeInTheDocument();
+    expect(screen.queryByRole("checkbox")).toBeNull();
+    expect(screen.queryByText("Curso Start")).toBeNull();
   });
 
   it("starts every additional service on Não", () => {

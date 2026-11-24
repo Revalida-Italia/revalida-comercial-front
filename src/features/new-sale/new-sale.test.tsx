@@ -66,7 +66,7 @@ async function fillAndConfirm(options?: { translation?: boolean }) {
   fireEvent.change(screen.getByPlaceholderText("+55 (34) 99999-9999"), { target: { value: "11988880000" } });
   fireEvent.click(screen.getByRole("button", { name: "Próximo" }));
 
-  fireEvent.click(await screen.findByRole("checkbox", { name: "Curso Start" }));
+  fireEvent.click(await screen.findByRole("checkbox", { name: /Documentação/ }));
   if (options?.translation) {
     const group = screen.getByRole("radiogroup", { name: "Tradução juramentada" });
     fireEvent.click(within(group).getByRole("radio", { name: "Sim" }));
@@ -100,7 +100,7 @@ beforeEach(() => {
   window.localStorage.clear();
   vi.mocked(listProducts).mockResolvedValue([{ id: "prod-1", name: "Curso Start" }]);
   vi.mocked(listCourseCatalog).mockResolvedValue({
-    modules: [{ id: "mod-1", name: "Documentação", thumbnailUrl: null, courseIds: ["course-start"] }],
+    modules: [{ id: "mod-1", name: "Documentação", thumbnailUrl: null, courseIds: ["course-start"], visibleInCommercial: true }],
     courses: [{ id: "course-start", name: "Curso Start", thumbnailUrl: null }],
   });
   vi.mocked(listGatewayFees).mockResolvedValue([
@@ -116,7 +116,9 @@ describe("new sale", () => {
     fireEvent.change(screen.getByPlaceholderText("Nome completo"), { target: { value: "Maria Souza" } });
     fireEvent.change(screen.getByPlaceholderText("+55 (34) 99999-9999"), { target: { value: "11988880000" } });
     fireEvent.click(screen.getByRole("button", { name: "Próximo" }));
-    expect(await screen.findByRole("checkbox", { name: "Curso Start" })).toBeInTheDocument();
+    const module = await screen.findByRole("checkbox", { name: /Documentação/ });
+    expect(module).toHaveTextContent("Curso Start");
+    expect(screen.getAllByRole("checkbox")).toHaveLength(1);
     expect(screen.queryByText("Programa Revalida Italia")).toBeNull();
     fireEvent.change(screen.getByLabelText("Buscar curso ou módulo"), { target: { value: "doc" } });
     expect(listCourseCatalog).toHaveBeenCalledTimes(1);
@@ -169,5 +171,9 @@ describe("new sale", () => {
     expect(body.postalExpensesIncluded).toBe(false);
     expect(body.decreeIncluded).toBe(false);
     expect(body).not.toHaveProperty("services");
+    expect(body.items).toEqual([
+      expect.objectContaining({ kind: "module", moduleId: "mod-1" }),
+    ]);
+    expect(body.items.some((item) => "kind" in item && item.kind === "course")).toBe(false);
   });
 });

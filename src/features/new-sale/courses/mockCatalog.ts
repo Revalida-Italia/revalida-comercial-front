@@ -8,12 +8,21 @@ export const MOCK_COURSE_CATALOG: TeachingCatalog = {
       name: "Clínica médica",
       thumbnailUrl: null,
       courseIds: ["course-clinic-1", "course-clinic-2", "course-prevent"],
+      visibleInCommercial: true,
     },
     {
       id: "mod-prep",
       name: "Preparação para as provas",
       thumbnailUrl: "https://example.test/prep.jpg",
       courseIds: ["course-pedia", "course-clinic-1"],
+      visibleInCommercial: true,
+    },
+    {
+      id: "mod-hidden",
+      name: "Módulo interno",
+      thumbnailUrl: null,
+      courseIds: ["course-start"],
+      visibleInCommercial: false,
     },
   ],
   courses: [
