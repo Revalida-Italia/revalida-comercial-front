@@ -19,6 +19,8 @@ export const es = {
       retry: "Intentar de nuevo",
       toggle: "Módulos de {curso}",
       groupModules: "Módulos",
+      emptyModules: "Ningún módulo disponible para la venta",
+      emptyModulesHint: "Cuando se libere un módulo, aparece aquí con los cursos que lo componen.",
       groupCourses: "Cursos",
       filterAll: "Todos",
       moduleCourses: { one: "{n} curso: {nomes}", other: "{n} cursos: {nomes}" },

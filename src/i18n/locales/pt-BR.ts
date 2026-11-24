@@ -219,6 +219,8 @@ export const ptBR = {
       retry: "Tentar de novo",
       toggle: "Módulos de {curso}",
       groupModules: "Módulos",
+      emptyModules: "Nenhum módulo liberado para venda",
+      emptyModulesHint: "Quando a equipe liberar um módulo, ele aparece aqui, com os cursos que fazem parte dele.",
       groupCourses: "Cursos",
       filterAll: "Todos",
       moduleCourses: { one: "{n} curso: {nomes}", other: "{n} cursos: {nomes}" },

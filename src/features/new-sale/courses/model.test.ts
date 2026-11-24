@@ -7,6 +7,7 @@ import { normalizeCatalog } from "./catalogApi";
 import {
   applyMode,
   blockReason,
+  commercialModules,
   continueState,
   copyFirstDates,
   datesDiverge,
@@ -26,8 +27,8 @@ import type { SaleItem } from "@/services/commercialApi";
 
 const catalog: TeachingCatalog = {
   modules: [
-    { id: "mod-clinic", name: "Clínica médica", thumbnailUrl: null, courseIds: ["clinic-1", "pedia"] },
-    { id: "mod-prep", name: "Preparação", thumbnailUrl: null, courseIds: ["pedia"] },
+    { id: "mod-clinic", name: "Clínica médica", thumbnailUrl: null, courseIds: ["clinic-1", "pedia"], visibleInCommercial: true },
+    { id: "mod-prep", name: "Preparação", thumbnailUrl: null, courseIds: ["pedia"], visibleInCommercial: true },
   ],
   courses: [
     { id: "start", name: "Curso Start", thumbnailUrl: null },
@@ -63,9 +64,34 @@ describe("course selection", () => {
 
   it("filters a course and the modules that contain it", () => {
     const matches = filterCatalog(catalog, "pedia");
-    expect(matches.courses.map((course) => course.id)).toEqual(["pedia"]);
+    expect(matches.courses).toEqual([]);
     expect(matches.modules.map((mod) => mod.id)).toEqual(["mod-clinic", "mod-prep"]);
     expect(filterCatalog(catalog, "radiologia")).toEqual({ modules: [], courses: [] });
+  });
+
+  it("keeps only modules marked visible and lists a duplicated module once", () => {
+    const source: TeachingCatalog = {
+      modules: [
+        { id: "pri-1", name: "PRI", thumbnailUrl: null, courseIds: ["a"], visibleInCommercial: true },
+        { id: "pri-1", name: "PRI", thumbnailUrl: null, courseIds: ["b"], visibleInCommercial: true },
+        { id: "pri-2", name: " PRI ", thumbnailUrl: null, courseIds: ["c"], visibleInCommercial: true },
+        { id: "hidden", name: "Oculto", thumbnailUrl: null, courseIds: ["loose"], visibleInCommercial: false },
+        { id: "unmarked", name: "Sem marca", thumbnailUrl: null, courseIds: ["loose"] },
+        { id: "prep", name: "Preparação", thumbnailUrl: null, courseIds: ["pedia"], visibleInCommercial: true },
+      ],
+      courses: [
+        { id: "a", name: "Curso A", thumbnailUrl: null },
+        { id: "loose", name: "Curso avulso", thumbnailUrl: null },
+        { id: "pedia", name: "Pediatria", thumbnailUrl: null },
+      ],
+    };
+    expect(commercialModules(source).map((mod) => [mod.id, mod.courseIds])).toEqual([
+      ["pri-1", ["a", "b", "c"]],
+      ["prep", ["pedia"]],
+    ]);
+    expect(filterCatalog(source, "").courses).toEqual([]);
+    expect(filterCatalog(source, "avulso")).toEqual({ modules: [], courses: [] });
+    expect(filterCatalog(source, "pedia").modules.map((mod) => mod.id)).toEqual(["prep"]);
   });
 });
 
@@ -214,6 +240,18 @@ describe("catalog and contract lines", () => {
       courses: [{ id: "start", name: "Curso Start", thumbnailUrl: null, modules: [{ id: "docs", name: "Documentação" }] }],
     }).modules).toEqual([
       { id: "docs", name: "Documentação", thumbnailUrl: null, courseIds: ["start"] },
+    ]);
+    expect(normalizeCatalog({
+      modules: [
+        { id: "pri", name: "PRI", courseIds: ["a"], visibleInCommercial: true },
+        { id: "hidden", name: "Oculto", courseIds: ["b"], visibleInCommercial: false },
+        { id: "plain", name: "Sem marca", courseIds: ["c"] },
+      ],
+      courses: [{ id: "a", name: "Curso A", thumbnailUrl: null }],
+    }).modules).toEqual([
+      { id: "pri", name: "PRI", thumbnailUrl: null, courseIds: ["a"], visibleInCommercial: true },
+      { id: "hidden", name: "Oculto", thumbnailUrl: null, courseIds: ["b"], visibleInCommercial: false },
+      { id: "plain", name: "Sem marca", thumbnailUrl: null, courseIds: ["c"] },
     ]);
   });
 
