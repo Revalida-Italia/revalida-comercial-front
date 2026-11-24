@@ -68,7 +68,18 @@ function readGroupingModule(raw: unknown, extras: CatalogCourse[]): CatalogModul
     if (ref.name) extras.push({ id: ref.id, name: ref.name, thumbnailUrl: imageUrl(asRecord(item) ?? {}) });
   }
   if (!id || !name) return null;
-  return { id, name, thumbnailUrl: imageUrl(record), courseIds };
+  const visibleInCommercial = record.visibleInCommercial === true
+    ? true
+    : record.visibleInCommercial === false
+      ? false
+      : undefined;
+  return {
+    id,
+    name,
+    thumbnailUrl: imageUrl(record),
+    courseIds,
+    ...(visibleInCommercial === undefined ? {} : { visibleInCommercial }),
+  };
 }
 
 /** Courses that list their modules become modules that list those courses. */

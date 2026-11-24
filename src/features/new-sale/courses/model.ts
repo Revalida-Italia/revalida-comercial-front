@@ -25,8 +25,6 @@ export type ListedItem = {
 
 export type BlockReason = "empty" | "end" | "invalid";
 
-export type CatalogFilter = "all" | "modules" | "courses";
-
 export const emptyServices = (): SaleServices => ({
   translation: false,
   apostille: false,
@@ -444,20 +442,64 @@ export type CatalogView = {
   courses: CatalogCourse[];
 };
 
-/** Local filter. A search hits a module name, a course name, and the courses inside a module. */
+function uniqueIds(ids: readonly string[] | undefined): string[] {
+  const out: string[] = [];
+  for (const id of ids ?? []) {
+    const trimmed = id.trim();
+    if (trimmed && !out.includes(trimmed)) out.push(trimmed);
+  }
+  return out;
+}
+
+/**
+ * Modules the sale may offer. Hidden modules stay out, and the same module
+ * (same id, or the same name, such as a duplicated PRI) is listed once.
+ * Courses stay inside the module; they are not returned as their own rows.
+ */
+export function commercialModules(catalog: TeachingCatalog): CatalogModule[] {
+  const order: string[] = [];
+  const byKey = new Map<string, CatalogModule>();
+  const nameToKey = new Map<string, string>();
+
+  for (const raw of asCatalog(catalog).modules) {
+    if (raw.visibleInCommercial !== true) continue;
+    const id = raw.id.trim();
+    const name = raw.name.trim();
+    if (!id || !name) continue;
+    const nameKey = name.toLocaleLowerCase("pt-BR");
+    const key = byKey.has(id) ? id : (nameToKey.get(nameKey) ?? id);
+    const courseIds = uniqueIds(raw.courseIds);
+    const current = byKey.get(key);
+    if (current) {
+      byKey.set(key, {
+        ...current,
+        thumbnailUrl: current.thumbnailUrl ?? raw.thumbnailUrl ?? null,
+        courseIds: uniqueIds([...current.courseIds, ...courseIds]),
+      });
+      continue;
+    }
+    order.push(key);
+    nameToKey.set(nameKey, key);
+    byKey.set(key, {
+      id,
+      name,
+      thumbnailUrl: raw.thumbnailUrl ?? null,
+      courseIds,
+      visibleInCommercial: true,
+    });
+  }
+
+  return order.map((key) => byKey.get(key)!);
+}
+
+/** Local filter over visible modules. A search also hits the courses inside a module. */
 export function filterCatalog(catalog: TeachingCatalog, query: string): CatalogView {
-  const safe = asCatalog(catalog);
-  const modulesAll = safe.modules;
-  const coursesAll = safe.courses;
+  const modulesAll = commercialModules(catalog);
   const q = query.trim().toLowerCase();
-  if (!q) return { modules: modulesAll, courses: coursesAll };
-  const courseHit = new Set(
-    coursesAll.filter((course) => course.name.toLowerCase().includes(q)).map((course) => course.id),
-  );
+  if (!q) return { modules: modulesAll, courses: [] };
   const modules = modulesAll.filter((mod) => {
     if (mod.name.toLowerCase().includes(q)) return true;
-    return (mod.courseIds ?? []).some((id) => courseHit.has(id) || courseById(catalog, id)?.name.toLowerCase().includes(q));
+    return (mod.courseIds ?? []).some((id) => courseById(catalog, id)?.name.toLowerCase().includes(q));
   });
-  const courses = coursesAll.filter((course) => courseHit.has(course.id));
-  return { modules, courses };
+  return { modules, courses: [] };
 }

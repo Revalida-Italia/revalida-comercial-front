@@ -57,14 +57,16 @@ describe("i18n", () => {
 
   it("translates the course step in Portuguese, Italian, Spanish and English", () => {
     const samples = [
-      ["pt-BR", "Cursos e módulos", "Informe o fim do acesso para continuar."],
-      ["it", "Corsi e moduli", "Indica la fine dell'accesso per continuare."],
-      ["es", "Cursos y módulos", "Indica el fin del acceso para continuar."],
-      ["en", "Courses and modules", "Enter the access end date to continue."],
+      ["pt-BR", "Cursos e módulos", "Informe o fim do acesso para continuar.", "Nenhum módulo liberado para venda"],
+      ["it", "Corsi e moduli", "Indica la fine dell'accesso per continuare.", "Nessun modulo disponibile per la vendita"],
+      ["es", "Cursos y módulos", "Indica el fin del acceso para continuar.", "Ningún módulo disponible para la venta"],
+      ["en", "Courses and modules", "Enter the access end date to continue.", "No modules available for sale"],
     ] as const;
-    for (const [locale, title, end] of samples) {
+    for (const [locale, title, end, empty] of samples) {
       setLocale(locale);
       expect(t("sale.courses.title")).toBe(title);
+      expect(t("sale.courses.emptyModules")).toBe(empty);
+      expect(t("sale.courses.emptyModulesHint").trim().length).toBeGreaterThan(0);
       expect(t("sale.access.endRequired")).toBe(end);
       expect(t("sale.courses.title")).not.toBe("sale.courses.title");
     }

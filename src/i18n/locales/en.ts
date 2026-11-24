@@ -20,6 +20,8 @@ export const en = {
       retry: "Try again",
       toggle: "Modules of {curso}",
       groupModules: "Modules",
+      emptyModules: "No modules available for sale",
+      emptyModulesHint: "When a module is released, it shows up here with the courses that belong to it.",
       groupCourses: "Courses",
       filterAll: "All",
       moduleCourses: { one: "{n} course: {nomes}", other: "{n} courses: {nomes}" },

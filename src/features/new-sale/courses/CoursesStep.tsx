@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { AlertCircle, Calendar, Check, Copy, RefreshCw, Search, Users } from "lucide-react";
+import { AlertCircle, Calendar, Check, Copy, Library, RefreshCw, Search, Users } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -20,25 +20,20 @@ import {
   applyMode,
   continueState,
   copyFirstDates,
-  courseKey,
   datesDiverge,
   fieldIssue,
   filterCatalog,
-  isCourseLocked,
   listItems,
-  lockingModules,
   moduleKey,
   setEditing,
   setItemDate,
   setService,
   setSharedDate,
   showFieldIssue,
-  toggleCourse,
   toggleModule,
   touchField,
-  type CatalogFilter,
 } from "./model";
-import type { CatalogCourse, CatalogModule, CourseDraft, SaleServices, TeachingCatalog } from "./types";
+import type { CatalogModule, CourseDraft, SaleServices, TeachingCatalog } from "./types";
 
 type Props = {
   catalog: TeachingCatalog;
@@ -96,24 +91,14 @@ function dateIssue(start: string, end: string, draft: CourseDraft, field: string
   return null;
 }
 
-function includedLine(catalog: TeachingCatalog, draft: CourseDraft, courseId: string): string | null {
-  const owners = lockingModules(catalog, draft, courseId);
-  if (owners.length === 0) return null;
-  if (owners.length === 1) return t("sale.courses.includedIn", { nome: owners[0].name });
-  return t("sale.courses.includedMore", { nome: owners[0].name, n: owners.length - 1 });
-}
-
 const ROW =
   "flex min-h-[52px] w-full items-center gap-3 rounded-[0.375rem] px-2 py-1.5 text-left outline-none cursor-pointer hover:bg-[#F3F6F9] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#2F5679]";
 
 export function CoursesStep({ catalog, loading, error, onRetry, draft, onChange, clients, onBack, onNext, locked = false }: Props) {
   const [query, setQuery] = useState("");
-  const [filter, setFilter] = useState<CatalogFilter>("all");
   const [confirmSame, setConfirmSame] = useState(false);
 
-  const found = filterCatalog(catalog, query);
-  const modules = filter === "courses" ? [] : found.modules;
-  const courses = filter === "modules" ? [] : found.courses;
+  const modules = filterCatalog(catalog, query).modules;
   const items = listItems(draft, catalog);
   const moving = continueState(draft, catalog);
   const canNext = moving.ok;
@@ -168,39 +153,16 @@ export function CoursesStep({ catalog, loading, error, onRetry, draft, onChange,
         <h2 className="text-lg font-bold">{t("sale.courses.title")}</h2>
         <span className="whitespace-nowrap text-[13px] text-[#5D6F83]">{selectedLabel(items.length)}</span>
       </div>
-      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center">
-        <label className="relative min-w-0 flex-1">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#7C8A9A]" aria-hidden="true" />
-          <input
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder={t("sale.courses.search")}
-            aria-label={t("sale.courses.search")}
-            className="h-11 w-full rounded-md bg-[#F3F6F9] pl-9 pr-3 text-sm outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2F5679]"
-          />
-        </label>
-        <div role="radiogroup" aria-label={t("sale.courses.filterAll")} className="flex shrink-0 rounded-md bg-[#EAEFF4] p-[3px]">
-          {([
-            ["all", t("sale.courses.filterAll")],
-            ["modules", `${t("sale.courses.groupModules")} · ${(catalog.modules ?? []).length}`],
-            ["courses", `${t("sale.courses.groupCourses")} · ${(catalog.courses ?? []).length}`],
-          ] as const).map(([value, label]) => (
-            <button
-              key={value}
-              type="button"
-              role="radio"
-              aria-checked={filter === value}
-              onClick={() => setFilter(value)}
-              className={cn(
-                "h-11 min-w-0 rounded px-2.5 text-[13px] font-semibold text-[#52657A]",
-                filter === value && "bg-white text-[#24384F] shadow-[0_1px_2px_rgba(36,56,79,0.08)]",
-              )}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-      </div>
+      <label className="relative mb-4 block min-w-0">
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#7C8A9A]" aria-hidden="true" />
+        <input
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder={t("sale.courses.search")}
+          aria-label={t("sale.courses.search")}
+          className="h-11 w-full rounded-md bg-[#F3F6F9] pl-9 pr-3 text-sm outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2F5679]"
+        />
+      </label>
 
       {loading ? (
         <div role="status" className="space-y-2">
@@ -226,7 +188,7 @@ export function CoursesStep({ catalog, loading, error, onRetry, draft, onChange,
         </div>
       ) : null}
 
-      {!loading && !error && query.trim() && modules.length === 0 && courses.length === 0 ? (
+      {!loading && !error && query.trim() && modules.length === 0 ? (
         <div className="px-3 py-7 text-center text-[#5D6F83]">
           <Search className="mx-auto mb-2 h-7 w-7 text-[#7C8A9A]" aria-hidden="true" />
           <p className="font-semibold text-[#24384F]">{t("sale.courses.noResults", { q: query.trim() })}</p>
@@ -234,24 +196,20 @@ export function CoursesStep({ catalog, loading, error, onRetry, draft, onChange,
         </div>
       ) : null}
 
-      {!loading && !error && (modules.length > 0 || courses.length > 0) ? (
+      {!loading && !error && !query.trim() && modules.length === 0 ? (
+        <div className="px-3 py-7 text-center text-[#5D6F83]">
+          <Library className="mx-auto mb-2 h-7 w-7 text-[#7C8A9A]" aria-hidden="true" />
+          <p className="font-semibold text-[#24384F]">{t("sale.courses.emptyModules")}</p>
+          <p>{t("sale.courses.emptyModulesHint")}</p>
+        </div>
+      ) : null}
+
+      {!loading && !error && modules.length > 0 ? (
         <div>
-          {modules.length > 0 ? (
-            <div>
-              <h2 className="px-2 pb-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#5D6F83]">{t("sale.courses.groupModules")}</h2>
-              {modules.map((mod) => (
-                <ModuleRow key={mod.id} module={mod} catalog={catalog} draft={draft} query={query} onChange={onChange} onRowKey={onRowKey} />
-              ))}
-            </div>
-          ) : null}
-          {courses.length > 0 ? (
-            <div className={modules.length > 0 ? "mt-4" : ""}>
-              <h2 className="px-2 pb-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#5D6F83]">{t("sale.courses.groupCourses")}</h2>
-              {courses.map((course) => (
-                <CourseRow key={course.id} course={course} catalog={catalog} draft={draft} query={query} onChange={onChange} onRowKey={onRowKey} />
-              ))}
-            </div>
-          ) : null}
+          <h2 className="px-2 pb-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#5D6F83]">{t("sale.courses.groupModules")}</h2>
+          {modules.map((mod) => (
+            <ModuleRow key={mod.id} module={mod} catalog={catalog} draft={draft} query={query} onChange={onChange} onRowKey={onRowKey} />
+          ))}
         </div>
       ) : null}
 
@@ -499,46 +457,6 @@ function ModuleRow({
           {t("sale.courses.wholeModule")}
         </span>
       ) : null}
-    </div>
-  );
-}
-
-function CourseRow({
-  course,
-  catalog,
-  draft,
-  query,
-  onChange,
-  onRowKey,
-}: {
-  course: CatalogCourse;
-  catalog: TeachingCatalog;
-  draft: CourseDraft;
-  query: string;
-  onChange: Props["onChange"];
-  onRowKey: (event: React.KeyboardEvent, toggle: () => void) => void;
-}) {
-  const locked = isCourseLocked(catalog, draft, course.id);
-  const on = locked || draft.courses.includes(course.id);
-  const note = includedLine(catalog, draft, course.id);
-  const toggle = () => onChange(toggleCourse(draft, catalog, course));
-  return (
-    <div
-      role="checkbox"
-      aria-checked={on}
-      aria-disabled={locked || undefined}
-      tabIndex={locked ? -1 : 0}
-      data-node={courseKey(course.id)}
-      onClick={() => { if (!locked) toggle(); }}
-      onKeyDown={(event) => { if (!locked) onRowKey(event, toggle); }}
-      className={cn(ROW, locked && "cursor-default hover:bg-transparent")}
-    >
-      <Box on={on} locked={locked} />
-      <Thumb src={course.thumbnailUrl} size="course" />
-      <div className="min-w-0 flex-1">
-        <p className="truncate font-semibold"><Highlight text={course.name} query={query} /></p>
-        {note ? <p className="truncate text-[12.5px] text-[#5D6F83]">{note}</p> : null}
-      </div>
     </div>
   );
 }

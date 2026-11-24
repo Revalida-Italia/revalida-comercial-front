@@ -19,6 +19,8 @@ export const it = {
       loadError: "Impossibile caricare i corsi.",
       retry: "Riprova",
       groupModules: "Moduli",
+      emptyModules: "Nessun modulo disponibile per la vendita",
+      emptyModulesHint: "Quando un modulo viene reso disponibile, compare qui con i corsi che ne fanno parte.",
       groupCourses: "Corsi",
       filterAll: "Tutti",
       moduleCourses: { one: "{n} corso: {nomes}", other: "{n} corsi: {nomes}" },
